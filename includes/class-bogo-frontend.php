@@ -316,81 +316,238 @@ class BOGO_Select_Frontend {
 		ob_start();
 
 		foreach ( (array) $product_ids as $product_id ) {
-			$product = wc_get_product( $product_id );
-
-			if ( ! $product ) {
-				continue;
-			}
-
-			$is_selected = ( (int) $product_id === $selected );
-
-			// The gift being replaced is not competing with its own replacement.
-			$exclude      = $is_selected ? BOGO_Select_Engine::find_reward_key() : '';
-			$other_demand = BOGO_Select_Engine::stock_demand( null, $product, $exclude );
-			$reason       = BOGO_Select_Engine::unavailable_reason( $product, $reward_qty, $other_demand );
-
-			$classes = array( 'bogo-select__item' );
-
-			if ( $is_selected ) {
-				$classes[] = 'is-selected';
-			}
-
-			if ( $reason && ! $is_selected ) {
-				$classes[] = 'is-unavailable';
-			}
-			?>
-			<li class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>">
-				<div class="bogo-select__thumb">
-					<?php echo wp_kses_post( $product->get_image( 'woocommerce_thumbnail' ) ); ?>
-				</div>
-				<div class="bogo-select__info">
-					<span class="bogo-select__name"><?php echo esc_html( $product->get_name() ); ?></span>
-					<span class="bogo-select__price">
-						<?php if ( wc_get_price_to_display( $product ) > 0 ) : ?>
-							<del aria-hidden="true"><?php echo wp_kses_post( wc_price( wc_get_price_to_display( $product ) ) ); ?></del>
-						<?php endif; ?>
-						<strong>
-							<?php
-							if ( BOGO_Select_Engine::is_free_reward() ) {
-								esc_html_e( 'Free', 'bogo-select' );
-							} else {
-								echo wp_kses_post(
-									wc_price(
-										wc_get_price_to_display(
-											$product,
-											array( 'price' => BOGO_Select_Engine::reward_price( $product->get_price() ) )
-										)
-									)
-								);
-							}
-							?>
-						</strong>
-					</span>
-					<?php if ( $reason && ! $is_selected ) : ?>
-						<span class="bogo-select__reason"><?php echo esc_html( $reason ); ?></span>
-					<?php endif; ?>
-				</div>
-				<div class="bogo-select__actions">
-					<?php if ( $is_selected ) : ?>
-						<span class="bogo-select__selected"><?php esc_html_e( 'Selected', 'bogo-select' ); ?></span>
-						<button type="button" class="bogo-select__remove" data-bogo-remove="1">
-							<?php esc_html_e( 'Remove gift', 'bogo-select' ); ?>
-						</button>
-					<?php elseif ( $reason ) : ?>
-						<button type="button" class="button" disabled="disabled" data-permanently-disabled="1">
-							<?php esc_html_e( 'Unavailable', 'bogo-select' ); ?>
-						</button>
-					<?php else : ?>
-						<button type="button" class="button bogo-select__choose" data-product-id="<?php echo esc_attr( $product_id ); ?>">
-							<?php echo $selected ? esc_html__( 'Choose this instead', 'bogo-select' ) : esc_html__( 'Select', 'bogo-select' ); ?>
-						</button>
-					<?php endif; ?>
-				</div>
-			</li>
-			<?php
+			self::print_choice( (int) $product_id, $reward_qty, $selected );
 		}
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render one card.
+	 *
+	 * @param int $product_id Product to render.
+	 * @param int $reward_qty Units on offer.
+	 * @param int $selected   Currently chosen product ID, parent for a variation.
+	 */
+	protected static function print_choice( $product_id, $reward_qty, $selected ) {
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product ) {
+			return;
+		}
+
+		$is_variable = $product->is_type( 'variable' );
+
+		// A card names the pair it would award. For a variable product that is
+		// settled by the customer, so the card carries only the parent and the
+		// selector supplies the rest.
+		list( $card_product_id, $card_variation_id ) = BOGO_Select_Engine::reward_pair( $product_id );
+
+		$is_selected = ( $card_product_id === $selected );
+
+		$selected_variation = $is_selected ? BOGO_Select_Engine::selected_variation_id() : 0;
+
+		// The reward being replaced is not competing with its own replacement.
+		$exclude = $is_selected ? BOGO_Select_Engine::find_reward_key() : '';
+
+		if ( $is_variable ) {
+			$options = self::variation_options( $product, $reward_qty, $exclude );
+			$reason  = self::variable_reason( $options );
+
+			// Quote the option the customer is looking at, not the parent, whose
+			// price is the low end of a range and need not be any variation's.
+			$priced = self::default_option( $options, $selected_variation );
+			$priced = $priced ? wc_get_product( $priced['id'] ) : $product;
+		} else {
+			$options      = array();
+			$priced       = $product;
+			$other_demand = BOGO_Select_Engine::stock_demand( null, $product, $exclude );
+			$reason       = BOGO_Select_Engine::unavailable_reason( $product, $reward_qty, $other_demand );
+		}
+
+		$classes = array( 'bogo-select__item' );
+
+		if ( $is_selected ) {
+			$classes[] = 'is-selected';
+		}
+
+		if ( $reason && ! $is_selected ) {
+			$classes[] = 'is-unavailable';
+		}
+		?>
+		<li class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>">
+			<div class="bogo-select__thumb">
+				<?php echo wp_kses_post( $product->get_image( 'woocommerce_thumbnail' ) ); ?>
+			</div>
+			<div class="bogo-select__info">
+				<span class="bogo-select__name"><?php echo esc_html( $product->get_name() ); ?></span>
+				<span class="bogo-select__price" data-bogo-price="1">
+					<?php echo wp_kses_post( self::price_markup( $priced ) ); ?>
+				</span>
+				<?php if ( $is_variable && $options ) : ?>
+					<label class="bogo-select__variation-label" for="bogo-select-variation-<?php echo esc_attr( $product_id ); ?>">
+						<?php esc_html_e( 'Choose an option', 'bogo-select' ); ?>
+					</label>
+					<select class="bogo-select__variation" data-bogo-variation="1"
+						id="bogo-select-variation-<?php echo esc_attr( $product_id ); ?>">
+						<?php foreach ( $options as $option ) : ?>
+							<option value="<?php echo esc_attr( $option['id'] ); ?>"
+								data-price="<?php echo esc_attr( self::price_markup( wc_get_product( $option['id'] ) ) ); ?>"
+								<?php disabled( true, (bool) $option['reason'] ); ?>
+								<?php selected( $selected_variation, $option['id'] ); ?>>
+								<?php echo esc_html( $option['label'] ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				<?php endif; ?>
+				<?php if ( $reason && ! $is_selected ) : ?>
+					<span class="bogo-select__reason"><?php echo esc_html( $reason ); ?></span>
+				<?php endif; ?>
+			</div>
+			<div class="bogo-select__actions">
+				<?php if ( $is_selected ) : ?>
+					<span class="bogo-select__selected"><?php esc_html_e( 'Selected', 'bogo-select' ); ?></span>
+					<?php if ( $is_variable && $options ) : ?>
+						<button type="button" class="button bogo-select__choose"
+							data-product-id="<?php echo esc_attr( $card_product_id ); ?>">
+							<?php esc_html_e( 'Change option', 'bogo-select' ); ?>
+						</button>
+					<?php endif; ?>
+					<button type="button" class="bogo-select__remove" data-bogo-remove="1">
+						<?php esc_html_e( 'Remove gift', 'bogo-select' ); ?>
+					</button>
+				<?php elseif ( $reason ) : ?>
+					<button type="button" class="button" disabled="disabled" data-permanently-disabled="1">
+						<?php esc_html_e( 'Unavailable', 'bogo-select' ); ?>
+					</button>
+				<?php else : ?>
+					<button type="button" class="button bogo-select__choose"
+						data-product-id="<?php echo esc_attr( $card_product_id ); ?>"
+						data-variation-id="<?php echo esc_attr( $card_variation_id ); ?>">
+						<?php echo $selected ? esc_html__( 'Choose this instead', 'bogo-select' ) : esc_html__( 'Select', 'bogo-select' ); ?>
+					</button>
+				<?php endif; ?>
+			</div>
+		</li>
+		<?php
+	}
+
+	/**
+	 * What a reward costs, struck through against what it would have cost.
+	 *
+	 * @param WC_Product $product Product being quoted.
+	 * @return string
+	 */
+	protected static function price_markup( $product ) {
+		if ( ! $product instanceof WC_Product ) {
+			return '';
+		}
+
+		$regular = wc_get_price_to_display( $product );
+		$out     = '';
+
+		if ( $regular > 0 ) {
+			$out .= '<del aria-hidden="true">' . wc_price( $regular ) . '</del> ';
+		}
+
+		if ( BOGO_Select_Engine::is_free_reward() ) {
+			return $out . '<strong>' . esc_html__( 'Free', 'bogo-select' ) . '</strong>';
+		}
+
+		return $out . '<strong>' . wc_price(
+			wc_get_price_to_display(
+				$product,
+				array( 'price' => BOGO_Select_Engine::reward_price( $product->get_price() ) )
+			)
+		) . '</strong>';
+	}
+
+	/**
+	 * The variations a parent can offer, each with its own availability.
+	 *
+	 * @param WC_Product $parent     Variable parent.
+	 * @param int        $reward_qty Units on offer.
+	 * @param string     $exclude    Cart item key to leave out of stock demand.
+	 * @return array[] Each with id, label, and reason.
+	 */
+	protected static function variation_options( $parent, $reward_qty, $exclude = '' ) {
+		$options = array();
+
+		foreach ( BOGO_Select_Engine::offerable_variation_ids( $parent ) as $variation_id ) {
+			$variation = wc_get_product( $variation_id );
+
+			if ( ! $variation ) {
+				continue;
+			}
+
+			$demand = BOGO_Select_Engine::stock_demand( null, $variation, $exclude );
+			$reason = BOGO_Select_Engine::unavailable_reason( $variation, $reward_qty, $demand );
+
+			$options[] = array(
+				'id'     => (int) $variation_id,
+				'reason' => $reason,
+				'label'  => $reason
+					? sprintf(
+						/* translators: 1: variation name, 2: why it cannot be given. */
+						__( '%1$s — %2$s', 'bogo-select' ),
+						$variation->get_name(),
+						$reason
+					)
+					: $variation->get_name(),
+			);
+		}
+
+		return $options;
+	}
+
+	/**
+	 * Why a variable card cannot be chosen, if it cannot.
+	 *
+	 * A variable product is unavailable only when none of its variations can be
+	 * given — the parent reporting itself out of stock is a summary, not the
+	 * whole story.
+	 *
+	 * @param array[] $options Variation options.
+	 * @return string Empty when at least one variation is available.
+	 */
+	protected static function variable_reason( $options ) {
+		if ( ! $options ) {
+			return __( 'No options are available', 'bogo-select' );
+		}
+
+		foreach ( $options as $option ) {
+			if ( ! $option['reason'] ) {
+				return '';
+			}
+		}
+
+		return __( 'No options are available in that quantity', 'bogo-select' );
+	}
+
+	/**
+	 * The option a card should quote and preselect.
+	 *
+	 * The customer's current choice when there is one, otherwise the first that
+	 * can actually be given.
+	 *
+	 * @param array[] $options  Variation options.
+	 * @param int     $selected Currently chosen variation ID.
+	 * @return array|null
+	 */
+	protected static function default_option( $options, $selected = 0 ) {
+		foreach ( $options as $option ) {
+			if ( $selected && $option['id'] === (int) $selected ) {
+				return $option;
+			}
+		}
+
+		foreach ( $options as $option ) {
+			if ( ! $option['reason'] ) {
+				return $option;
+			}
+		}
+
+		return $options ? $options[0] : null;
 	}
 
 	/**

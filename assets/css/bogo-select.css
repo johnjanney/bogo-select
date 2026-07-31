@@ -128,6 +128,25 @@
 	opacity: 0.75;
 }
 
+/* The label names the selector for screen readers; the selector itself is
+   self-evident beside the product name, so the label is not shown. */
+.bogo-select__variation-label {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	overflow: hidden;
+	clip: rect(0, 0, 0, 0);
+	white-space: nowrap;
+	border: 0;
+}
+
+.bogo-select__variation {
+	margin-top: 0.35em;
+	max-width: 100%;
+	font-size: 0.9em;
+}
+
 .bogo-select__actions {
 	display: flex;
 	flex-direction: column;

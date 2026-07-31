@@ -281,6 +281,46 @@
 	}
 
 	/**
+	 * The variation a card would award.
+	 *
+	 * A variable card settles this with its selector; every other card carries it
+	 * on the button, as zero for a simple product and its own ID for a variation
+	 * listed on its own.
+	 *
+	 * @param {Element} button The chosen card's Select button.
+	 * @return {string|number} Variation ID, or 0.
+	 */
+	function chosenVariation( button ) {
+		var card = button.closest( '.bogo-select__item' );
+		var select = card ? card.querySelector( '[data-bogo-variation]' ) : null;
+
+		if ( select && select.value ) {
+			return select.value;
+		}
+
+		return button.getAttribute( 'data-variation-id' ) || 0;
+	}
+
+	/**
+	 * Quote the option the customer is looking at.
+	 *
+	 * The card is server-rendered against one variation, and a variable
+	 * product's own price is the low end of a range rather than any variation's,
+	 * so leaving the figure alone as the selector moves would misquote it.
+	 *
+	 * @param {Element} select The card's variation selector.
+	 */
+	function syncCardPrice( select ) {
+		var card = select.closest( '.bogo-select__item' );
+		var price = card ? card.querySelector( '[data-bogo-price]' ) : null;
+		var option = select.options[ select.selectedIndex ];
+
+		if ( price && option && option.getAttribute( 'data-price' ) ) {
+			price.innerHTML = option.getAttribute( 'data-price' );
+		}
+	}
+
+	/**
 	 * Change the cart, then bring the page up to date.
 	 *
 	 * @param {string} action    'choose' or 'remove'.
@@ -457,6 +497,16 @@
 			} );
 	}
 
+	// Delegated, because the chooser's markup is replaced wholesale after every
+	// change and any listener bound to a card would go with it.
+	slot.addEventListener( 'change', function ( event ) {
+		var select = event.target.closest( '[data-bogo-variation]' );
+
+		if ( select ) {
+			syncCardPrice( select );
+		}
+	} );
+
 	slot.addEventListener( 'click', function ( event ) {
 		var chooseButton = event.target.closest( '.bogo-select__choose' );
 
@@ -465,8 +515,7 @@
 			chooseButton.textContent = settings.i18n.working;
 			mutate( 'choose', {
 				product_id: chooseButton.getAttribute( 'data-product-id' ),
-				// Zero unless the card offers variations, which it does not yet.
-				variation_id: chooseButton.getAttribute( 'data-variation-id' ) || 0,
+				variation_id: chosenVariation( chooseButton ),
 			} );
 			return;
 		}

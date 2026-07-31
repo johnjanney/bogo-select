@@ -1159,7 +1159,7 @@ class BOGO_Select_Engine {
 				continue;
 			}
 
-			if ( self::is_get_eligible( $id ) ) {
+			if ( self::is_choice( $id ) ) {
 				$out[] = $id;
 			}
 		}
@@ -1202,7 +1202,7 @@ class BOGO_Select_Engine {
 		}
 
 		foreach ( $configured as $id ) {
-			self::$eligibility[ $id ] = self::is_get_eligible( $id );
+			self::$eligibility[ $id ] = self::is_choice( $id );
 		}
 
 		if ( function_exists( 'set_transient' ) ) {

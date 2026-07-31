@@ -183,6 +183,65 @@ function _n( $single, $plural, $number, $domain = null ) { // phpcs:ignore
 }
 
 /**
+ * Echo an HTML attribute when two values match.
+ *
+ * WordPress's checked()/selected()/disabled() family, which all defer to the
+ * same comparison and all echo by default.
+ *
+ * @param mixed  $helper  Value to compare.
+ * @param mixed  $current Value to compare against.
+ * @param bool   $echo    Whether to echo.
+ * @param string $type    Attribute name.
+ * @return string
+ */
+function __checked_selected_helper( $helper, $current, $echo, $type ) {
+	// Loose comparison, as WordPress does: form values arrive as strings.
+	$result = (string) $helper === (string) $current ? " $type=\"$type\"" : '';
+
+	if ( $echo ) {
+		echo $result; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+	}
+
+	return $result;
+}
+
+/**
+ * Echo `selected="selected"` when the values match.
+ *
+ * @param mixed $selected Value to compare.
+ * @param mixed $current  Value to compare against.
+ * @param bool  $echo     Whether to echo.
+ * @return string
+ */
+function selected( $selected, $current = true, $echo = true ) {
+	return __checked_selected_helper( $selected, $current, $echo, 'selected' );
+}
+
+/**
+ * Echo `disabled="disabled"` when the values match.
+ *
+ * @param mixed $disabled Value to compare.
+ * @param mixed $current  Value to compare against.
+ * @param bool  $echo     Whether to echo.
+ * @return string
+ */
+function disabled( $disabled, $current = true, $echo = true ) {
+	return __checked_selected_helper( $disabled, $current, $echo, 'disabled' );
+}
+
+/**
+ * Echo `checked="checked"` when the values match.
+ *
+ * @param mixed $checked Value to compare.
+ * @param mixed $current Value to compare against.
+ * @param bool  $echo    Whether to echo.
+ * @return string
+ */
+function checked( $checked, $current = true, $echo = true ) {
+	return __checked_selected_helper( $checked, $current, $echo, 'checked' );
+}
+
+/**
  * Format a number for display.
  *
  * The real one applies the site's locale separators; the tests only care that
