@@ -124,6 +124,37 @@ class BOGO_Select_Admin {
 					'error'
 				);
 			}
+
+			// A 0% discount charges full price for the reward, which is almost
+			// certainly a slip. Warned about rather than corrected: quietly turning
+			// a store's promotion into something it did not configure is worse than
+			// letting it run visibly wrong, and the offer still functions.
+			if ( 'percent' === $clean['get_discount_type'] && 0.0 === (float) $clean['get_discount_value'] ) {
+				add_settings_error(
+					BOGO_Select_Settings::OPTION,
+					'bogo_select_zero_discount',
+					__( 'The reward price is set to a percentage off, but the discount is 0%, so the reward costs its full price. Set a discount, or make the reward free.', 'bogo-select' ),
+					'warning'
+				);
+			}
+
+			// The offer title is the store's own words and cannot be rewritten for
+			// them, so a title left over from a free-gift offer is only flagged.
+			if ( 'percent' === $clean['get_discount_type']
+				&& 0.0 < (float) $clean['get_discount_value']
+				&& false !== stripos( $clean['offer_title'], __( 'free', 'bogo-select' ) )
+			) {
+				add_settings_error(
+					BOGO_Select_Settings::OPTION,
+					'bogo_select_stale_title',
+					sprintf(
+						/* translators: %s: the offer title as saved. */
+						__( 'The reward is discounted rather than free, but the offer title still says “%s”. Customers see that heading above the chooser.', 'bogo-select' ),
+						$clean['offer_title']
+					),
+					'warning'
+				);
+			}
 		}
 
 		return $clean;
@@ -189,7 +220,7 @@ class BOGO_Select_Admin {
 		<div class="wrap bogo-select-admin">
 			<h1><?php esc_html_e( 'BOGO Select', 'bogo-select' ); ?></h1>
 			<p class="description">
-				<?php esc_html_e( 'Buy X, get Y free — the customer chooses their gift from the list you set here. The gift is added to the cart at zero cost, and stock is still reduced.', 'bogo-select' ); ?>
+				<?php esc_html_e( 'Buy X, get Y — the customer chooses their reward from the list you set here. The reward is free or discounted, as set below, and stock is still reduced either way.', 'bogo-select' ); ?>
 			</p>
 
 			<?php settings_errors( $o ); ?>
@@ -242,7 +273,35 @@ class BOGO_Select_Admin {
 							<input type="number" min="1" step="1" class="small-text" id="bogo-get-qty"
 								name="<?php echo esc_attr( $o ); ?>[get_qty]"
 								value="<?php echo esc_attr( $s['get_qty'] ); ?>" />
-							<p class="description"><?php esc_html_e( 'How many free units the customer receives of the gift they choose.', 'bogo-select' ); ?></p>
+							<p class="description"><?php esc_html_e( 'How many units the customer receives of the gift they choose.', 'bogo-select' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row"><?php esc_html_e( 'Reward price', 'bogo-select' ); ?></th>
+						<td>
+							<fieldset class="bogo-discount" data-target="bogo-discount-value">
+								<label>
+									<input type="radio" name="<?php echo esc_attr( $o ); ?>[get_discount_type]" value="free" <?php checked( 'free', $s['get_discount_type'] ); ?> />
+									<?php esc_html_e( 'Free', 'bogo-select' ); ?>
+								</label><br />
+								<label>
+									<input type="radio" name="<?php echo esc_attr( $o ); ?>[get_discount_type]" value="percent" <?php checked( 'percent', $s['get_discount_type'] ); ?> />
+									<?php esc_html_e( 'Percentage off', 'bogo-select' ); ?>
+								</label>
+							</fieldset>
+							<p class="description"><?php esc_html_e( 'Whether the reward is given away or sold at a discount.', 'bogo-select' ); ?></p>
+						</td>
+					</tr>
+					<tr class="bogo-discount-row" id="bogo-discount-value">
+						<th scope="row">
+							<label for="bogo-discount-value-field"><?php esc_html_e( 'Discount', 'bogo-select' ); ?></label>
+						</th>
+						<td>
+							<input type="number" min="0" max="100" step="0.01" class="small-text" id="bogo-discount-value-field"
+								name="<?php echo esc_attr( $o ); ?>[get_discount_value]"
+								value="<?php echo esc_attr( $s['get_discount_value'] ); ?>" />
+							<span class="description">%</span>
+							<p class="description"><?php esc_html_e( 'Taken off the reward\'s usual price. 100% is the same as giving it away.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
 					<tr>
@@ -250,9 +309,9 @@ class BOGO_Select_Admin {
 						<td>
 							<label>
 								<input type="checkbox" name="<?php echo esc_attr( $o ); ?>[repeat]" value="yes" <?php checked( 'yes', $s['repeat'] ); ?> />
-								<?php esc_html_e( 'Award another set of free items for every multiple of the Buy quantity', 'bogo-select' ); ?>
+								<?php esc_html_e( 'Award another set of reward items for every multiple of the Buy quantity', 'bogo-select' ); ?>
 							</label>
-							<p class="description"><?php esc_html_e( 'Off: one gift set no matter how much is bought. On: Buy 2 Get 1 means six qualifying items earn three free.', 'bogo-select' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Off: one reward set no matter how much is bought. On: Buy 2 Get 1 means six qualifying items earn three rewards.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -294,7 +353,7 @@ class BOGO_Select_Admin {
 				</table>
 
 				<h2 class="title"><?php esc_html_e( 'Get products', 'bogo-select' ); ?></h2>
-				<p class="description"><?php esc_html_e( 'Which products the customer may choose as their free gift.', 'bogo-select' ); ?></p>
+				<p class="description"><?php esc_html_e( 'Which products the customer may choose as their reward.', 'bogo-select' ); ?></p>
 				<table class="form-table" role="presentation">
 					<tr>
 						<th scope="row"><?php esc_html_e( 'Applies to', 'bogo-select' ); ?></th>
@@ -415,11 +474,12 @@ class BOGO_Select_Admin {
 			);
 
 		$summary = sprintf(
-			/* translators: 1: buy quantity, 2: buy scope, 3: get quantity, 4: get scope. */
-			__( 'Buy %1$d of %2$s, then choose %3$d free from %4$s.', 'bogo-select' ),
+			/* translators: 1: buy quantity, 2: buy scope, 3: get quantity, 4: what they cost, 5: get scope. */
+			__( 'Buy %1$d of %2$s, then choose %3$d %4$s from %5$s.', 'bogo-select' ),
 			(int) $s['buy_qty'],
 			$buy_scope,
 			(int) $s['get_qty'],
+			BOGO_Select_Engine::reward_phrase(),
 			$get_scope
 		);
 

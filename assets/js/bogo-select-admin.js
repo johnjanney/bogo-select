@@ -2,30 +2,43 @@
  * BOGO Select — settings screen.
  *
  * Shows or hides each product picker depending on whether its scope is set to
- * "Select Products", and initialises WooCommerce's product search select.
+ * "Select Products", does the same for the discount amount, and initialises
+ * WooCommerce's product search select.
  */
 jQuery( function ( $ ) {
 	'use strict';
 
 	/**
-	 * Sync one scope fieldset with the product row it controls.
+	 * Show the row a radio fieldset controls, only for the chosen value.
 	 *
-	 * @param {jQuery} $fieldset The .bogo-scope fieldset.
+	 * @param {jQuery} $fieldset Fieldset carrying data-target.
+	 * @param {string} showFor   Radio value that reveals the row.
 	 */
-	function syncScope( $fieldset ) {
+	function syncRow( $fieldset, showFor ) {
 		var targetId = $fieldset.data( 'target' );
-		var isSelect = 'select' === $fieldset.find( 'input[type="radio"]:checked' ).val();
+		var checked = $fieldset.find( 'input[type="radio"]:checked' ).val();
 
-		$( '#' + targetId ).toggle( isSelect );
+		$( '#' + targetId ).toggle( showFor === checked );
 	}
 
-	$( '.bogo-scope' ).each( function () {
-		syncScope( $( this ) );
-	} );
+	/**
+	 * Bind a fieldset class to the value that reveals its row.
+	 *
+	 * @param {string} selector Fieldset selector.
+	 * @param {string} showFor  Radio value that reveals the row.
+	 */
+	function bindRows( selector, showFor ) {
+		$( selector ).each( function () {
+			syncRow( $( this ), showFor );
+		} );
 
-	$( '.bogo-scope' ).on( 'change', 'input[type="radio"]', function () {
-		syncScope( $( this ).closest( '.bogo-scope' ) );
-	} );
+		$( selector ).on( 'change', 'input[type="radio"]', function () {
+			syncRow( $( this ).closest( selector ), showFor );
+		} );
+	}
+
+	bindRows( '.bogo-scope', 'select' );
+	bindRows( '.bogo-discount', 'percent' );
 
 	// WooCommerce initialises .wc-product-search on this event.
 	$( document.body ).trigger( 'wc-enhanced-select-init' );
