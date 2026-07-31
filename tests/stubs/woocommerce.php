@@ -212,6 +212,40 @@ class WC_Product {
 /**
  * A cart with the handful of methods the plugin uses.
  */
+/**
+ * Just enough of an order line item to record metadata against.
+ */
+class WC_Order_Item_Product {
+
+	/**
+	 * Metadata written so far, keyed by meta key.
+	 *
+	 * @var array
+	 */
+	public $meta = array();
+
+	/**
+	 * Record a piece of metadata.
+	 *
+	 * @param string $key    Meta key.
+	 * @param mixed  $value  Meta value.
+	 * @param bool   $unique Whether the key is unique.
+	 */
+	public function add_meta_data( $key, $value, $unique = false ) {
+		$this->meta[ $key ] = $value;
+	}
+
+	/**
+	 * A recorded meta value.
+	 *
+	 * @param string $key Meta key.
+	 * @return mixed Null when nothing was recorded under that key.
+	 */
+	public function get_meta( $key ) {
+		return array_key_exists( $key, $this->meta ) ? $this->meta[ $key ] : null;
+	}
+}
+
 class WC_Cart {
 
 	/**

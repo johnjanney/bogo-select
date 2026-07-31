@@ -303,6 +303,23 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * The offer's pricing, in a form an order can store and a report can parse.
+	 *
+	 * "free", or "percent:50". Written to each reward order line so the order
+	 * still explains itself after the settings move on.
+	 *
+	 * @return string
+	 */
+	public static function discount_snapshot() {
+		if ( self::is_free_reward() ) {
+			return 'free';
+		}
+
+		// Cast through float so 50.00 stores as "50" and 12.50 as "12.5".
+		return 'percent:' . (float) BOGO_Select_Settings::get( 'get_discount_value' );
+	}
+
+	/**
 	 * A percentage with only the decimal places it needs.
 	 *
 	 * 50 reads as "50", not "50.00"; 12.5 keeps its half.

@@ -356,6 +356,43 @@ class DiscountPricingTest extends TestCase {
 		);
 	}
 
+	public function test_the_order_line_records_what_the_offer_was() {
+		$this->product( 20, array( 'price' => 100.0 ) );
+		$this->add_gift_item( 'gift', 20 );
+
+		$subject = new BOGO_Select_Cart();
+		$values  = $this->cart()->get_cart_item( 'gift' );
+
+		$free = new \WC_Order_Item_Product();
+		$subject->add_order_item_meta( $free, 'gift', $values, null );
+
+		$this->assertSame( 'yes', $free->get_meta( '_bogo_select_free' ) );
+		$this->assertSame( 'free', $free->get_meta( '_bogo_select_discount' ) );
+		$this->assertSame( 'BOGO promotion', $free->get_meta( 'Free gift' ) );
+
+		$this->discount_of( 12.5 );
+
+		$discounted = new \WC_Order_Item_Product();
+		$subject->add_order_item_meta( $discounted, 'gift', $values, null );
+
+		// The hidden flag keeps its name and value: existing reports query it.
+		$this->assertSame( 'yes', $discounted->get_meta( '_bogo_select_free' ) );
+		$this->assertSame( 'percent:12.5', $discounted->get_meta( '_bogo_select_discount' ) );
+		$this->assertSame( '12.5% off — BOGO promotion', $discounted->get_meta( 'Discounted item' ) );
+	}
+
+	public function test_a_paid_line_records_nothing() {
+		$this->product( 20, array( 'price' => 100.0 ) );
+		$this->add_paid_item( 'paid', 20 );
+
+		$subject = new BOGO_Select_Cart();
+		$item    = new \WC_Order_Item_Product();
+
+		$subject->add_order_item_meta( $item, 'paid', $this->cart()->get_cart_item( 'paid' ), null );
+
+		$this->assertSame( array(), $item->meta );
+	}
+
 	public function test_a_reward_line_with_no_product_is_skipped_rather_than_fatal() {
 		// No product 20 in the catalogue, so the line's 'data' is false. Pricing
 		// must step over it and leave it for the validation pass to remove; the

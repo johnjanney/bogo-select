@@ -425,8 +425,15 @@ class BOGO_Select_Cart {
 			return;
 		}
 
-		// Hidden flag for programmatic checks.
+		// Hidden flag for programmatic checks. Kept as it is, and kept saying
+		// "free" even for a discounted line, because it is a persisted key that
+		// existing reports and integrations already query.
 		$item->add_meta_data( '_bogo_select_free', 'yes', true );
+
+		// What the offer actually was, frozen at the moment of the order. The
+		// settings can change afterwards, and an order has to be able to explain
+		// its own pricing without them.
+		$item->add_meta_data( '_bogo_select_discount', BOGO_Select_Engine::discount_snapshot(), true );
 
 		// Visible label for the admin order screen, emails, and packing slips.
 		$meta = BOGO_Select_Engine::reward_meta();
