@@ -168,8 +168,9 @@ class BOGO_Select_Engine {
 			return false;
 		}
 
-		// Variable parents are ambiguous as gifts (DECISION.md D-006).
-		if ( $product->is_type( 'variable' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
+		// Variable parents are ambiguous as gifts, and their variations are not
+		// offered directly either (DECISION.md D-006).
+		if ( $product->is_type( 'variable' ) || $product->is_type( 'variation' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
 			return false;
 		}
 
@@ -183,28 +184,43 @@ class BOGO_Select_Engine {
 	/**
 	 * Why a gift product cannot be awarded at the given quantity.
 	 *
-	 * @param WC_Product $product Product to check.
-	 * @param int        $qty     Quantity to award.
+	 * @param WC_Product $product      Product to check.
+	 * @param int        $qty          Quantity to award.
+	 * @param int        $other_demand Units of the same stock-managed product already
+	 *                                 claimed by other cart lines. Counted against
+	 *                                 stock but not reported as free units.
 	 * @return string Empty string when it can be awarded.
 	 */
-	public static function unavailable_reason( $product, $qty ) {
+	public static function unavailable_reason( $product, $qty, $other_demand = 0 ) {
 		if ( ! $product instanceof WC_Product ) {
 			return __( 'This product is no longer available.', 'bogo-select' );
 		}
+
+		$qty          = (int) $qty;
+		$other_demand = max( 0, (int) $other_demand );
 
 		if ( ! $product->is_in_stock() ) {
 			return __( 'Out of stock', 'bogo-select' );
 		}
 
-		if ( $product->managing_stock() && ! $product->backorders_allowed() && ! $product->has_enough_stock( $qty ) ) {
+		if ( $product->managing_stock() && ! $product->backorders_allowed() && ! $product->has_enough_stock( $qty + $other_demand ) ) {
+			if ( $other_demand > 0 ) {
+				return sprintf(
+					/* translators: 1: number of free units required, 2: units of the same product already in the cart. */
+					__( 'Not enough stock for %1$d free units alongside the %2$d already in your cart', 'bogo-select' ),
+					$qty,
+					$other_demand
+				);
+			}
+
 			return sprintf(
 				/* translators: %d: number of units required. */
 				__( 'Not enough stock for %d free units', 'bogo-select' ),
-				(int) $qty
+				$qty
 			);
 		}
 
-		if ( $product->is_sold_individually() && $qty > 1 ) {
+		if ( $product->is_sold_individually() && ( $qty + $other_demand ) > 1 ) {
 			return __( 'Limited to one per order', 'bogo-select' );
 		}
 
@@ -212,37 +228,227 @@ class BOGO_Select_Engine {
 	}
 
 	/**
-	 * Product IDs to show in the chooser.
+	 * Units of a product's stock already claimed by the cart.
+	 *
+	 * Lines are matched on the ID that actually holds the stock record, so a
+	 * variation that inherits its parent's stock counts against the same pool.
+	 *
+	 * @param WC_Cart|null $cart        Cart to inspect.
+	 * @param WC_Product   $product     Product whose stock is in question.
+	 * @param string       $exclude_key Cart item key to leave out of the total.
+	 * @return int
+	 */
+	public static function stock_demand( $cart, $product, $exclude_key = '' ) {
+		$cart = self::resolve_cart( $cart );
+
+		if ( ! $cart || ! $product instanceof WC_Product ) {
+			return 0;
+		}
+
+		$target = (int) $product->get_stock_managed_by_id();
+
+		if ( ! $target ) {
+			return 0;
+		}
+
+		$demand = 0;
+
+		foreach ( $cart->get_cart() as $key => $cart_item ) {
+			if ( $key === $exclude_key ) {
+				continue;
+			}
+
+			if ( empty( $cart_item['data'] ) || ! $cart_item['data'] instanceof WC_Product ) {
+				continue;
+			}
+
+			if ( (int) $cart_item['data']->get_stock_managed_by_id() === $target ) {
+				$demand += (int) $cart_item['quantity'];
+			}
+		}
+
+		return $demand;
+	}
+
+	/**
+	 * How many gift options one page of the chooser holds.
+	 *
+	 * @return int
+	 */
+	public static function choices_per_page() {
+		/**
+		 * Filter how many gift options the chooser shows at once.
+		 *
+		 * Before 1.1.0 this capped the whole "All Products" list; it is now the
+		 * page size, and every eligible product remains reachable by paging or
+		 * searching.
+		 *
+		 * @param int $per_page Options per page.
+		 */
+		$per_page = (int) apply_filters( 'bogo_select_all_products_limit', 24 );
+
+		return max( 1, $per_page );
+	}
+
+	/**
+	 * One page of gift options, optionally narrowed by a search term.
+	 *
+	 * Both scopes are paged: "Select Products" over the configured list, "All
+	 * Products" over the catalogue, so no eligible product is unreachable.
+	 *
+	 * @param array $args {
+	 *     @type string $search   Search term matched against name and SKU.
+	 *     @type int    $page     One-based page number.
+	 *     @type int    $per_page Page size. Defaults to self::choices_per_page().
+	 * }
+	 * @return array {
+	 *     @type int[] $ids   Product IDs on this page.
+	 *     @type int   $page  Page actually returned.
+	 *     @type int   $pages Total number of pages.
+	 *     @type int   $total Total matching products before eligibility filtering.
+	 * }
+	 */
+	public static function get_choice_page( $args = array() ) {
+		$args = wp_parse_args(
+			$args,
+			array(
+				'search'   => '',
+				'page'     => 1,
+				'per_page' => 0,
+			)
+		);
+
+		$search   = trim( (string) $args['search'] );
+		$page     = max( 1, (int) $args['page'] );
+		$per_page = (int) $args['per_page'] > 0 ? (int) $args['per_page'] : self::choices_per_page();
+
+		if ( 'select' === BOGO_Select_Settings::get( 'get_scope' ) ) {
+			return self::page_selected_choices( $search, $page, $per_page );
+		}
+
+		return self::page_all_choices( $search, $page, $per_page );
+	}
+
+	/**
+	 * Product IDs on the first page of the chooser.
+	 *
+	 * Kept for callers that only want a single page; use self::get_choice_page()
+	 * to reach the rest.
 	 *
 	 * @return int[]
 	 */
 	public static function get_choice_ids() {
-		if ( 'select' === BOGO_Select_Settings::get( 'get_scope' ) ) {
-			$ids = BOGO_Select_Settings::get( 'get_products' );
-		} else {
-			/**
-			 * Filter how many products the "All Products" gift scope lists.
-			 *
-			 * @param int $limit Maximum products shown in the chooser.
-			 */
-			$limit = (int) apply_filters( 'bogo_select_all_products_limit', 50 );
+		$page = self::get_choice_page();
 
-			$ids = wc_get_products(
-				array(
-					'status'  => 'publish',
-					'type'    => 'simple',
-					'limit'   => $limit,
-					'orderby' => 'title',
-					'order'   => 'ASC',
-					'return'  => 'ids',
+		return $page['ids'];
+	}
+
+	/**
+	 * Page the admin-configured gift list.
+	 *
+	 * @param string $search   Search term.
+	 * @param int    $page     Page number.
+	 * @param int    $per_page Page size.
+	 * @return array
+	 */
+	protected static function page_selected_choices( $search, $page, $per_page ) {
+		$ids = self::filter_choice_ids( BOGO_Select_Settings::get( 'get_products' ) );
+
+		if ( '' !== $search ) {
+			$ids = array_values(
+				array_filter(
+					$ids,
+					function ( $product_id ) use ( $search ) {
+						return BOGO_Select_Engine::matches_search( $product_id, $search );
+					}
 				)
 			);
 		}
 
-		$ids = array_values( array_filter( array_map( 'absint', (array) $ids ) ) );
+		$total = count( $ids );
+		$pages = (int) max( 1, ceil( $total / $per_page ) );
+		$page  = min( $page, $pages );
+
+		return array(
+			'ids'   => array_slice( $ids, ( $page - 1 ) * $per_page, $per_page ),
+			'page'  => $page,
+			'pages' => $pages,
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Page the whole catalogue.
+	 *
+	 * @param string $search   Search term.
+	 * @param int    $page     Page number.
+	 * @param int    $per_page Page size.
+	 * @return array
+	 */
+	protected static function page_all_choices( $search, $page, $per_page ) {
+		$query_args = array(
+			'status'   => 'publish',
+			'type'     => 'simple',
+			'limit'    => $per_page,
+			'page'     => $page,
+			'orderby'  => 'title',
+			'order'    => 'ASC',
+			'return'   => 'ids',
+			'paginate' => true,
+		);
+
+		if ( '' !== $search ) {
+			$query_args['s'] = $search;
+		}
+
+		$results = wc_get_products( $query_args );
+
+		$ids   = isset( $results->products ) ? (array) $results->products : (array) $results;
+		$total = isset( $results->total ) ? (int) $results->total : count( $ids );
+		$pages = isset( $results->max_num_pages ) ? (int) $results->max_num_pages : 1;
+		$pages = max( 1, $pages );
+
+		return array(
+			'ids'   => self::filter_choice_ids( $ids ),
+			'page'  => min( $page, $pages ),
+			'pages' => $pages,
+			'total' => $total,
+		);
+	}
+
+	/**
+	 * Whether a product's name or SKU contains the search term.
+	 *
+	 * @param int    $product_id Product ID.
+	 * @param string $search     Search term.
+	 * @return bool
+	 */
+	public static function matches_search( $product_id, $search ) {
+		$product = wc_get_product( (int) $product_id );
+
+		if ( ! $product ) {
+			return false;
+		}
+
+		$haystack = $product->get_name() . ' ' . $product->get_sku();
+
+		return false !== stripos( $haystack, $search );
+	}
+
+	/**
+	 * Normalise, filter, and eligibility-check a list of candidate gift IDs.
+	 *
+	 * @param mixed $ids Raw ID list.
+	 * @return int[]
+	 */
+	protected static function filter_choice_ids( $ids ) {
+		$ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
 
 		/**
 		 * Filter the products offered in the gift chooser.
+		 *
+		 * Applied per page of results, so a callback that appends IDs appends
+		 * them to every page.
 		 *
 		 * @param int[] $ids Product IDs.
 		 */
@@ -250,7 +456,7 @@ class BOGO_Select_Engine {
 
 		return array_values(
 			array_filter(
-				$ids,
+				array_map( 'absint', $ids ),
 				array( __CLASS__, 'is_get_eligible' )
 			)
 		);
@@ -267,25 +473,42 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * Every cart item key flagged as a gift line.
+	 *
+	 * Normally there is at most one (BRIEF.md §4.3). More than one means the
+	 * session has drifted and needs normalising — see BOGO_Select_Cart::validate().
+	 *
+	 * @param WC_Cart|null $cart Cart to inspect.
+	 * @return string[]
+	 */
+	public static function find_reward_keys( $cart = null ) {
+		$cart = self::resolve_cart( $cart );
+
+		if ( ! $cart ) {
+			return array();
+		}
+
+		$keys = array();
+
+		foreach ( $cart->get_cart() as $key => $cart_item ) {
+			if ( self::is_reward_item( $cart_item ) ) {
+				$keys[] = $key;
+			}
+		}
+
+		return $keys;
+	}
+
+	/**
 	 * The cart item key of the current gift line, if there is one.
 	 *
 	 * @param WC_Cart|null $cart Cart to inspect.
 	 * @return string Empty string when no gift is selected.
 	 */
 	public static function find_reward_key( $cart = null ) {
-		$cart = self::resolve_cart( $cart );
+		$keys = self::find_reward_keys( $cart );
 
-		if ( ! $cart ) {
-			return '';
-		}
-
-		foreach ( $cart->get_cart() as $key => $cart_item ) {
-			if ( self::is_reward_item( $cart_item ) ) {
-				return $key;
-			}
-		}
-
-		return '';
+		return $keys ? $keys[0] : '';
 	}
 
 	/**

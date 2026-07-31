@@ -83,7 +83,7 @@ class BOGO_Select_Admin {
 						return false;
 					}
 
-					if ( $product->is_type( 'variable' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
+					if ( $product->is_type( 'variable' ) || $product->is_type( 'variation' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
 						$rejected[] = $product->get_name();
 						return false;
 					}
@@ -99,7 +99,7 @@ class BOGO_Select_Admin {
 				'bogo_select_variable_gift',
 				sprintf(
 					/* translators: %s: comma-separated product names. */
-					__( 'Removed from the gift list because variable, grouped, and external products cannot be given as gifts: %s.', 'bogo-select' ),
+					__( 'Removed from the gift list because variable, variation, grouped, and external products cannot be given as gifts: %s.', 'bogo-select' ),
 					implode( ', ', array_map( 'sanitize_text_field', $rejected ) )
 				),
 				'warning'

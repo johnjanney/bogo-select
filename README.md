@@ -25,12 +25,16 @@ line item at **$0.00** — so stock is still reduced.
 - **Any quantities.** Buy 1 Get 1, Buy 2 Get 2, Buy 4 Get 8 — any positive integers.
 - **Independent Buy/Get scopes.** Each side is set to *All Products* or *Select
   Products* with its own list. Mix freely: Buy = all products, Get = two specific SKUs.
+- **Searchable, paged chooser.** Long gift lists are paged 24 at a time with a
+  name/SKU search, so *All Products* reaches the whole catalogue without loading it
+  all at once.
 - **Real inventory reduction.** The gift is a normal cart/order line item at $0.00,
   not a coupon discount, so stock, reports, and packing slips all behave.
-- **Customer picks, and can change their mind.** Swapping the gift removes the old
-  line and adds the new one.
-- **Self-healing cart.** If the cart drops below the Buy quantity, the gift is
-  removed automatically with an explanatory notice.
+- **Customer picks, and can change their mind.** Swapping the gift adds the new
+  line before dropping the old one, so a refused swap never leaves them empty-handed.
+- **Self-healing cart.** If the cart drops below the Buy quantity — or the gift
+  sells out while it's sitting there — it's removed automatically with an
+  explanatory notice.
 - **Tamper-resistant.** Every selection is re-validated server-side, and again
   before checkout — a crafted AJAX request cannot mint a free product.
 - **Optional repeat mode.** Award one gift set per multiple of the Buy quantity
@@ -94,9 +98,22 @@ includes/
 assets/
   css/bogo-select.css        Front-end chooser styles
   css/bogo-select-admin.css  Settings screen styles
-  js/bogo-select.js          Chooser interactions
+  js/bogo-select.js          Chooser interactions, paging, search
   js/bogo-select-admin.js    Scope toggles, product pickers
+tests/                       PHPUnit unit suite (not shipped in the zip)
+bin/build-zip.sh             Versioned release build
 ```
+
+## Tests
+
+```bash
+composer install
+composer test
+```
+
+Unit tests run against small WordPress/WooCommerce stand-ins — no WordPress
+install needed. See [tests/README.md](tests/README.md) for what is and is not
+covered.
 
 ## Documentation
 
@@ -111,8 +128,11 @@ assets/
 ## Hooks for developers
 
 ```php
-// Change the products offered in the chooser.
+// Change the products offered in the chooser (runs per page of results).
 add_filter( 'bogo_select_get_products', function ( $product_ids ) { … } );
+
+// Change the chooser's page size (default 24).
+add_filter( 'bogo_select_all_products_limit', function ( $per_page ) { … } );
 
 // Override whether the cart qualifies.
 add_filter( 'bogo_select_qualifies', function ( $qualifies, $buy_count ) { … }, 10, 2 );
@@ -126,14 +146,17 @@ add_action( 'bogo_select_reward_added', function ( $product_id, $qty ) { … }, 
 
 ## Limitations
 
-Known constraints in v1.0.0 — see [BRIEF.md §3](BRIEF.md) for the full list:
+Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
 
 - One offer at a time; offers do not stack.
 - Product IDs only — no category, tag, or attribute scoping.
 - Variable products cannot be gifts (an ambiguous "one free t-shirt" has no size);
   they remain eligible on the Buy side, matched by variation ID or parent ID.
-- Classic (shortcode) cart and checkout only — the Cart/Checkout **blocks** show the
-  qualification notice but not the chooser.
+- Classic (shortcode) cart and checkout only. On block-based stores the
+  qualification notice still appears on shop and product pages, but there is no
+  chooser to send customers to — treat the blocks as unsupported.
+- WooCommerce runtime behaviour (sessions, checkout, stock reduction) is covered by
+  manual staging tests rather than an automated integration suite.
 - Not tested against Subscriptions, Bundles, or Composite Products.
 
 ## License

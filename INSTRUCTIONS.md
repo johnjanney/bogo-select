@@ -27,8 +27,12 @@ How to install, configure, use, and troubleshoot the plugin.
 | WooCommerce | 7.0 |
 | PHP | 7.4 |
 
-The plugin will not activate without WooCommerce, and deactivates itself with an
-admin notice if WooCommerce is later removed.
+The plugin will not activate without WooCommerce 7.0 or later — activation is
+refused with an explanation. If WooCommerce is removed or downgraded afterwards,
+the plugin stops running and shows an admin notice, but stays activated and keeps
+your settings; restoring WooCommerce brings the offer back exactly as it was. (On
+WordPress 6.5 and later, WordPress enforces the dependency itself and may
+deactivate the plugin for you.)
 
 **Cart and checkout pages must use the classic shortcodes** (`[woocommerce_cart]`
 and `[woocommerce_checkout]`). If your cart page uses the WooCommerce *Cart block*,
@@ -101,19 +105,23 @@ customer for another gift.
 
 | Setting | What it does |
 |---|---|
-| **All Products** | The customer may choose any purchasable product in your catalogue. |
+| **All Products** | The customer may choose any purchasable simple product in your catalogue. |
 | **Select Products** | The customer chooses from the list you build. This is the usual choice. |
 
 Notes on the Get list:
 
 - **Variable products can't be gifts.** "One free t-shirt" doesn't say which size,
-  so variable products are filtered out of the chooser. To give away a specific
-  variation, list it as its own simple product.
+  so variable products — and their individual variations, and grouped and external
+  products — are filtered out of the chooser and removed from the list when you
+  save. To give away a specific variation, list it as its own simple product.
 - **Out-of-stock products are shown but not selectable.** If you award 8 free units
   and only 5 are in stock, that product is marked unavailable — the customer isn't
-  given a partial gift.
-- Setting Get to *All Products* with a large catalogue produces a long chooser;
-  *Select Products* is recommended.
+  given a partial gift. Units of the same product already in the cart count against
+  that stock, so 2 paid plus 2 free needs 4 in stock, not 2.
+- **Long lists are paged.** The chooser shows 24 gifts at a time with a search box
+  and Previous/Next buttons, so *All Products* really does reach the whole
+  catalogue however large it is. *Select Products* is still recommended when you
+  want to control exactly what is given away.
 
 Click **Save changes**. Settings take effect immediately, including for carts that
 already exist — an existing cart is re-validated on its next page load.
@@ -167,13 +175,18 @@ Every paid item earns another free one, all of the same chosen product.
    *"You've unlocked a free gift — choose it in your cart."* Turn this off with
    **Show notice on shop pages** if you'd rather keep it to the cart.
 2. **Cart page** — a panel above the cart table with your offer title and a grid of
-   gift options: image, name, price struck through, and a **Select** button.
+   gift options: image, name, price struck through, and a **Select** button. If
+   there is more than one page of gifts, a search box and Previous/Next buttons
+   appear above and below the grid.
 3. **After choosing** — the gift appears in the cart table marked **Free (BOGO)**
    at $0.00. Its quantity is fixed and can't be edited, but it can be removed.
-   The chosen card shows **Selected ✓** with a **Change** link.
+   The chosen card shows **Selected ✓** with a **Change** link. If a swap is
+   refused — say the new gift has just sold out — the original gift stays put and
+   the reason is shown.
 4. **If the cart stops qualifying** — say they reduce a quantity — the gift is
    removed automatically and they're told: *"Your free gift was removed because
-   your cart no longer qualifies."*
+   your cart no longer qualifies."* The same happens if the gift sells out while
+   it is sitting in their cart.
 5. **Checkout** — the gift line shows at $0.00 and contributes nothing to the total.
 
 ---
@@ -223,8 +236,14 @@ in stock for the full Get quantity; and your cart page uses the `[woocommerce_ca
 shortcode rather than the Cart block. The Cart block is not supported in v1.0.0.
 
 **A gift product is greyed out.**
-It's out of stock, has less stock than the Get quantity, or isn't purchasable
-(no price set, or hidden from the catalogue).
+It's out of stock, has less stock than the Get quantity *plus* any units of the
+same product already in the cart, isn't purchasable (no price set, or hidden from
+the catalogue), or is limited to one per order while the offer awards more than one.
+
+**A gift I expected isn't in the chooser.**
+With a long list the chooser shows one page at a time — use the search box or the
+Next button. If it isn't there at all, check it's a simple product that is
+published, purchasable, and (for *Select Products*) still on the Get list.
 
 **The gift shows a price instead of $0.00.**
 Another plugin is filtering cart item prices after this one. Deactivate other
@@ -266,9 +285,17 @@ carts clear before deleting.
 ### Filters and actions
 
 ```php
-// Modify the products offered in the chooser.
+// Modify the products offered in the chooser. Runs once per page of results,
+// before the eligibility gate — so in "Select Products" scope it can remove
+// options but not add ones outside the configured list, because the selection
+// endpoint enforces that same gate.
 add_filter( 'bogo_select_get_products', function ( array $product_ids ) {
     return $product_ids;
+} );
+
+// Change how many gifts one page of the chooser holds (default 24).
+add_filter( 'bogo_select_all_products_limit', function ( $per_page ) {
+    return 12;
 } );
 
 // Override qualification entirely.

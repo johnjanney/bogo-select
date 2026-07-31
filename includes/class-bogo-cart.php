@@ -23,6 +23,13 @@ class BOGO_Select_Cart {
 	protected $validating = false;
 
 	/**
+	 * Nesting depth of deliberate validation suspensions.
+	 *
+	 * @var int
+	 */
+	protected static $suspended = 0;
+
+	/**
 	 * Register hooks.
 	 */
 	public function __construct() {
@@ -34,16 +41,34 @@ class BOGO_Select_Cart {
 		add_action( 'woocommerce_check_cart_items', array( $this, 'validate' ), 20 );
 		add_action( 'woocommerce_after_cart_item_quantity_update', array( $this, 'validate' ), 20 );
 		add_action( 'woocommerce_cart_item_removed', array( $this, 'validate' ), 20 );
+		add_action( 'woocommerce_cart_item_restored', array( $this, 'validate' ), 20 );
 		add_action( 'woocommerce_add_to_cart', array( $this, 'validate' ), 20 );
 
 		// Presentation.
 		add_filter( 'woocommerce_cart_item_quantity', array( $this, 'lock_quantity' ), 10, 3 );
 		add_filter( 'woocommerce_cart_item_name', array( $this, 'label_name' ), 10, 3 );
 		add_filter( 'woocommerce_cart_item_price', array( $this, 'label_price' ), 10, 3 );
-		add_filter( 'woocommerce_cart_item_subtotal', array( $this, 'label_price' ), 10, 3 );
+		add_filter( 'woocommerce_cart_item_subtotal', array( $this, 'label_subtotal' ), 10, 3 );
 
 		// Carry the flag through to the order.
 		add_action( 'woocommerce_checkout_create_order_line_item', array( $this, 'add_order_item_meta' ), 10, 4 );
+	}
+
+	/**
+	 * Pause validation while a caller mutates the gift deliberately.
+	 *
+	 * Used by the choose endpoint, which must hold two gift lines briefly while
+	 * it swaps one for the other. Always pair with self::resume().
+	 */
+	public static function suspend() {
+		self::$suspended++;
+	}
+
+	/**
+	 * Resume validation after a suspension.
+	 */
+	public static function resume() {
+		self::$suspended = max( 0, self::$suspended - 1 );
 	}
 
 	/**
@@ -66,13 +91,13 @@ class BOGO_Select_Cart {
 	/**
 	 * Re-check the gift against the current cart and settings.
 	 *
-	 * Removes it when the cart no longer qualifies, and resizes it when the
-	 * earned quantity has changed.
+	 * Removes it when the cart no longer qualifies or the product has become
+	 * unavailable, and resizes it when the earned quantity has changed.
 	 *
 	 * @param mixed $context Hook argument; ignored except when it is a cart.
 	 */
 	public function validate( $context = null ) {
-		if ( $this->validating ) {
+		if ( $this->validating || self::$suspended > 0 ) {
 			return;
 		}
 
@@ -82,26 +107,52 @@ class BOGO_Select_Cart {
 			return;
 		}
 
-		$key = BOGO_Select_Engine::find_reward_key( $cart );
+		$keys = BOGO_Select_Engine::find_reward_keys( $cart );
 
-		if ( ! $key ) {
+		if ( ! $keys ) {
 			return;
 		}
 
 		$this->validating = true;
+		$this->run_validation( $cart, $keys );
+		$this->validating = false;
+	}
+
+	/**
+	 * The body of a validation pass, with re-entrancy already guarded.
+	 *
+	 * @param WC_Cart  $cart Cart being validated.
+	 * @param string[] $keys Every gift line key found in the cart.
+	 */
+	protected function run_validation( $cart, $keys ) {
+		$key = array_shift( $keys );
+
+		// Only one gift line may exist (BRIEF.md §4.3). Anything beyond the first
+		// is dropped before the survivor is judged, so a duplicated or drifted
+		// session cannot leave unchecked free lines behind.
+		if ( $keys ) {
+			foreach ( $keys as $duplicate ) {
+				$cart->remove_cart_item( $duplicate );
+			}
+
+			$this->notice( __( 'Duplicate free gift lines were removed from your cart. Only one gift is awarded per cart.', 'bogo-select' ) );
+		}
 
 		$cart_item = $cart->get_cart_item( $key );
-		$product   = $cart_item ? wc_get_product( (int) $cart_item['product_id'] ) : null;
+
+		if ( ! $cart_item ) {
+			return;
+		}
+
+		$product = wc_get_product( (int) $cart_item['product_id'] );
 
 		if ( ! BOGO_Select_Engine::is_active() ) {
 			$this->drop( $cart, $key, __( 'Your free gift was removed because the promotion is no longer running.', 'bogo-select' ) );
-			$this->validating = false;
 			return;
 		}
 
 		if ( ! $product || ! BOGO_Select_Engine::is_get_eligible( (int) $cart_item['product_id'] ) ) {
 			$this->drop( $cart, $key, __( 'Your free gift was removed because it is no longer part of the promotion.', 'bogo-select' ) );
-			$this->validating = false;
 			return;
 		}
 
@@ -109,39 +160,40 @@ class BOGO_Select_Cart {
 
 		if ( $earned < 1 ) {
 			$this->drop( $cart, $key, __( 'Your free gift was removed because your cart no longer qualifies.', 'bogo-select' ) );
-			$this->validating = false;
+			return;
+		}
+
+		// Availability is rechecked on every pass, not only when the earned
+		// quantity moves: stock can fall away underneath an unchanged cart.
+		$other_demand = BOGO_Select_Engine::stock_demand( $cart, $product, $key );
+		$reason       = BOGO_Select_Engine::unavailable_reason( $product, $earned, $other_demand );
+
+		if ( $reason ) {
+			$this->drop(
+				$cart,
+				$key,
+				sprintf(
+					/* translators: 1: product name, 2: reason. */
+					__( 'Your free gift (%1$s) was removed: %2$s.', 'bogo-select' ),
+					$product->get_name(),
+					$reason
+				)
+			);
 			return;
 		}
 
 		$current = (int) $cart_item['quantity'];
 
 		if ( $earned !== $current ) {
-			$reason = BOGO_Select_Engine::unavailable_reason( $product, $earned );
-
-			if ( $reason ) {
-				$this->drop(
-					$cart,
-					$key,
-					sprintf(
-						/* translators: 1: product name, 2: reason. */
-						__( 'Your free gift (%1$s) was removed: %2$s.', 'bogo-select' ),
-						$product->get_name(),
-						$reason
-					)
-				);
-			} else {
-				$cart->set_quantity( $key, $earned, false );
-				$this->notice(
-					sprintf(
-						/* translators: %d: new quantity. */
-						__( 'Your free gift quantity was updated to %d.', 'bogo-select' ),
-						$earned
-					)
-				);
-			}
+			$cart->set_quantity( $key, $earned, false );
+			$this->notice(
+				sprintf(
+					/* translators: %d: new quantity. */
+					__( 'Your free gift quantity was updated to %d.', 'bogo-select' ),
+					$earned
+				)
+			);
 		}
-
-		$this->validating = false;
 	}
 
 	/**
@@ -186,7 +238,7 @@ class BOGO_Select_Cart {
 	}
 
 	/**
-	 * Show the gift's price as free, with the usual price struck through.
+	 * Show the gift's unit price as free, with the usual price struck through.
 	 *
 	 * @param string $price     Price HTML.
 	 * @param array  $cart_item Cart item.
@@ -198,8 +250,40 @@ class BOGO_Select_Cart {
 			return $price;
 		}
 
+		return $this->free_markup( $cart_item, 1 );
+	}
+
+	/**
+	 * Show the gift's line subtotal as free.
+	 *
+	 * The struck-through figure covers the whole line, not one unit — eight $10
+	 * gifts strike through $80.
+	 *
+	 * @param string $subtotal  Subtotal HTML.
+	 * @param array  $cart_item Cart item.
+	 * @param string $cart_item_key Cart item key.
+	 * @return string
+	 */
+	public function label_subtotal( $subtotal, $cart_item, $cart_item_key = '' ) {
+		if ( ! BOGO_Select_Engine::is_reward_item( $cart_item ) ) {
+			return $subtotal;
+		}
+
+		$qty = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
+
+		return $this->free_markup( $cart_item, $qty );
+	}
+
+	/**
+	 * "Free", preceded by the normal price for the given number of units.
+	 *
+	 * @param array $cart_item Cart item.
+	 * @param int   $qty       Units the displayed price should cover.
+	 * @return string
+	 */
+	protected function free_markup( $cart_item, $qty ) {
 		$product = wc_get_product( (int) $cart_item['product_id'] );
-		$regular = $product ? wc_get_price_to_display( $product ) : 0;
+		$regular = $product ? wc_get_price_to_display( $product, array( 'qty' => $qty ) ) : 0;
 
 		$free = '<span class="bogo-select-free-price">' . esc_html__( 'Free', 'bogo-select' ) . '</span>';
 

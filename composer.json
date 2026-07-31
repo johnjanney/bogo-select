@@ -1,0 +1,27 @@
+{
+	"name": "johnjanney/bogo-select",
+	"description": "Buy X, Get Y free for WooCommerce, with the customer choosing their gift.",
+	"type": "wordpress-plugin",
+	"license": "GPL-2.0-or-later",
+	"require": {
+		"php": ">=7.4"
+	},
+	"require-dev": {
+		"phpunit/phpunit": "^9.6"
+	},
+	"config": {
+		"platform": {
+			"php": "7.4.0"
+		},
+		"sort-packages": true
+	},
+	"autoload-dev": {
+		"psr-4": {
+			"BOGO_Select\\Tests\\": "tests/"
+		}
+	},
+	"scripts": {
+		"test": "phpunit",
+		"lint": "find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l"
+	}
+}

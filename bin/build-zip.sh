@@ -59,9 +59,17 @@ mkdir -p "${STAGE}/${SLUG}"
 if command -v rsync >/dev/null 2>&1; then
 	rsync -a \
 		--exclude '.git/' \
+		--exclude '.github/' \
 		--exclude '.gitignore' \
 		--exclude 'dist/' \
 		--exclude 'bin/' \
+		--exclude 'tests/' \
+		--exclude 'vendor/' \
+		--exclude 'composer.json' \
+		--exclude 'composer.lock' \
+		--exclude 'phpunit.xml.dist' \
+		--exclude '.phpunit.result.cache' \
+		--exclude 'CODEX-REVIEW*.md' \
 		--exclude '.DS_Store' \
 		--exclude 'Thumbs.db' \
 		--exclude '*.swp' \
@@ -70,11 +78,19 @@ if command -v rsync >/dev/null 2>&1; then
 else
 	cp -R "${PLUGIN_DIR}/." "${STAGE}/${SLUG}/"
 	rm -rf "${STAGE}/${SLUG}/.git" \
+		"${STAGE}/${SLUG}/.github" \
 		"${STAGE}/${SLUG}/.gitignore" \
 		"${STAGE}/${SLUG}/dist" \
-		"${STAGE}/${SLUG}/bin"
+		"${STAGE}/${SLUG}/bin" \
+		"${STAGE}/${SLUG}/tests" \
+		"${STAGE}/${SLUG}/vendor" \
+		"${STAGE}/${SLUG}/composer.json" \
+		"${STAGE}/${SLUG}/composer.lock" \
+		"${STAGE}/${SLUG}/phpunit.xml.dist" \
+		"${STAGE}/${SLUG}/.phpunit.result.cache"
 	find "${STAGE}/${SLUG}" \
-		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \) \
+		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \
+		   -o -name 'CODEX-REVIEW*.md' \) \
 		-delete
 fi
 

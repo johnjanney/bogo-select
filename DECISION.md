@@ -102,10 +102,17 @@ receives all sets of it, per R4.
 **Date:** 2026-07-30 · **Status:** Accepted
 
 **Decision.** Only products that can be added to the cart without choosing options
-are offered as gifts. Variable, grouped, and external products are stripped from
-the Get list when the settings are saved, with a warning naming what was removed;
-they are also rejected at selection time. Variable products *are* eligible on the
-Buy side — a variation counts if either its own ID or its parent ID is listed.
+are offered as gifts. Variable, grouped, and external products — and individual
+variations — are stripped from the Get list when the settings are saved, with a
+warning naming what was removed; they are also rejected at selection time.
+Variable products *are* eligible on the Buy side — a variation counts if either
+its own ID or its parent ID is listed.
+
+**Amended 2026-07-30.** Variation objects were rejected only implicitly (the
+product picker does not offer them), not by the eligibility rule itself. A hand-set
+option row could therefore list a variation ID as a gift, which contradicted the
+"simple products only" language. Both the runtime check and the settings sanitizer
+now reject `variation` explicitly.
 
 **Why.** Awarding "a free variable product" is ambiguous — which size, which
 colour? Adding one silently picks a variation on the customer's behalf, which is
@@ -135,8 +142,9 @@ anyone; removing it re-shows the chooser.
 **Date:** 2026-07-30 · **Status:** Accepted
 
 **Decision.** The full product chooser renders on the cart page
-(`woocommerce_before_cart_table`). Shop, product, and checkout pages show only a
-short notice linking to the cart.
+(`woocommerce_before_cart_table`). Shop and product pages show only a short notice
+linking to the cart. Cart and checkout pages show neither notice — the cart has
+the chooser itself, and the checkout is deliberately left alone.
 
 **Why.** The cart is where the customer can see what they qualified for and act on
 it. Rendering a full product grid inside the checkout flow risks conflicting with
@@ -144,8 +152,15 @@ the many checkout customisations found in the wild — and, on block-based
 checkouts, would not render at all.
 
 **Note.** This plugin targets the **shortcode/classic** cart and checkout. Stores
-using the WooCommerce Cart and Checkout *blocks* will see the notice but not the
-chooser. See `OPEN-QUESTIONS.md` Q-001.
+using the WooCommerce Cart and Checkout *blocks* get the shop/product-page notice
+but no chooser anywhere, so a qualifying customer is told a gift is waiting and
+then has nowhere to pick it. That is the practical reason the blocks are declared
+incompatible rather than merely unsupported. See `OPEN-QUESTIONS.md` Q-001.
+
+**Amended 2026-07-30.** The original wording said checkout pages show a notice.
+They do not — `maybe_render_notice()` returns early on both cart and checkout.
+Corrected here rather than changing the code, because suppressing the notice at
+checkout is the intended behaviour.
 
 ---
 
@@ -159,6 +174,12 @@ the selection is rejected with a clear message rather than partially fulfilled.
 **Why.** Silently awarding 3 of 8 promised free items is worse than telling the
 customer the item is unavailable and letting them pick something else. Products
 with insufficient stock are marked unavailable in the chooser.
+
+**Amended 2026-07-30.** "Available stock" now means stock less whatever the rest
+of the cart already claims from the same stock record, so 2 paid plus 2 free of a
+product with 3 in stock is rejected here rather than at checkout. Availability is
+also rechecked on every validation pass, not only when the earned quantity
+changes.
 
 ---
 
@@ -175,3 +196,74 @@ architecture — they were written before the code existed to be summarised, and
 they are the source the implementation follows. Routine documentation updates
 after this point (e.g. regenerating `INSTRUCTIONS.md` from a changed feature set)
 remain good delegation candidates.
+
+---
+
+## D-011 — Gift chooser paged and searchable rather than uncapped
+
+**Date:** 2026-07-30 · **Status:** Accepted · **Supersedes:** the 50-product cap in v1.0.0
+
+**Decision.** The chooser fetches one page of gift options at a time (24 by
+default, filterable through `bogo_select_all_products_limit`) and offers a search
+box over name and SKU once there is more than one page. Both Get scopes are paged,
+not just *All Products*.
+
+**Why.** v1.0.0 queried the first 50 simple products and rendered them all, which
+meant *All Products* silently excluded everything after the fiftieth — the
+acceptance criterion promising the whole catalogue was unmet. Simply removing the
+cap would have traded a correctness bug for a performance one: every qualifying
+cart view would load, price, and render the entire catalogue. Paging keeps the
+per-request cost bounded while leaving every eligible product reachable.
+
+**Consequence.** The `bogo_select_all_products_limit` filter is retained but now
+means *page size* rather than *hard cap*; a store that had lowered it to trim the
+list will now see paging instead of truncation. `bogo_select_get_products` is
+applied per page, so a callback that appends IDs appends them to every page — and
+in *Select Products* scope such additions are still rejected by the eligibility
+gate, because that gate is the same one the selection endpoint enforces.
+
+---
+
+## D-012 — Gift replacement adds before it removes
+
+**Date:** 2026-07-30 · **Status:** Accepted
+
+**Decision.** Swapping gifts adds the replacement first and only removes the
+previous gift once the add has succeeded. Validation is suspended for the moment
+both lines coexist. Re-picking the gift already held short-circuits to a quantity
+check instead of a swap.
+
+**Why.** The previous order — remove, then add — left the customer with no gift at
+all when the add was rejected after the plugin's own checks passed: aggregate cart
+stock, a sold-individually rule, or any third-party
+`woocommerce_add_to_cart_validation` callback can still refuse. Presenting that as
+"change your selection" and then silently taking the gift away is the worst
+outcome available.
+
+**Trade-off.** For the instant between add and remove the cart holds two flagged
+lines. Validation would otherwise treat that as duplication and cull one, so it is
+suspended across the swap — a re-entrancy guard that must stay paired.
+
+---
+
+## D-013 — Activation blocked without WooCommerce; runtime stays inert
+
+**Date:** 2026-07-30 · **Status:** Accepted
+
+**Decision.** The plugin refuses to activate when WooCommerce is missing or older
+than 7.0, via a `Requires Plugins: woocommerce` header (WordPress 6.5+) and an
+activation-hook guard that deactivates and `wp_die()`s on WordPress 6.0–6.4. If
+WooCommerce disappears *after* activation, the plugin loads nothing and shows an
+admin notice — it does not deactivate itself.
+
+**Why.** `INSTRUCTIONS.md` claimed both behaviours; the code did neither. Blocking
+activation is cheap and prevents a plugin that cannot work from looking active.
+Self-deactivating at runtime is not: it would fire on any request where
+WooCommerce is temporarily unavailable, and silently turning a plugin off behind
+the site owner's back is worse than an inert plugin with a loud notice. On
+WordPress 6.5+ the dependency header means WordPress handles that case itself.
+
+**Consequence.** Settings survive a WooCommerce outage untouched; reinstating
+WooCommerce restores the offer exactly as it was.
+
+---

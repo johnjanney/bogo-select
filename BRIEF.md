@@ -106,31 +106,47 @@ A product that is in **both** the Buy and Get lists still counts toward
 
 ### 4.3 Reward line item
 
-- Added with cart item meta `_bogo_select_free => true` and a stamped
-  `_bogo_select_token` (hash of the settings that generated it) for revalidation.
+- Added with cart item data `bogo_select_free => true`. The same flag reaches the
+  order as line-item meta `_bogo_select_free => 'yes'`, alongside a human-readable
+  *Free gift* meta row for the admin screen, emails, and packing slips.
+- No provenance token is stored. Every validation pass re-derives the answer from
+  the **current** settings and the **current** cart — offer state, gift
+  eligibility, earned quantity, and stock — so a stale or forged stamp could not
+  buy a line any leniency. A hash of the settings would only tell us that
+  something changed, which the field-by-field recheck already establishes.
 - Price forced to `0` on `woocommerce_before_calculate_totals` (priority 20).
 - Quantity is not editable in the cart; the input is replaced with static text.
 - Free items are excluded from `buy_count`, so a reward can never bootstrap itself.
 - Only one reward line item may exist at a time (R4: one Get product per cart).
+  Validation enumerates **every** flagged line, keeps the first, and removes the
+  rest, so a drifted session cannot leave unchecked free lines behind.
 
 ### 4.4 Re-validation triggers
 
 Runs on `woocommerce_cart_loaded_from_session`, `woocommerce_check_cart_items`,
-and after any cart quantity update:
+`woocommerce_add_to_cart`, `woocommerce_cart_item_removed`,
+`woocommerce_cart_item_restored`, and after any cart quantity update:
 
-1. Offer disabled, or reward product no longer eligible → remove reward, notice.
-2. Cart no longer qualifies → remove reward, notice.
-3. `reward_qty` changed (quantity up/down, repeat mode) → adjust the line quantity.
-4. Reward product went out of stock / below required quantity → remove reward, notice.
+1. More than one reward line present → keep one, remove the others, notice.
+2. Offer disabled, or reward product no longer eligible → remove reward, notice.
+3. Cart no longer qualifies → remove reward, notice.
+4. Reward product out of stock, or its stock no longer covers the free units
+   **plus** any paid units of the same product in the cart → remove reward, notice.
+   Checked on every pass, not only when the earned quantity moves.
+5. `reward_qty` changed (quantity up/down, repeat mode) → adjust the line quantity.
 
 ### 4.5 Customer flow
 
 1. Customer adds qualifying products to the cart.
 2. Cart page shows the chooser: offer title, "Choose 1 of N", product cards with
-   image, name, stock state, and a **Select** button.
+   image, name, stock state, and a **Select** button. When there is more than one
+   page of options, a search box and Previous/Next controls appear; both page over
+   AJAX without reloading the cart.
 3. Clicking Select fires an AJAX request → server re-validates → reward added →
    cart fragments refresh.
-4. Chosen card shows as **Selected** with a **Change** action.
+4. Chosen card shows as **Selected** with a **Change** action. Changing the gift is
+   one operation: the replacement is added before the previous gift is removed, so
+   a rejected add leaves the original gift in place.
 5. Checkout, emails, and the admin order screen display the line as **Free (BOGO)**
    at $0.00 with normal stock reduction.
 
@@ -152,8 +168,14 @@ and after any cart quantity update:
 | `BOGO_Select_Engine` | Pure qualification logic (no output, no side effects). |
 | `BOGO_Select_Cart` | Cart hooks: pricing, quantity lock, validation, display. |
 | `BOGO_Select_Frontend` | Renders the chooser and notices, enqueues assets. |
-| `BOGO_Select_Ajax` | `select`/`remove` endpoints, nonce + capability checks. |
+| `BOGO_Select_Ajax` | `choose`/`remove`/`choices` endpoints, nonce + server-side re-validation. |
 | `BOGO_Select_Admin` | Settings screen, product search AJAX, settings link. |
+
+The front-end endpoints are deliberately **public** (`wp_ajax_nopriv_*`): guests
+must be able to pick a gift. They therefore carry a nonce and repeat every
+business rule server-side — qualification, gift eligibility, quantity, and
+availability — rather than a capability check. Only the admin product search
+requires `manage_woocommerce`.
 
 - **Free pricing method:** direct price override (`$product->set_price( 0 )`), *not*
   a generated coupon. See `DECISION.md` §D-002.
@@ -171,9 +193,18 @@ and after any cart quantity update:
 3. With Buy 4 / Get 8, 4 qualifying units award 8 free units.
 4. Reducing the cart below the Buy quantity removes the free item automatically.
 5. Buy scope = Select Products limits qualification to the listed products only.
-6. Get scope = All Products lets the chooser search the whole catalogue.
+6. Get scope = All Products lets the chooser search the whole catalogue: with 60+
+   eligible products, the first, fiftieth, and last are all reachable by paging or
+   searching, and no eligible product is unreachable.
 7. The free item's quantity cannot be edited from the cart page.
 8. No PHP notices/warnings with `WP_DEBUG` enabled.
+9. A gift whose stock falls below the awarded quantity is removed on the next
+   validation pass, even when the earned quantity has not changed.
+10. Changing the gift to a product the cart cannot accept leaves the original gift
+    in place and reports why.
+11. A cart holding more than one flagged free line is normalised to one.
+12. The unit-price and subtotal columns of a multi-unit gift both strike through
+    the correct amount (unit price, and unit price × quantity respectively).
 
 ---
 
@@ -183,8 +214,11 @@ and after any cart quantity update:
 |---|---|
 | Customer manipulates the AJAX call to get a free item without qualifying. | Server re-validates qualification on every add, and again on `woocommerce_check_cart_items` before checkout. |
 | Free item priced $0 but taxed as if paid. | Price override happens before totals are calculated, so tax is computed on $0. |
-| Third-party plugins also filter cart item prices. | Price override runs at priority 20 on `woocommerce_before_calculate_totals`. |
-| Out-of-stock Get product selected. | Stock checked at selection time and again at checkout by WooCommerce's own validation. |
+| Third-party plugins also filter cart item prices. | Price override runs at priority 20 on `woocommerce_before_calculate_totals`. Not an absolute guarantee — an extension hooking later still wins. |
+| Out-of-stock Get product selected. | Stock checked at selection time, on every validation pass thereafter, and again at checkout by WooCommerce's own validation. |
+| Gift and paid copies of one product exhaust its stock between them. | Availability counts total cart demand against the stock-managed product ID, not the free units alone. |
+| A gift swap is rejected mid-flight, leaving the customer with nothing. | Replacement adds before it removes; a rejected add leaves the original gift untouched. |
+| WooCommerce lifecycle behaviour (sessions, checkout, stock reduction) regresses silently. | Unit suite covers the pure logic; the WooCommerce integration layer still needs a staging pass before release. See `tests/README.md`. |
 
 ---
 
