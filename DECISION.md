@@ -359,3 +359,34 @@ than a free product. IDs that a filter adds are not in the cached map and are
 judged on the spot.
 
 ---
+
+## D-016 — The reward's base price is read fresh, not taken from the cart line
+
+**Date:** 2026-07-31 · **Status:** Accepted
+
+**Decision.** The reward may be discounted by a percentage rather than only given
+away. The undiscounted figure it is calculated from is read from a product loaded
+fresh on every pricing pass, never from the cart line's own product object.
+Coupons stack on top of the discounted price, and rounding happens once, on the
+unit price.
+
+**Why.** `set_reward_price()` runs on `woocommerce_before_calculate_totals`, which
+WooCommerce fires more than once in some requests. Setting a price to zero is
+idempotent; taking a percentage off is not. Reading the base from the object this
+code has already written to would compound the discount — half price, then a
+quarter, then an eighth — and the bug would appear only in requests that
+recalculate twice, which is the hardest kind to reproduce from a bug report.
+Rounding per unit rather than per line matches what WooCommerce does for every
+other product, so the line total, the price shown in the chooser, and the order
+cannot disagree by a penny.
+
+**Consequence.** A price another plugin sets on the cart item is discarded rather
+than discounted, even though the priority-20 hook ordering deliberately runs after
+such plugins. Stores running dynamic pricing will see the reward line priced from
+the catalogue. Because coupons apply afterwards, a site-wide 20% coupon compounds
+with a 50% reward discount and the customer pays 40% of list; this is
+WooCommerce's normal treatment of a reduced price, and is left alone.
+
+A discounted reward also carries real tax and real subtotal, unlike a free one, so
+it counts toward free-shipping thresholds through value as well as weight. See
+`OPEN-QUESTIONS.md` Q-004, which assumed the reward was always free.

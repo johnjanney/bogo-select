@@ -72,7 +72,10 @@ class BOGO_Select_Cart {
 	}
 
 	/**
-	 * Force every gift line item to cost nothing.
+	 * Price every gift line at whatever the offer discounts it to.
+	 *
+	 * Zero for a free gift, which is the default and was the only behaviour
+	 * before discounts existed.
 	 *
 	 * @param WC_Cart $cart Cart being calculated.
 	 */
@@ -82,10 +85,47 @@ class BOGO_Select_Cart {
 		}
 
 		foreach ( $cart->get_cart() as $cart_item ) {
-			if ( BOGO_Select_Engine::is_reward_item( $cart_item ) && isset( $cart_item['data'] ) ) {
-				$cart_item['data']->set_price( 0 );
+			if ( ! BOGO_Select_Engine::is_reward_item( $cart_item ) ) {
+				continue;
 			}
+
+			// A line whose product could not be loaded holds false here, and the
+			// isset() this check replaced was true for false. WooCommerce drops such
+			// lines when it builds the cart from the session, so this guards against
+			// other code putting them there — the same check, for the same reason,
+			// as BOGO_Select_Engine::stock_demand().
+			if ( empty( $cart_item['data'] ) || ! $cart_item['data'] instanceof WC_Product ) {
+				continue;
+			}
+
+			$cart_item['data']->set_price( BOGO_Select_Engine::reward_price( self::base_price( $cart_item ) ) );
 		}
+	}
+
+	/**
+	 * The undiscounted price a reward line is calculated from.
+	 *
+	 * Read from a product loaded fresh rather than from the line's own product
+	 * object, because this method's caller has already written to that object and
+	 * will be called again — WooCommerce recalculates totals more than once in
+	 * some requests. Discounting a figure this code produced would compound it:
+	 * half price, then a quarter, then an eighth. A fresh instance always holds
+	 * the catalogue price, so the result is the same on every pass.
+	 *
+	 * The trade is that a price another plugin set on the cart item is discarded
+	 * rather than discounted, even though the priority-20 hook ordering runs
+	 * after such plugins (DECISION.md D-016).
+	 *
+	 * @param array $cart_item Cart item.
+	 * @return float Zero when the product cannot be loaded, which leaves the line
+	 *               free until the next validation pass removes it.
+	 */
+	protected static function base_price( $cart_item ) {
+		$id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) $cart_item['product_id'];
+
+		$product = wc_get_product( $id );
+
+		return $product ? (float) $product->get_price() : 0.0;
 	}
 
 	/**
