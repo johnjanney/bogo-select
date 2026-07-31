@@ -83,8 +83,9 @@ Go to **WooCommerce → BOGO Select**.
 | Setting | What it does |
 |---|---|
 | **Buy quantity** | How many qualifying units the customer must have in the cart. Any whole number from 1 up. |
-| **Get quantity** | How many free units they receive of the gift they pick. Any whole number from 1 up. |
-| **Repeat offer** | **Off** (default): the customer earns one gift set no matter how much they buy. **On**: they earn one set per multiple of the Buy quantity — with Buy 2 Get 1, six qualifying items earn 3 free. |
+| **Get quantity** | How many units they receive of the reward they pick. Any whole number from 1 up. |
+| **Reward price** | **Free** (default): the reward costs nothing. **Percentage off**: it is sold at the discount you set, from 0 to 100. A discount of 100% is the same as free. |
+| **Repeat offer** | **Off** (default): the customer earns one reward set no matter how much they buy. **On**: they earn one set per multiple of the Buy quantity — with Buy 2 Get 1, six qualifying items earn 3. |
 
 Quantities are independent, so Buy 4 Get 8 is as valid as Buy 2 Get 2.
 
@@ -186,6 +187,9 @@ Every paid item earns another free one, all of the same chosen product.
    alone.
 3. **After choosing** — the gift appears in the cart at $0.00, marked **Free
    (BOGO)** on a classic cart and **Free gift: BOGO promotion** in a block cart.
+   On a percentage offer the same places read **50% off (BOGO)** and
+   **Discounted item: 50% off — BOGO promotion**, and the line shows the
+   discounted price beside the original struck through.
    Its quantity is fixed and can't be edited either way, but it can be removed.
    The chosen card shows **Selected ✓** with a **Change** link. If a swap is
    refused — say the new gift has just sold out — the original gift stays put and
@@ -194,26 +198,35 @@ Every paid item earns another free one, all of the same chosen product.
    removed automatically and they're told: *"Your free gift was removed because
    your cart no longer qualifies."* The same happens if the gift sells out while
    it is sitting in their cart.
-5. **Checkout** — the gift line shows at $0.00 and contributes nothing to the total.
+5. **Checkout** — a free gift line shows at $0.00 and contributes nothing to the
+   total. A discounted line shows what it costs and contributes that.
 
 ---
 
 ## 6. How orders and inventory behave
 
-The gift is a **real line item priced at $0.00**, not a coupon discount. That means:
+The gift is a **real line item priced at what the offer says** — $0.00 by
+default, or the discounted figure — and not a coupon discount. That means:
 
 - **Stock is reduced.** An order with 8 free units of Item C reduces Item C's stock
   by 8, exactly as a paid order would.
 - **It appears everywhere a product line normally does** — the order screen,
   packing slips, customer emails, and product sales reports.
 - **It's labelled.** Cart, checkout, emails, and the admin order detail screen show
-  a **Free (BOGO)** marker on the line.
-- **Tax is calculated on $0.00**, since the price is zero before totals run — not a
-  discount applied after tax.
-- **It doesn't count toward free-shipping thresholds**, because it adds nothing to
-  the order subtotal. Its weight *is* included in weight-based shipping.
-- **Refunds** behave as for any $0.00 line: restocking through the order screen
-  returns the free units to inventory.
+  a **Free (BOGO)** marker on the line, or **50% off (BOGO)** on a discounted one.
+- **Tax is calculated on the price the line actually carries**, since that price
+  is set before totals run — not a discount applied after tax. On a free gift
+  that means tax on $0.00.
+- **A free gift doesn't count toward free-shipping thresholds**, because it adds
+  nothing to the order subtotal. Its weight *is* included in weight-based
+  shipping. A discounted reward *does* count, because it has real value.
+- **Coupons apply on top of a discounted reward.** A 20% site-wide coupon over a
+  50% reward leaves the customer paying 40% of list, as it would on any reduced
+  price.
+- **A reward already on sale is discounted from its sale price**, not from its
+  regular price.
+- **Refunds** behave as for any other line: restocking through the order screen
+  returns the units to inventory.
 
 ---
 
@@ -336,7 +349,7 @@ add_filter( 'bogo_select_qualifies', function ( $qualifies, $buy_count ) {
     return $qualifies;
 }, 10, 2 );
 
-// Change how many free units are awarded.
+// Change how many reward units are awarded.
 add_filter( 'bogo_select_reward_quantity', function ( $qty, $buy_count ) {
     return $qty;
 }, 10, 2 );
@@ -355,9 +368,19 @@ order, the line item has the meta key `_bogo_select_free` with value `yes`:
 ```php
 foreach ( $order->get_items() as $item ) {
     if ( 'yes' === $item->get_meta( '_bogo_select_free' ) ) {
-        // free gift line
+        // reward line
     }
 }
+```
+
+Both keys keep the word "free" on a discounted line too. They are persisted keys
+that existing reports already query, so they mark a line as the offer's rather
+than claiming it cost nothing. What the offer actually was is recorded separately
+on the order line, frozen at the moment of the order because the settings can
+change afterwards:
+
+```php
+$item->get_meta( '_bogo_select_discount' ); // 'free', or 'percent:50'
 ```
 
 ### Settings storage
@@ -367,6 +390,7 @@ Everything lives in one option, `bogo_select_settings`:
 ```php
 $settings = get_option( 'bogo_select_settings' );
 // [ 'enabled' => 'yes', 'buy_qty' => 2, 'get_qty' => 2,
+//   'get_discount_type' => 'free', 'get_discount_value' => 0.0,
 //   'buy_scope' => 'all', 'buy_products' => [],
 //   'get_scope' => 'select', 'get_products' => [ 12, 34 ],
 //   'repeat' => 'no', 'show_notice' => 'yes', 'offer_title' => '…' ]

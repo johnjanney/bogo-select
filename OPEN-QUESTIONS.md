@@ -75,10 +75,12 @@ order value — but it *does* have weight and dimensions, so it affects
 weight-based shipping and free-shipping-threshold calculations only through
 weight, not through subtotal.
 
-All of that holds only while the reward is free. Should Q-008 proceed and the Get
-product be discounted rather than given away, the line carries real tax and a real
-subtotal, counts toward free-shipping thresholds through value as well as weight,
-and this question has to be answered again on different terms.
+All of that holds only while the reward is free. Q-008 has since shipped, so a
+store can price the reward at a percentage off instead of giving it away, and
+such a line carries real tax and a real subtotal. It counts toward free-shipping
+thresholds through value as well as weight, which is the opposite of the
+behaviour the working assumption below endorses. The question is therefore live
+again for any store that configures a discount, and unanswered for that case.
 
 **Working assumption:** correct as-is — free items should not raise a customer
 toward a free-shipping threshold.
@@ -132,52 +134,6 @@ rather than retrofitted.
 
 ---
 
-### Q-008 — Should the Get product support a percentage discount rather than only being free?
-
-**Raised:** 2026-07-31
-
-The offer is "Buy X, Get Y free" and nothing else. Whether it should also express
-"Buy X, Get Y at 50% off" — or any percentage — was raised while looking at the
-Get list. The code was surveyed to size the work.
-
-The pricing itself is one function. `set_reward_price()`
-(`includes/class-bogo-cart.php:79`) is the sole choke point: it runs on
-`woocommerce_before_calculate_totals` at priority 20 and sets the line price to
-zero. A percentage is the same hook with different arithmetic. The trap is that
-`set_price( 0 )` is idempotent and a percentage is not — `calculate_totals()`
-fires more than once in some requests, so multiplying the current price would
-compound the discount pass over pass. A stable base price is needed each time,
-read either from a fresh `wc_get_product()` instance, which discards any
-adjustment a third-party pricing plugin made to the cart item, or from a figure
-stashed on the cart item at selection time, which preserves those adjustments but
-goes stale if the product's price moves while the cart sits in a session. Two
-settings keys would carry the configuration — a discount type and a value — with
-the type defaulting to free, so existing installs need no migration.
-
-The bulk of the work is language, not arithmetic. Roughly twenty customer-facing
-strings assume the price is zero, from `free_markup()`
-(`includes/class-bogo-cart.php:296`) and the "Free (BOGO)" badge (`:244`) through
-the chooser subtitles, the order-item meta, the block cart's item-data row, and
-the default offer title. The internal vocabulary — `is_reward_item()`,
-`find_reward_keys()`, `bogo_select_reward_added` — is already price-neutral and
-needs nothing. Stock and availability are price-blind and need nothing either.
-
-A discounted line also breaks assumptions made when the gift was always free. It
-carries real tax and a real subtotal, so it counts toward free-shipping
-thresholds — which unsettles Q-004's premise. Site-wide coupons would compound on
-top of the reduced price, since the discount lands before coupon calculation.
-And discounting a multi-unit display price can land a penny away from discounting
-the unit price and multiplying.
-
-**Working assumption:** the Get product is free, unchanged.
-
-**Needed:** whether percentage discounts are wanted at all, and if so, three
-calls that are business decisions rather than engineering ones — whether coupons
-may stack on a discounted gift, which rounding basis governs, and how the answer
-to Q-004 changes once the line has taxable value.
-
----
-
 ## Resolved
 
 ### Q-001 — Cart/Checkout blocks or classic shortcodes? — **Answered 2026-07-30**
@@ -191,3 +147,38 @@ through the `render_block` filter, and the browser side talks to the blocks
 through the Store API and the `wc/store/cart` data store, both of which are
 reachable from plain JavaScript. No React, no build step, no bundled block. See
 `DECISION.md` D-008.
+
+---
+
+### Q-008 — Should the Get product support a percentage discount rather than only being free? — **Answered 2026-07-31**
+
+**Answer:** yes, and it has shipped. The offer expresses "Buy X, Get Y at N% off"
+as readily as "Get Y free", configured by `get_discount_type` and
+`get_discount_value` and controlled from the settings screen. Both default to the
+free behaviour, so an option row saved before the feature reads back as a free
+gift and no store changes until someone changes it. See `DECISION.md` D-016.
+
+The pricing was the small half of the work and the wording the large one, much as
+the investigation predicted. The reward's undiscounted price is read from a
+product loaded fresh on every pass rather than from the cart line's own product
+object, because WooCommerce recalculates totals more than once in some requests
+and a percentage — unlike a zero — compounds when it is applied to its own
+output. The trade is that a price set on the cart item by another plugin is
+overwritten rather than discounted. Rounding happens once, on the unit price.
+
+Three of the surrounding decisions are worth restating. The discount comes off
+the effective selling price, so a reward already on sale is discounted from its
+sale price. Coupons stack, leaving a 20% coupon over a 50% reward at 40% of list
+— that follows from where the pricing hook sits rather than from a test, since
+the unit stubs have no coupon support, and it is expected behaviour rather than
+verified behaviour. And `free` stayed a discount type of its own rather than
+becoming a percentage of 100, so the interface can say "Free" without
+special-casing a magic number.
+
+Fixed-amount discounts were left out on purpose; a percentage needs no clamping
+against negative prices and raises no per-unit versus per-line question, and "$5
+off" can be added later on the same field.
+
+The one thing this unsettles rather than settles is Q-004: a discounted reward
+carries real tax and real subtotal, so it counts toward free-shipping thresholds
+by value as well as weight.

@@ -1,8 +1,8 @@
 # BOGO Select for WooCommerce
 
-Let customers **choose** their free gift. A configurable "Buy X, Get Y free"
-promotion for WooCommerce where the free product is added to the cart as a real
-line item at **$0.00** — so stock is still reduced.
+Let customers **choose** their reward. A configurable "Buy X, Get Y free — or at
+a percentage off" promotion for WooCommerce where the reward is added to the cart
+as a real line item at its reward price — so stock is still reduced.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-21759b)](https://wordpress.org)
 [![WooCommerce](https://img.shields.io/badge/WooCommerce-7.0%2B-96588a)](https://woocommerce.com)
@@ -17,9 +17,9 @@ line item at **$0.00** — so stock is still reduced.
 2. A chooser appears on the cart or checkout page: *"Choose your free gift —
    pick 1 of 3."*
 3. They pick one product. It is added to the cart at the configured Get quantity,
-   priced at $0.00.
-4. On checkout, WooCommerce reduces stock for the free item exactly as it would
-   for a paid one.
+   priced at $0.00 — or at a percentage off, if the offer is set that way.
+4. On checkout, WooCommerce reduces stock for the reward exactly as it would for
+   a paid item, whether it was free or discounted.
 
 ## Features
 
@@ -34,8 +34,11 @@ line item at **$0.00** — so stock is still reduced.
   cart table and checkout form, and above the Cart and Checkout blocks. In a block
   cart it follows the Store API: picking a gift updates the blocks in place, and
   the chooser appears the moment the cart qualifies, without a page reload.
-- **Real inventory reduction.** The gift is a normal cart/order line item at $0.00,
-  not a coupon discount, so stock, reports, and packing slips all behave.
+- **Real inventory reduction.** The reward is a normal cart/order line item at
+  its reward price, not a coupon discount, so stock, reports, and packing slips
+  all behave.
+- **Free, or a percentage off.** The reward is given away by default, and can
+  instead be sold at any percentage discount — "Buy 2, get 1 at 50% off".
 - **Customer picks, and can change their mind.** Swapping the gift adds the new
   line before dropping the old one, so a refused swap never leaves them empty-handed.
 - **Self-healing cart.** If the cart drops below the Buy quantity — or the gift
@@ -71,23 +74,45 @@ Full instructions, including configuration walkthroughs and troubleshooting, are
 2. Tick **Enable offer**
 3. Set **Buy quantity** = `2`, **Get quantity** = `2`
 4. **Buy products** = *All Products*
-5. **Get products** = *Select Products* → add the products you want to give away
+5. **Get products** = *Select Products* → add the products the customer may
+   choose between, and set **Reward price** to *Free* or a percentage off
 6. **Save changes**
 
 Add two of anything to the cart and the chooser appears.
 
 ## How the discount works
 
-The free line item is not a coupon. On every `woocommerce_before_calculate_totals`
-pass, the reward line's price is set to `0`:
+The reward line is not a coupon. On every `woocommerce_before_calculate_totals`
+pass, its price is set outright — to zero for a free gift, or to the discounted
+figure when the offer is a percentage off:
 
 ```php
-$cart_item['data']->set_price( 0 );
+$cart_item['data']->set_price( BOGO_Select_Engine::reward_price( $base ) );
 ```
 
 This keeps the item a first-class product line — it counts for stock, appears on
-the order, and is taxed on $0.00 rather than discounted after tax. See
-[`DECISION.md`](DECISION.md) §D-002 for why this was chosen over a dynamic coupon.
+the order, and is taxed on what it actually costs rather than discounted after
+tax. See [`DECISION.md`](DECISION.md) §D-002 for why this was chosen over a
+dynamic coupon, and §D-016 for the discount.
+
+`$base` is read from a product loaded fresh on every pass, never from the cart
+line's own product object. WooCommerce recalculates totals more than once in some
+requests, and a percentage applied to its own output would compound. The cost is
+that a price another plugin set on the cart item is overwritten rather than
+discounted, which matters on stores running dynamic pricing.
+
+Three consequences worth knowing before switching an offer to a percentage:
+
+- **The discount comes off the effective selling price.** A reward already on
+  sale is discounted from its sale price, so a 50%-off reward on a product
+  already at 40% off costs 30% of list.
+- **Coupons stack.** A 20% site-wide coupon over a 50% reward leaves the customer
+  paying 40% of list, as it would on any reduced price. This follows from where
+  the pricing hook sits rather than from a test — the unit stubs have no coupon
+  support — so treat it as expected rather than verified.
+- **A discounted reward has taxable value.** Unlike a free one it contributes to
+  the order subtotal, so it counts toward free-shipping thresholds by value as
+  well as by weight.
 
 ## Project layout
 

@@ -169,6 +169,22 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/blocks.test.mjs
 
+      # Runs second, and only after the free path has been proven, because it
+      # rewrites the seeded offer in place rather than rebuilding the store.
+      - name: Switch the offer to a percentage discount
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          $C wp eval-file /integration/set-discount.php | tail -1 | tr -d '\r'
+
+      - name: Run the discounted reward integration test
+        env:
+          PAID_ID: ${{ steps.seed.outputs.paid }}
+          GIFT_ID: ${{ steps.seed.outputs.gift }}
+          GIFT_PRICE: 10
+          DISCOUNT_PERCENT: 50
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: node tests/integration/discount.test.mjs
+
       - name: Container logs on failure
         if: failure()
         run: docker compose -f tests/integration/docker-compose.yml logs --tail=120

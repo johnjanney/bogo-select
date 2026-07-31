@@ -9,6 +9,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The reward can be discounted rather than only given away** (`DECISION.md`
+  D-016, answering `OPEN-QUESTIONS.md` Q-008). "Buy 2, get 1 at 50% off" is now
+  as configurable as "get 1 free", through a *Reward price* control on the
+  settings screen and a percentage field beside it. Two new settings keys carry
+  it, `get_discount_type` and `get_discount_value`, both defaulting to the free
+  behaviour — an option row saved before this release reads back as a free gift,
+  so nothing changes for an existing store until someone changes it.
+
+  The reward's price is worked out from a product loaded fresh on every pricing
+  pass rather than from the cart line's own product object. WooCommerce
+  recalculates totals more than once in some requests, and setting a price to
+  zero survives that where taking half off does not: reading back its own output
+  would compound the discount to a quarter, then an eighth. The cost of the
+  approach is that a price another plugin set on the cart item is overwritten
+  rather than discounted, which matters to stores running dynamic pricing.
+
+  The discount comes off the effective selling price, so a reward already on
+  sale is discounted from its sale price. Coupons still apply on top, as they do
+  to any reduced price — a 20% coupon over a 50% reward leaves the customer
+  paying 40% of list. That follows from where the pricing hook sits rather than
+  from a test; the unit stubs have no coupon support.
+
+  Fixed-amount discounts were deliberately left out. A percentage is linear, so
+  it needs no clamping against negative prices and raises no per-unit versus
+  per-line question; "$5 off" can be added later on the same field.
+
+- **An integration scenario for the discounted reward.** The block job now
+  switches the seeded store to 50% off and runs a second browser pass, asserting
+  through the Store API that WooCommerce charges the discounted figure, that it
+  was not applied twice, and that the cart says "Discounted item" where it used
+  to say "Free gift".
+
 - **An automated WordPress + WooCommerce integration job** (`CODEX-REVIEW.md`
   M-02). CI now installs the built zip into a real WordPress with WooCommerce —
   the compatibility floor (9.9.5) and whatever is `latest` — seeds a store, and
@@ -27,6 +59,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   Classic cart and checkout, stock reduction, and order placement remain manual
   (BRIEF.md §8.6).
+
+### Changed
+
+- **Customer-facing wording follows the offer instead of assuming it is free.**
+  Roughly twenty strings across the cart, chooser, notices, and block metadata
+  ask the engine what the reward costs rather than hardcoding "free". Every one
+  of them is byte-identical to the previous wording while the reward is free, so
+  a store that never configures a discount sees no change at all.
+
+- **Order lines record the offer that produced them.** A hidden
+  `_bogo_select_discount` meta stores `free` or `percent:50` as it stood when
+  the order was placed, because the settings can move afterwards and an order
+  has to be able to explain its own pricing. The existing `_bogo_select_free`
+  flag keeps its name and value on discounted lines — it is a persisted key that
+  existing reports query, and now marks a line as the offer's rather than
+  claiming it was free.
 
 ## [1.2.1] — 2026-07-31
 
