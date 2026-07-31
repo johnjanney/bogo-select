@@ -194,8 +194,11 @@ Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
 
 - One offer at a time; offers do not stack.
 - Product IDs only — no category, tag, or attribute scoping.
-- Variable products cannot be gifts (an ambiguous "one free t-shirt" has no size);
-  they remain eligible on the Buy side, matched by variation ID or parent ID.
+- Variable products can be rewards: list the product and the customer picks the
+  variation in the chooser, or list one variation to pin the reward to it.
+  Grouped and external products cannot, nor can a variation that leaves an
+  attribute set to "Any" — it would still need a choice. On the Buy side a
+  variation has always counted, matched by its own ID or its parent's.
 - The Cart and Checkout **blocks** are covered by an automated integration job: CI
   installs the built zip into a real WordPress with WooCommerce (the compatibility
   floor and the current release) and drives both blocks in a headless browser.

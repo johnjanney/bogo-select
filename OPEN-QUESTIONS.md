@@ -23,49 +23,6 @@ needs a per-product counting mode; it is a small change but changes who qualifie
 
 ---
 
-### Q-003 — Should variable products be giftable?
-
-**Raised:** 2026-07-30
-
-Variable products are currently excluded from the Get list (`DECISION.md` D-006)
-because "one free t-shirt" does not say which size. Trying to add one to the Get
-list produces a warning naming what was stripped.
-
-**Updated 2026-07-31.** Raised again from the storefront — variable is the usual
-product type for size and colour ranges, so excluding it excludes a large share
-of what a store would want to give away. The code was surveyed to size the work.
-
-The exclusion is enforced in three places: runtime eligibility
-(`includes/class-bogo-engine.php:180`), the settings sanitizer
-(`includes/class-bogo-admin.php:86`), and the chooser queries, which are pinned
-to `type => 'simple'` (`includes/class-bogo-engine.php:474` and `:585`). Lifting
-those checks is not the substance of the work. A gift is identified by a single
-product ID everywhere it travels — the engine, the AJAX and Store API endpoints,
-the cart line, and the rendered cards — and a variation cannot be named that way,
-because `$cart_item['product_id']` on a variation line holds the parent. Any
-route to variable gifts therefore starts by widening that identity to a
-`(product_id, variation_id, attributes)` tuple. Stock accounting is the exception
-and already handles variations correctly (`stock_demand()` matches on
-`get_stock_managed_by_id()`).
-
-Two shapes are available. **A:** the admin lists specific variations, so "a free
-small red t-shirt" is unambiguous and no new storefront UI is needed. **B:** the
-admin lists the variable parent and the customer picks the variation in the
-chooser, which is what a size-and-colour gift really wants; it needs A's identity
-work first, plus a per-card variation selector and per-variation availability.
-
-**Working assumption:** gifts are simple products only, unchanged. A is a
-prerequisite for B, so the tuple refactor is the first move under either.
-
-**Needed:** whether the store wants to name the exact variation it is giving
-away (A) or let the customer choose (B). Related decisions if this proceeds:
-whether variations may appear in the unfiltered "All Products" gift scope — they
-should not, or a store with fifty variable products renders a thousand cards —
-and how to treat variations with an "any" attribute value, which are ambiguous
-in the same way D-006 objects to. D-006 would be superseded rather than amended.
-
----
-
 ### Q-004 — Tax and shipping treatment of the free item
 
 **Raised:** 2026-07-30
@@ -183,3 +140,37 @@ off" can be added later on the same field.
 The one thing this unsettles rather than settles is Q-004: a discounted reward
 carries real tax and real subtotal, so it counts toward free-shipping thresholds
 by value as well as weight.
+
+---
+
+### Q-003 — Should variable products be giftable? — **Answered 2026-07-31**
+
+**Answer:** yes, and the answer to "which size?" is to ask. The Get list may hold
+a variable product, in which case the chooser offers its variations and the
+customer picks one, or a single variation, which pins the reward to that exact
+thing. See `DECISION.md` D-017, which supersedes D-006.
+
+The Buy side already handled variable products and needed no change — verified by
+running it rather than reading it: three units of a variation count as three
+under Buy = All Products, under a Buy list naming the parent, and under one
+naming the variation. The product-type filter that produced the original warning
+only ever touched the Get list.
+
+The substance of the work was not the type check but the reward's identity. A
+variation's cart line stores its parent in `product_id`, so a single integer
+cannot tell two variations of one product apart; a reward is now a
+`(product_id, variation_id)` pair, and eligibility splits into whether something
+may be offered and whether it may be awarded. A variable product is only ever the
+first — it names a product, not a thing.
+
+A variable product renders as one card with a flat list of its variations rather
+than a dropdown per attribute, so the chooser can never offer a combination that
+does not exist, and each option carries its own availability. The card's price
+quotes a variation, because a variable product's own price is the low end of a
+range and need not match any of them.
+
+Two things a store should know. A variation that leaves an attribute set to "Any"
+is not offerable, because it would still need a choice — the ambiguity D-006
+objected to, surviving in that one case. And variations that share a parent's
+stock pool compete with each other, so choosing one can make another unavailable;
+the reason is shown against the option rather than left to be guessed at.

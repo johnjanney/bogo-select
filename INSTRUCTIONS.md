@@ -112,10 +112,16 @@ customer for another gift.
 
 Notes on the Get list:
 
-- **Variable products can't be gifts.** "One free t-shirt" doesn't say which size,
-  so variable products — and their individual variations, and grouped and external
-  products — are filtered out of the chooser and removed from the list when you
-  save. To give away a specific variation, list it as its own simple product.
+- **Variable products can be rewards, and the customer picks the option.** Add the
+  variable product and its card carries a dropdown of every variation that can be
+  given, each with its price and, where it can't, the reason. Add one variation
+  instead and the reward is pinned to it, with no choice shown. Grouped and
+  external products are still filtered out and removed when you save, as is a
+  variation left set to "Any" for one of its attributes — that would still need a
+  choice making.
+- **Variations that share their parent's stock compete with each other.** If Small
+  and Large draw on one stock record, choosing Small can leave Large unavailable.
+  The dropdown says so against the option rather than leaving you to work it out.
 - **Out-of-stock products are shown but not selectable.** If you award 8 free units
   and only 5 are in stock, that product is marked unavailable — the customer isn't
   given a partial gift. Units of the same product already in the cart count against

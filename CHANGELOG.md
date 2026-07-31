@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Variable products can be rewards, with the customer choosing the variation**
+  (`DECISION.md` D-017, which supersedes D-006 and answers `OPEN-QUESTIONS.md`
+  Q-003). Add a variable product to the Get list and its card carries a dropdown
+  of every variation that can be given, each with its own price and, where it
+  cannot, the reason. Add a single variation instead and the reward is pinned to
+  it with no choice shown. The Buy side already counted variations and is
+  unchanged.
+
+  D-006 refused these because "one free t-shirt" does not say which size. The
+  answer turned out to be to ask, which is what a chooser exists to do. Its
+  reasoning survives for grouped and external products, and for a variation that
+  leaves an attribute set to "Any" — that still needs a choice making, so it is
+  not offered.
+
+  The card is one card per product, never one per variation, so a catalogue of
+  fifty variable products stays fifty cards. It quotes a variation rather than
+  the parent, whose price is the low end of a range and need not match any of
+  them. Where variations share a parent's stock record they compete with each
+  other, and the dropdown says so against the option rather than leaving the
+  customer to work it out.
+
+  Internally a reward is no longer one product ID but a product and variation
+  pair, because a variation's cart line stores its parent in `product_id` and the
+  two are otherwise indistinguishable. The Store API reports both, additively.
+
+- **An integration scenario for the variable reward.** The block job seeds a
+  variable product priced differently per variation, chooses one through the
+  Store API, and asserts the line is charged from the chosen variation rather
+  than the parent's range, that the parent alone is refused, and that the cart
+  renders one selector listing both options.
+
 - **The reward can be discounted rather than only given away** (`DECISION.md`
   D-016, answering `OPEN-QUESTIONS.md` Q-008). "Buy 2, get 1 at 50% off" is now
   as configurable as "get 1 free", through a *Reward price* control on the

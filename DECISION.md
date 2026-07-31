@@ -122,6 +122,11 @@ likely to generate support tickets and wrong shipments.
 distinct simple product, or this can be extended to variation-level selection.
 See `OPEN-QUESTIONS.md` Q-003.
 
+**Superseded 2026-07-31 by D-017.** The ambiguity this entry objected to is now
+resolved by asking the customer rather than by refusing the product. Its
+reasoning survives unchanged for grouped and external products, and for
+variations that leave an attribute set to "Any".
+
 ---
 
 ## D-007 — Gift quantity locked in the cart
@@ -391,3 +396,41 @@ WooCommerce's normal treatment of a reduced price, and is left alone.
 A discounted reward also carries real tax and real subtotal, unlike a free one, so
 it counts toward free-shipping thresholds through value as well as weight. See
 `OPEN-QUESTIONS.md` Q-004, which assumed the reward was always free.
+
+---
+
+## D-017 — Variable products are offered, and the customer picks the variation
+
+**Date:** 2026-07-31 · **Status:** Accepted · **Supersedes:** D-006
+
+**Decision.** The Get list may hold a variable product, in which case the chooser
+offers its variations and the customer picks one, or a single variation, which
+pins the reward to that exact thing with no choice shown. A variable product is
+presented as one card carrying a flat list of its variations rather than one
+dropdown per attribute. Variations are never enumerated by scope: a variation
+reaches the chooser only by being listed individually. Grouped and external
+products remain ineligible, as do variations that leave an attribute set to
+"Any".
+
+**Why.** Variable is the usual product type for size and colour ranges, so
+excluding it excluded much of what a store would want to give away. D-006 refused
+these because "one free t-shirt" does not say which size — the answer is to ask,
+which is what a chooser already exists to do. A flat list of variations was
+preferred over per-attribute dropdowns because the latter needs WooCommerce's
+variation-matching JavaScript inside a cart-page card and can reach a
+combination that does not exist; a list cannot offer what is not there, and it
+gives per-option availability for free.
+
+**Consequence.** A reward is no longer named by one integer. It is a
+`(product_id, variation_id)` pair, because a variation's cart line stores its
+parent in `product_id` and the two are indistinguishable without it. Eligibility
+splits accordingly into whether something may be offered and whether it may be
+awarded, and a variable parent is only ever the first.
+
+A card's availability becomes an aggregate — it stands while any one variation
+can be given — and its price quotes a variation rather than the parent, whose
+price is the low end of a range and need not match any of them. Variations that
+share a parent's stock pool compete with each other, so choosing one can make
+another unavailable; the per-option reasons are what make that legible rather
+than puzzling. The discount in D-016 composes without change, applying to the
+chosen variation's own price.
