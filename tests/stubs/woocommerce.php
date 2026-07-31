@@ -224,6 +224,13 @@ class WC_Cart {
 	/**
 	 * Put a line in the cart.
 	 *
+	 * The product object is cloned, because WooCommerce gives every cart line its
+	 * own instance — one built per line from the data store, not the catalogue
+	 * object itself. Sharing it here would let code that writes to a line's
+	 * product (BOGO_Select_Cart::set_reward_price(), which sets the reward price)
+	 * appear to change the catalogue, so a second pass would read back its own
+	 * output. Production never behaves that way; the stub must not either.
+	 *
 	 * @param string $key  Cart item key.
 	 * @param array  $item Cart item.
 	 * @return string The key.
@@ -239,7 +246,17 @@ class WC_Cart {
 		);
 
 		if ( ! isset( $item['data'] ) ) {
-			$item['data'] = wc_get_product( (int) $item['product_id'] );
+			// The variation holds the line's own product where there is one. Tests
+			// that use a bare variation ID with no product behind it — checking
+			// that a variation qualifies through its parent — fall back to the
+			// parent rather than ending up with a line that has no product at all.
+			$product = $item['variation_id'] ? wc_get_product( (int) $item['variation_id'] ) : false;
+
+			if ( ! $product ) {
+				$product = wc_get_product( (int) $item['product_id'] );
+			}
+
+			$item['data'] = $product ? clone $product : $product;
 		}
 
 		$this->items[ $key ] = $item;
@@ -611,14 +628,28 @@ function wc_get_notices( $type = '' ) {
 /**
  * Display price for a quantity.
  *
+ * `price` overrides the product's own price, which is how WooCommerce is asked to
+ * render a figure the product does not itself hold — a discounted reward line,
+ * for instance — while still applying the store's tax display rules.
+ *
  * @param WC_Product $product Product.
- * @param array      $args    Optional 'qty'.
+ * @param array      $args    Optional 'qty' and 'price'.
  * @return float
  */
 function wc_get_price_to_display( $product, $args = array() ) {
-	$qty = isset( $args['qty'] ) ? (int) $args['qty'] : 1;
+	$qty   = isset( $args['qty'] ) ? (int) $args['qty'] : 1;
+	$price = isset( $args['price'] ) ? (float) $args['price'] : (float) $product->get_price();
 
-	return $product->get_price() * $qty;
+	return $price * $qty;
+}
+
+/**
+ * How many decimal places prices are stored and rounded to.
+ *
+ * @return int
+ */
+function wc_get_price_decimals() {
+	return 2;
 }
 
 /**
