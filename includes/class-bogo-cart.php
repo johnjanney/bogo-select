@@ -121,11 +121,23 @@ class BOGO_Select_Cart {
 	 *               free until the next validation pass removes it.
 	 */
 	protected static function base_price( $cart_item ) {
-		$id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) $cart_item['product_id'];
-
-		$product = wc_get_product( $id );
+		$product = self::line_product( $cart_item );
 
 		return $product ? (float) $product->get_price() : 0.0;
+	}
+
+	/**
+	 * The catalogue product behind a cart line.
+	 *
+	 * The variation where there is one, since that is what carries the price.
+	 *
+	 * @param array $cart_item Cart item.
+	 * @return WC_Product|false
+	 */
+	protected static function line_product( $cart_item ) {
+		$id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) $cart_item['product_id'];
+
+		return wc_get_product( $id );
 	}
 
 	/**
@@ -183,7 +195,14 @@ class BOGO_Select_Cart {
 				$cart->remove_cart_item( $duplicate );
 			}
 
-			$this->notice( __( 'Duplicate free gift lines were removed from your cart. Only one gift is awarded per cart.', 'bogo-select' ) );
+			$this->notice(
+				sprintf(
+					/* translators: 1 and 2: what the reward is called, e.g. "free gift". */
+					__( 'Duplicate %1$s lines were removed from your cart. Only one %2$s is awarded per cart.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun(),
+					BOGO_Select_Engine::reward_noun()
+				)
+			);
 		}
 
 		$cart_item = $cart->get_cart_item( $key );
@@ -195,19 +214,43 @@ class BOGO_Select_Cart {
 		$product = wc_get_product( (int) $cart_item['product_id'] );
 
 		if ( ! BOGO_Select_Engine::is_active() ) {
-			$this->drop( $cart, $key, __( 'Your free gift was removed because the promotion is no longer running.', 'bogo-select' ) );
+			$this->drop(
+				$cart,
+				$key,
+				sprintf(
+					/* translators: %s: what the reward is called, e.g. "free gift". */
+					__( 'Your %s was removed because the promotion is no longer running.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun()
+				)
+			);
 			return;
 		}
 
 		if ( ! $product || ! BOGO_Select_Engine::is_get_eligible( (int) $cart_item['product_id'] ) ) {
-			$this->drop( $cart, $key, __( 'Your free gift was removed because it is no longer part of the promotion.', 'bogo-select' ) );
+			$this->drop(
+				$cart,
+				$key,
+				sprintf(
+					/* translators: %s: what the reward is called, e.g. "free gift". */
+					__( 'Your %s was removed because it is no longer part of the promotion.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun()
+				)
+			);
 			return;
 		}
 
 		$earned = BOGO_Select_Engine::reward_quantity_for_cart( $cart );
 
 		if ( $earned < 1 ) {
-			$this->drop( $cart, $key, __( 'Your free gift was removed because your cart no longer qualifies.', 'bogo-select' ) );
+			$this->drop(
+				$cart,
+				$key,
+				sprintf(
+					/* translators: %s: what the reward is called, e.g. "free gift". */
+					__( 'Your %s was removed because your cart no longer qualifies.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun()
+				)
+			);
 			return;
 		}
 
@@ -221,8 +264,9 @@ class BOGO_Select_Cart {
 				$cart,
 				$key,
 				sprintf(
-					/* translators: 1: product name, 2: reason. */
-					__( 'Your free gift (%1$s) was removed: %2$s.', 'bogo-select' ),
+					/* translators: 1: what the reward is called, 2: product name, 3: reason. */
+					__( 'Your %1$s (%2$s) was removed: %3$s.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun(),
 					$product->get_name(),
 					$reason
 				)
@@ -236,8 +280,9 @@ class BOGO_Select_Cart {
 			$cart->set_quantity( $key, $earned, false );
 			$this->notice(
 				sprintf(
-					/* translators: %d: new quantity. */
-					__( 'Your free gift quantity was updated to %d.', 'bogo-select' ),
+					/* translators: 1: what the reward is called, 2: new quantity. */
+					__( 'Your %1$s quantity was updated to %2$d.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun(),
 					$earned
 				)
 			);
@@ -267,7 +312,7 @@ class BOGO_Select_Cart {
 	}
 
 	/**
-	 * Append a "Free (BOGO)" badge to the gift's product name.
+	 * Append a "Free (BOGO)" or "50% off (BOGO)" badge to the reward's name.
 	 *
 	 * @param string $name      Product name HTML.
 	 * @param array  $cart_item Cart item.
@@ -281,12 +326,18 @@ class BOGO_Select_Cart {
 
 		return $name . sprintf(
 			' <span class="bogo-select-badge">%s</span>',
-			esc_html__( 'Free (BOGO)', 'bogo-select' )
+			esc_html(
+				sprintf(
+					/* translators: %s: what the reward costs, e.g. "Free" or "50% off". */
+					__( '%s (BOGO)', 'bogo-select' ),
+					BOGO_Select_Engine::reward_label()
+				)
+			)
 		);
 	}
 
 	/**
-	 * Show the gift's unit price as free, with the usual price struck through.
+	 * Show the gift's unit price as the offer prices it, usual price struck through.
 	 *
 	 * @param string $price     Price HTML.
 	 * @param array  $cart_item Cart item.
@@ -298,11 +349,11 @@ class BOGO_Select_Cart {
 			return $price;
 		}
 
-		return $this->free_markup( $cart_item, 1 );
+		return $this->reward_markup( $cart_item, 1 );
 	}
 
 	/**
-	 * Show the gift's line subtotal as free.
+	 * Show the gift's line subtotal as the offer prices it.
 	 *
 	 * The struck-through figure covers the whole line, not one unit — eight $10
 	 * gifts strike through $80.
@@ -319,27 +370,46 @@ class BOGO_Select_Cart {
 
 		$qty = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
 
-		return $this->free_markup( $cart_item, $qty );
+		return $this->reward_markup( $cart_item, $qty );
 	}
 
 	/**
-	 * "Free", preceded by the normal price for the given number of units.
+	 * What the reward costs, preceded by what it would have cost.
+	 *
+	 * "Free" when the offer gives it away, the discounted figure otherwise. That
+	 * figure goes through wc_get_price_to_display() with an explicit price, so a
+	 * tax-inclusive store shows a tax-inclusive number — multiplying the raw
+	 * price here would not.
 	 *
 	 * @param array $cart_item Cart item.
 	 * @param int   $qty       Units the displayed price should cover.
 	 * @return string
 	 */
-	protected function free_markup( $cart_item, $qty ) {
-		$product = wc_get_product( (int) $cart_item['product_id'] );
+	protected function reward_markup( $cart_item, $qty ) {
+		$product = self::line_product( $cart_item );
 		$regular = $product ? wc_get_price_to_display( $product, array( 'qty' => $qty ) ) : 0;
 
-		$free = '<span class="bogo-select-free-price">' . esc_html__( 'Free', 'bogo-select' ) . '</span>';
-
-		if ( $regular > 0 ) {
-			return '<del aria-hidden="true">' . wc_price( $regular ) . '</del> ' . $free;
+		if ( ! $product || BOGO_Select_Engine::is_free_reward() ) {
+			$now = esc_html__( 'Free', 'bogo-select' );
+		} else {
+			$now = wc_price(
+				wc_get_price_to_display(
+					$product,
+					array(
+						'qty'   => $qty,
+						'price' => BOGO_Select_Engine::reward_price( $product->get_price() ),
+					)
+				)
+			);
 		}
 
-		return $free;
+		$now = '<span class="bogo-select-free-price">' . $now . '</span>';
+
+		if ( $regular > 0 ) {
+			return '<del aria-hidden="true">' . wc_price( $regular ) . '</del> ' . $now;
+		}
+
+		return $now;
 	}
 
 	/**
@@ -359,11 +429,9 @@ class BOGO_Select_Cart {
 		$item->add_meta_data( '_bogo_select_free', 'yes', true );
 
 		// Visible label for the admin order screen, emails, and packing slips.
-		$item->add_meta_data(
-			__( 'Free gift', 'bogo-select' ),
-			__( 'BOGO promotion', 'bogo-select' ),
-			true
-		);
+		$meta = BOGO_Select_Engine::reward_meta();
+
+		$item->add_meta_data( $meta['label'], $meta['value'], true );
 	}
 
 	/**

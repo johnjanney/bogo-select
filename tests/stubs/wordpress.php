@@ -183,6 +183,20 @@ function _n( $single, $plural, $number, $domain = null ) { // phpcs:ignore
 }
 
 /**
+ * Format a number for display.
+ *
+ * The real one applies the site's locale separators; the tests only care that
+ * the decimal places come out right, so this uses the English defaults.
+ *
+ * @param float $number   Number.
+ * @param int   $decimals Decimal places.
+ * @return string
+ */
+function number_format_i18n( $number, $decimals = 0 ) {
+	return number_format( (float) $number, (int) $decimals );
+}
+
+/**
  * Pass-through escaped translation.
  *
  * @param string $text   Text.

@@ -282,8 +282,9 @@ class BOGO_Select_Blocks {
 			return $item_data;
 		}
 
-		$label = __( 'Free gift', 'bogo-select' );
-		$value = __( 'BOGO promotion', 'bogo-select' );
+		$meta  = BOGO_Select_Engine::reward_meta();
+		$label = $meta['label'];
+		$value = $meta['value'];
 
 		$item_data[] = array(
 			'key'     => $label,

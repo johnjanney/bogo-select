@@ -232,6 +232,130 @@ class DiscountPricingTest extends TestCase {
 		$this->assertSame( 50.0, (float) $this->cart()->get_cart_item( 'gift' )['data']->get_price() );
 	}
 
+	/**
+	 * Configure a percentage offer.
+	 *
+	 * @param float $percent Discount.
+	 */
+	protected function discount_of( $percent ) {
+		$this->settings(
+			array(
+				'get_discount_type'  => 'percent',
+				'get_discount_value' => $percent,
+			)
+		);
+	}
+
+	public function test_the_free_wording_is_unchanged() {
+		// These strings shipped before discounts existed and are asserted verbatim
+		// by BlocksTest and the block integration job. An unconfigured store must
+		// read exactly as it always did.
+		$this->assertSame( 'Free', BOGO_Select_Engine::reward_label() );
+		$this->assertSame( 'free', BOGO_Select_Engine::reward_phrase() );
+		$this->assertSame( 'free gift', BOGO_Select_Engine::reward_noun() );
+		$this->assertSame(
+			array(
+				'label' => 'Free gift',
+				'value' => 'BOGO promotion',
+			),
+			BOGO_Select_Engine::reward_meta()
+		);
+	}
+
+	public function test_a_discount_is_worded_as_a_percentage() {
+		$this->discount_of( 50 );
+
+		$this->assertSame( '50% off', BOGO_Select_Engine::reward_label() );
+		$this->assertSame( 'at 50% off', BOGO_Select_Engine::reward_phrase() );
+		$this->assertSame( 'discounted item', BOGO_Select_Engine::reward_noun() );
+		$this->assertSame(
+			array(
+				'label' => 'Discounted item',
+				'value' => '50% off — BOGO promotion',
+			),
+			BOGO_Select_Engine::reward_meta()
+		);
+	}
+
+	public function test_percentages_carry_only_the_decimals_they_need() {
+		$this->discount_of( 50 );
+		$this->assertSame( '50% off', BOGO_Select_Engine::reward_label() );
+
+		$this->discount_of( 12.5 );
+		$this->assertSame( '12.5% off', BOGO_Select_Engine::reward_label() );
+
+		$this->discount_of( 33.33 );
+		$this->assertSame( '33.33% off', BOGO_Select_Engine::reward_label() );
+	}
+
+	public function test_the_stock_message_describes_the_units_correctly() {
+		$product = $this->product(
+			20,
+			array(
+				'managing_stock' => true,
+				'stock_quantity' => 5,
+			)
+		);
+
+		$this->assertSame(
+			'Not enough stock for 6 free units',
+			BOGO_Select_Engine::unavailable_reason( $product, 6 )
+		);
+
+		$this->discount_of( 50 );
+
+		$this->assertSame(
+			'Not enough stock for 6 discounted units',
+			BOGO_Select_Engine::unavailable_reason( $product, 6 )
+		);
+	}
+
+	public function test_the_cart_badge_names_what_the_reward_costs() {
+		$this->product( 20, array( 'price' => 100.0 ) );
+		$this->add_gift_item( 'gift', 20 );
+
+		$subject   = new BOGO_Select_Cart();
+		$cart_item = $this->cart()->get_cart_item( 'gift' );
+
+		$this->assertStringContainsString( 'Free (BOGO)', $subject->label_name( 'Apple', $cart_item ) );
+
+		$this->discount_of( 50 );
+
+		$this->assertStringContainsString( '50% off (BOGO)', $subject->label_name( 'Apple', $cart_item ) );
+	}
+
+	public function test_the_cart_shows_the_discounted_price_rather_than_the_word_free() {
+		$this->discount_of( 50 );
+		$this->product( 20, array( 'price' => 100.0 ) );
+		$this->add_gift_item( 'gift', 20, 3 );
+
+		$subject   = new BOGO_Select_Cart();
+		$cart_item = $this->cart()->get_cart_item( 'gift' );
+
+		$unit = $subject->label_price( '', $cart_item );
+		$line = $subject->label_subtotal( '', $cart_item );
+
+		$this->assertStringNotContainsString( 'Free', $unit );
+		$this->assertStringContainsString( '50.00', $unit );
+		$this->assertStringContainsString( '100.00', $unit, 'the undiscounted unit price is struck through' );
+
+		// Three units, so the line is 150.00 against a struck-through 300.00.
+		$this->assertStringContainsString( '150.00', $line );
+		$this->assertStringContainsString( '300.00', $line );
+	}
+
+	public function test_a_free_reward_still_says_free_in_the_cart() {
+		$this->product( 20, array( 'price' => 100.0 ) );
+		$this->add_gift_item( 'gift', 20 );
+
+		$subject = new BOGO_Select_Cart();
+
+		$this->assertStringContainsString(
+			'Free',
+			$subject->label_price( '', $this->cart()->get_cart_item( 'gift' ) )
+		);
+	}
+
 	public function test_a_reward_line_with_no_product_is_skipped_rather_than_fatal() {
 		// No product 20 in the catalogue, so the line's 'data' is false. Pricing
 		// must step over it and leave it for the validation pass to remove; the

@@ -72,11 +72,19 @@ class BOGO_Select_Ajax {
 		$qty = BOGO_Select_Engine::reward_quantity_for_cart( $cart );
 
 		if ( $qty < 1 ) {
-			return __( 'Your cart no longer qualifies for a free gift.', 'bogo-select' );
+			return sprintf(
+				/* translators: %s: what the reward is called, e.g. "free gift". */
+				__( 'Your cart no longer qualifies for a %s.', 'bogo-select' ),
+				BOGO_Select_Engine::reward_noun()
+			);
 		}
 
 		if ( ! BOGO_Select_Engine::is_get_eligible( $product_id ) ) {
-			return __( 'That product is not available as a free gift.', 'bogo-select' );
+			return sprintf(
+				/* translators: %s: what the reward is called, e.g. "free gift". */
+				__( 'That product is not available as a %s.', 'bogo-select' ),
+				BOGO_Select_Engine::reward_noun()
+			);
 		}
 
 		$product = wc_get_product( $product_id );
@@ -204,7 +212,13 @@ class BOGO_Select_Ajax {
 		$reward_qty = BOGO_Select_Engine::reward_quantity_for_cart( $cart );
 
 		if ( $reward_qty < 1 ) {
-			$this->fail( __( 'Your cart no longer qualifies for a free gift.', 'bogo-select' ) );
+			$this->fail(
+				sprintf(
+					/* translators: %s: what the reward is called, e.g. "free gift". */
+					__( 'Your cart no longer qualifies for a %s.', 'bogo-select' ),
+					BOGO_Select_Engine::reward_noun()
+				)
+			);
 		}
 
 		$search = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
@@ -245,7 +259,11 @@ class BOGO_Select_Ajax {
 		wp_send_json_success(
 			$this->chooser_payload(
 				array(
-					'message' => __( 'Free gift removed.', 'bogo-select' ),
+					'message' => sprintf(
+						/* translators: %s: what the reward is called, e.g. "Free gift". */
+						__( '%s removed.', 'bogo-select' ),
+						BOGO_Select_Engine::reward_meta()['label']
+					),
 					'reload'  => true,
 				)
 			)
@@ -315,10 +333,11 @@ class BOGO_Select_Ajax {
 			$this->chooser_payload(
 				array(
 					'message' => sprintf(
-						/* translators: 1: quantity, 2: product name. */
-						__( '%1$d × %2$s added to your cart free of charge.', 'bogo-select' ),
+						/* translators: 1: quantity, 2: product name, 3: what it costs, e.g. "free" or "at 50% off". */
+						__( '%1$d × %2$s added to your cart %3$s.', 'bogo-select' ),
 						(int) $qty,
-						$product ? $product->get_name() : ''
+						$product ? $product->get_name() : '',
+						BOGO_Select_Engine::reward_phrase()
 					),
 					'reload'  => true,
 				)

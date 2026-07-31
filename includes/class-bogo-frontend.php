@@ -102,7 +102,11 @@ class BOGO_Select_Frontend {
 				'i18n'      => array(
 					'working' => __( 'Adding…', 'bogo-select' ),
 					'error'   => __( 'Something went wrong. Please refresh and try again.', 'bogo-select' ),
-					'confirm' => __( 'Remove your free gift?', 'bogo-select' ),
+					'confirm' => sprintf(
+						/* translators: %s: what the reward is called, e.g. "free gift". */
+						__( 'Remove your %s?', 'bogo-select' ),
+						BOGO_Select_Engine::reward_noun()
+					),
 					'loading' => __( 'Loading gifts…', 'bogo-select' ),
 					/* translators: 1: current page, 2: total pages. */
 					'pageOf'  => __( 'Page %1$d of %2$d', 'bogo-select' ),
@@ -229,15 +233,17 @@ class BOGO_Select_Frontend {
 					<?php
 					if ( $selected ) {
 						printf(
-							/* translators: %d: number of free units. */
-							esc_html__( 'You are getting %d free — pick a different gift below to change your mind.', 'bogo-select' ),
-							(int) $reward_qty
+							/* translators: 1: number of units, 2: what they cost, e.g. "free" or "at 50% off". */
+							esc_html__( 'You are getting %1$d %2$s — pick a different gift below to change your mind.', 'bogo-select' ),
+							(int) $reward_qty,
+							esc_html( BOGO_Select_Engine::reward_phrase() )
 						);
 					} else {
 						printf(
-							/* translators: 1: number of free units, 2: number of options. */
-							esc_html__( 'Your cart qualifies for %1$d free — choose 1 of %2$d options below.', 'bogo-select' ),
+							/* translators: 1: number of units, 2: what they cost, 3: number of options. */
+							esc_html__( 'Your cart qualifies for %1$d %2$s — choose 1 of %3$d options below.', 'bogo-select' ),
 							(int) $reward_qty,
+							esc_html( BOGO_Select_Engine::reward_phrase() ),
 							(int) $results['total']
 						);
 					}
@@ -343,7 +349,22 @@ class BOGO_Select_Frontend {
 						<?php if ( wc_get_price_to_display( $product ) > 0 ) : ?>
 							<del aria-hidden="true"><?php echo wp_kses_post( wc_price( wc_get_price_to_display( $product ) ) ); ?></del>
 						<?php endif; ?>
-						<strong><?php esc_html_e( 'Free', 'bogo-select' ); ?></strong>
+						<strong>
+							<?php
+							if ( BOGO_Select_Engine::is_free_reward() ) {
+								esc_html_e( 'Free', 'bogo-select' );
+							} else {
+								echo wp_kses_post(
+									wc_price(
+										wc_get_price_to_display(
+											$product,
+											array( 'price' => BOGO_Select_Engine::reward_price( $product->get_price() ) )
+										)
+									)
+								);
+							}
+							?>
+						</strong>
 					</span>
 					<?php if ( $reason && ! $is_selected ) : ?>
 						<span class="bogo-select__reason"><?php echo esc_html( $reason ); ?></span>
@@ -394,7 +415,9 @@ class BOGO_Select_Frontend {
 
 		$message = sprintf(
 			/* translators: 1: opening link tag, 2: closing link tag. */
-			esc_html__( 'You have unlocked a free gift. %1$sChoose it in your cart%2$s.', 'bogo-select' ),
+			/* translators: 1: what the reward is called, 2: opening link tag, 3: closing link tag. */
+			esc_html__( 'You have unlocked a %1$s. %2$sChoose it in your cart%3$s.', 'bogo-select' ),
+			esc_html( BOGO_Select_Engine::reward_noun() ),
 			'<a href="' . esc_url( wc_get_cart_url() ) . '">',
 			'</a>'
 		);

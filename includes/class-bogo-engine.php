@@ -206,6 +206,121 @@ class BOGO_Select_Engine {
 		return self::discount_factor() <= 0.0;
 	}
 
+	/*
+	 * How the offer is worded.
+	 *
+	 * Every customer-facing string that used to hardcode "free" asks one of these
+	 * instead, so changing the vocabulary is one edit rather than twenty. The
+	 * free wording is byte-identical to what shipped before discounts existed —
+	 * an unconfigured store reads exactly as it always did.
+	 *
+	 * Note that these return strings containing a literal "%" and so must be
+	 * passed to sprintf() as arguments, never used as a format.
+	 */
+
+	/**
+	 * What the reward costs, as a label. "Free" or "50% off".
+	 *
+	 * @return string
+	 */
+	public static function reward_label() {
+		if ( self::is_free_reward() ) {
+			return __( 'Free', 'bogo-select' );
+		}
+
+		return sprintf(
+			/* translators: %s: a discount percentage, already formatted, e.g. "50". */
+			__( '%s%% off', 'bogo-select' ),
+			self::format_percent( BOGO_Select_Settings::get( 'get_discount_value' ) )
+		);
+	}
+
+	/**
+	 * The same thing mid-sentence. "free" or "at 50% off".
+	 *
+	 * @return string
+	 */
+	public static function reward_phrase() {
+		if ( self::is_free_reward() ) {
+			return __( 'free', 'bogo-select' );
+		}
+
+		return sprintf(
+			/* translators: %s: a discount percentage, already formatted, e.g. "50". */
+			__( 'at %s%% off', 'bogo-select' ),
+			self::format_percent( BOGO_Select_Settings::get( 'get_discount_value' ) )
+		);
+	}
+
+	/**
+	 * What to call the reward itself. "free gift" or "discounted item".
+	 *
+	 * @return string
+	 */
+	public static function reward_noun() {
+		return self::is_free_reward()
+			? __( 'free gift', 'bogo-select' )
+			: __( 'discounted item', 'bogo-select' );
+	}
+
+	/**
+	 * How to describe the reward's units. "free" or "discounted".
+	 *
+	 * Distinct from reward_phrase(), which reads "at 50% off" and cannot sit in
+	 * front of a noun.
+	 *
+	 * @return string
+	 */
+	public static function reward_adjective() {
+		return self::is_free_reward()
+			? __( 'free', 'bogo-select' )
+			: __( 'discounted', 'bogo-select' );
+	}
+
+	/**
+	 * The label and value that mark the reward on an order line and in the blocks.
+	 *
+	 * Both places show the customer the same row, so both ask here.
+	 *
+	 * @return array{label:string,value:string}
+	 */
+	public static function reward_meta() {
+		if ( self::is_free_reward() ) {
+			return array(
+				'label' => __( 'Free gift', 'bogo-select' ),
+				'value' => __( 'BOGO promotion', 'bogo-select' ),
+			);
+		}
+
+		return array(
+			'label' => __( 'Discounted item', 'bogo-select' ),
+			'value' => sprintf(
+				/* translators: %s: what the reward costs, e.g. "50% off". */
+				__( '%s — BOGO promotion', 'bogo-select' ),
+				self::reward_label()
+			),
+		);
+	}
+
+	/**
+	 * A percentage with only the decimal places it needs.
+	 *
+	 * 50 reads as "50", not "50.00"; 12.5 keeps its half.
+	 *
+	 * @param mixed $percent Raw percentage.
+	 * @return string
+	 */
+	protected static function format_percent( $percent ) {
+		$percent  = (float) $percent;
+		$decimals = 0;
+
+		if ( round( $percent, 2 ) !== round( $percent ) ) {
+			$decimals = round( $percent, 2 ) === round( $percent, 1 ) ? 1 : 2;
+		}
+
+		return number_format_i18n( $percent, $decimals );
+	}
+
 	/**
 	 * Whether a product may be offered as a gift.
 	 *
@@ -261,17 +376,19 @@ class BOGO_Select_Engine {
 		if ( $product->managing_stock() && ! $product->backorders_allowed() && ! $product->has_enough_stock( $qty + $other_demand ) ) {
 			if ( $other_demand > 0 ) {
 				return sprintf(
-					/* translators: 1: number of free units required, 2: units of the same product already in the cart. */
-					__( 'Not enough stock for %1$d free units alongside the %2$d already in your cart', 'bogo-select' ),
+					/* translators: 1: number of units required, 2: how they are described, 3: units of the same product already in the cart. */
+					__( 'Not enough stock for %1$d %2$s units alongside the %3$d already in your cart', 'bogo-select' ),
 					$qty,
+					self::reward_adjective(),
 					$other_demand
 				);
 			}
 
 			return sprintf(
-				/* translators: %d: number of units required. */
-				__( 'Not enough stock for %d free units', 'bogo-select' ),
-				$qty
+				/* translators: 1: number of units required, 2: how they are described. */
+				__( 'Not enough stock for %1$d %2$s units', 'bogo-select' ),
+				$qty,
+				self::reward_adjective()
 			);
 		}
 
