@@ -524,9 +524,14 @@ The environment was disposable and has been removed.
 
 ## Outstanding, not fixed here
 
-1. **M-02's integration job** — the matrix above was run by hand, not by CI. A
-   reproducible WP/WC harness covering classic and block surfaces across the
-   version matrix, from the ZIP, is still real infrastructure work.
+1. ~~**M-02's integration job**~~ — **done.** The block half of the matrix now
+   runs in CI (`integration` job): the built zip is installed into a real
+   WordPress with WooCommerce at the compatibility floor and at `latest`, a
+   store is seeded, and both blocks are driven in headless Chromium. It was
+   rehearsed against a live store before landing — 28/28 checks pass, and
+   reverting the injection priority to 10 fails it with 10 checks red,
+   including the checkout never leaving `is-loading`. The **classic** surfaces,
+   stock reduction, and order placement are still manual.
 2. **The hydration path**, observed live rather than reasoned about.
 3. **L-02's optional truncation signal** in the search response and UI.
 4. **L-03**, if profiling ever justifies it.

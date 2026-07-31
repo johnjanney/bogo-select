@@ -50,6 +50,9 @@ jobs:
       - name: Check build script syntax
         run: bash -n bin/build-zip.sh bin/verify-zip.sh
 
+      - name: Check integration test syntax
+        run: for f in tests/integration/*.mjs; do node --check "$f"; done
+
   package:
     name: Package parity
     runs-on: ubuntu-latest
@@ -66,3 +69,134 @@ jobs:
 
       - name: Verify the zip matches the source
         run: bash bin/verify-zip.sh
+
+  integration:
+    name: WooCommerce ${{ matrix.woocommerce }} blocks
+    runs-on: ubuntu-latest
+
+    # The unit suite structurally cannot catch a cross-plugin failure: the stubs
+    # model this plugin's callbacks, not WooCommerce's competing ones. A green
+    # 127-test suite once coexisted with a Checkout block that never rendered
+    # (CODEX-REVIEW.md H-01, M-02). This job installs the built zip into a real
+    # WordPress and drives the blocks in a real browser.
+    strategy:
+      fail-fast: false
+      matrix:
+        # Floor of the declared compatibility range, and whatever is current —
+        # so a future WooCommerce that breaks the blocks turns CI red here
+        # rather than in someone's store.
+        woocommerce: [ '9.9.5', 'latest' ]
+
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: wp
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mysqli, gd, zip
+          coverage: none
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      # Install the artifact customers get, not the worktree.
+      - name: Build the plugin zip
+        run: bash bin/build-zip.sh
+
+      - name: Install WP-CLI
+        run: |
+          curl -sSLo /usr/local/bin/wp \
+            https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
+          chmod +x /usr/local/bin/wp
+          wp --info --allow-root
+
+      - name: Install WordPress
+        run: |
+          mkdir -p "$RUNNER_TEMP/wp"
+          cd "$RUNNER_TEMP/wp"
+          wp core download --allow-root
+          wp config create --allow-root \
+            --dbname=wp --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
+          wp core install --allow-root \
+            --url=http://127.0.0.1:8080 --title="BOGO CI" \
+            --admin_user=admin --admin_password=admin \
+            --admin_email=ci@example.com --skip-email
+          wp rewrite structure '/%postname%/' --allow-root
+
+      - name: Install WooCommerce and the plugin
+        run: |
+          cd "$RUNNER_TEMP/wp"
+          if [ "${{ matrix.woocommerce }}" = "latest" ]; then
+            wp plugin install woocommerce --activate --allow-root
+          else
+            wp plugin install woocommerce --version=${{ matrix.woocommerce }} --activate --allow-root
+          fi
+          wp plugin install "$GITHUB_WORKSPACE"/dist/bogo-select-*.zip --activate --allow-root
+          wp plugin list --fields=name,status,version --allow-root
+
+      - name: Seed the store
+        id: seed
+        run: |
+          cd "$RUNNER_TEMP/wp"
+          OUT=$(wp eval-file "$GITHUB_WORKSPACE/tests/integration/setup-store.php" --allow-root | tail -1)
+          echo "seed: $OUT"
+          echo "paid=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')" >> "$GITHUB_OUTPUT"
+          echo "gift=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["gift_a"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Serve WordPress
+        env:
+          # The built-in server is single-threaded by default, so a request that
+          # triggers a loopback request to itself deadlocks. Blocks do exactly
+          # that.
+          PHP_CLI_SERVER_WORKERS: 6
+        run: |
+          cd "$RUNNER_TEMP/wp"
+          nohup wp server --host=127.0.0.1 --port=8080 --allow-root > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
+            [ "$code" = "200" ] && echo "server up" && exit 0
+            sleep 2
+          done
+          echo "server did not come up"; cat "$RUNNER_TEMP/server.log"; exit 1
+
+      - name: Install Chromium
+        run: |
+          npm init -y >/dev/null 2>&1
+          npm install --no-save playwright@1.56.0
+          npx playwright install --with-deps chromium
+
+      - name: Run the block integration test
+        env:
+          BASE: http://127.0.0.1:8080
+          PAID_ID: ${{ steps.seed.outputs.paid }}
+          GIFT_ID: ${{ steps.seed.outputs.gift }}
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: node tests/integration/blocks.test.mjs
+
+      - name: Server log on failure
+        if: failure()
+        run: tail -100 "$RUNNER_TEMP/server.log" || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blocks-${{ matrix.woocommerce }}
+          path: integration-*.png
+          if-no-files-found: ignore
+          retention-days: 7

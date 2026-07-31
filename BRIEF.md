@@ -353,10 +353,26 @@ bash bin/verify-zip.sh
 - If it fails: rebuild from the reviewed state (§8.2 — bump the version or remove
   the stale archive by hand, per §8.3), then re-verify.
 
-The check is mechanical and covers packaging only. It does **not** establish that
-the packaged plugin works against a real WordPress and WooCommerce. Block cart
-and block checkout defects have twice survived a green suite (`CODEX-REVIEW.md`
-M-02), so a release still needs the manual matrix: classic cart, classic
-checkout, Cart block, and Checkout block, on the minimum supported WooCommerce
-and on a current release, installed **from the zip** rather than run from the
-worktree.
+The check is mechanical and covers packaging only — it says nothing about whether
+the packaged plugin works.
+
+### 8.6 The block matrix runs in CI; the classic matrix does not
+
+Block cart and block checkout defects twice survived a green unit suite
+(`CODEX-REVIEW.md` M-02), so those surfaces are now covered by an automated job:
+
+- **`.github/workflows/ci.yml` → `integration`.** Installs the built zip into a
+  real WordPress with WooCommerce — the compatibility floor and whatever is
+  current — seeds a store from `tests/integration/setup-store.php`, and drives
+  both blocks in headless Chromium via `tests/integration/blocks.test.mjs`.
+- It asserts the two things the unit suite cannot: that the chooser slot never
+  takes the block root's `data-block-name`, and that each block leaves
+  `is-loading` and renders — a real checkout form, both cart lines, and the
+  visible gift label.
+- Because the matrix includes `latest`, a future WooCommerce that breaks the
+  blocks turns CI red here rather than in a customer's store.
+
+**Still manual before a release**, because CI does not cover them: classic cart
+and classic checkout, stock reduction, and placing a real order (the CI store has
+no payment gateway). The hydration path is also unexercised — WooCommerce did not
+preload a cart response in the tested configuration.

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **An automated WordPress + WooCommerce integration job** (`CODEX-REVIEW.md`
+  M-02). CI now installs the built zip into a real WordPress with WooCommerce —
+  the compatibility floor (9.9.5) and whatever is `latest` — seeds a store, and
+  drives the Cart and Checkout blocks in headless Chromium. It asserts the two
+  things the unit suite structurally cannot: that the chooser slot never takes
+  the block root's `data-block-name`, and that each block leaves `is-loading`
+  and renders — a real checkout form, both cart lines, and the visible gift
+  label, plus the Store API's zero price, locked quantity, and label members.
+
+  This is the gap that let H-01 ship: 127 unit tests passed while the Checkout
+  block was unusable. The job was rehearsed against a live store before
+  landing — 28/28 checks pass, and reverting the injection priority to 10 turns
+  10 of them red, checkout included. Because the matrix includes `latest`, a
+  future WooCommerce that breaks the blocks now fails CI rather than a customer's
+  store.
+
+  Classic cart and checkout, stock reduction, and order placement remain manual
+  (BRIEF.md §8.6).
+
 ## [1.2.1] — 2026-07-31
 
 Compatibility metadata only. No functional change: 13 of the 14 runtime files

@@ -169,8 +169,11 @@ Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
 - Product IDs only — no category, tag, or attribute scoping.
 - Variable products cannot be gifts (an ambiguous "one free t-shirt" has no size);
   they remain eligible on the Buy side, matched by variation ID or parent ID.
-- WooCommerce runtime behaviour (sessions, checkout, stock reduction) is covered by
-  manual staging tests rather than an automated integration suite.
+- The Cart and Checkout **blocks** are covered by an automated integration job: CI
+  installs the built zip into a real WordPress with WooCommerce (the compatibility
+  floor and the current release) and drives both blocks in a headless browser.
+  **Classic** cart and checkout, stock reduction, and order placement are still
+  covered by manual staging tests rather than automation.
 - Not tested against Subscriptions, Bundles, or Composite Products.
 - **Browse counts in "All Products" mode are catalogue counts, not gift counts.**
   Browsing the whole catalogue pages the catalogue and filters each page for
