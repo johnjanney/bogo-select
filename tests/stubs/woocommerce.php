@@ -39,6 +39,18 @@ class WC_Product {
 				'sold_individually' => false,
 				'stock_managed_by'  => 0,
 				'description'       => '',
+
+				/*
+				 * Variable products. A parent carries 'children'; a variation
+				 * carries 'parent_id' and the attributes that identify it.
+				 *
+				 * An attribute whose value is an empty string is WooCommerce's
+				 * "any" — the variation matches every value of that attribute
+				 * and so cannot be added without a further choice.
+				 */
+				'parent_id'         => 0,
+				'children'          => array(),
+				'attributes'        => array(),
 			),
 			$props
 		);
@@ -206,6 +218,39 @@ class WC_Product {
 	 */
 	public function get_image( $size = 'woocommerce_thumbnail' ) {
 		return '<img src="' . esc_attr( $size ) . '.png" alt="" />';
+	}
+
+	/**
+	 * The variable parent this variation belongs to.
+	 *
+	 * @return int Zero for anything that is not a variation.
+	 */
+	public function get_parent_id() {
+		return (int) $this->props['parent_id'];
+	}
+
+	/**
+	 * Variation IDs belonging to a variable parent.
+	 *
+	 * WooCommerce returns these in menu order, and returns an empty array for
+	 * every product type that cannot have children.
+	 *
+	 * @return int[]
+	 */
+	public function get_children() {
+		return array_map( 'absint', (array) $this->props['children'] );
+	}
+
+	/**
+	 * The attributes that pick this variation out of its parent.
+	 *
+	 * Keyed by attribute name. An empty value is "any", which is why the plugin
+	 * has to look at the values rather than only counting them.
+	 *
+	 * @return array<string,string>
+	 */
+	public function get_variation_attributes() {
+		return (array) $this->props['attributes'];
 	}
 }
 

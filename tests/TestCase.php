@@ -43,6 +43,55 @@ abstract class TestCase extends PHPUnitTestCase {
 	}
 
 	/**
+	 * Register a variable parent and its variations in one call.
+	 *
+	 * Each entry in $variations is keyed by variation ID and holds that
+	 * variation's own property overrides. Its `attributes` are what pick it out
+	 * of the parent; an empty attribute value is WooCommerce's "any", and is
+	 * spelled that way here so tests can build one deliberately.
+	 *
+	 * The parent's price is left to the caller. WooCommerce reports the low end
+	 * of the range there, which is not the price of any particular variation and
+	 * is why the chooser must not quote it once a variation has been chosen.
+	 *
+	 * @param int   $id         Parent product ID.
+	 * @param array $variations Variation ID => property overrides.
+	 * @param array $props      Parent property overrides.
+	 * @return WC_Product The parent.
+	 */
+	protected function variable_product( $id, array $variations = array(), array $props = array() ) {
+		$children = array();
+
+		foreach ( $variations as $variation_id => $overrides ) {
+			$children[] = (int) $variation_id;
+
+			$this->product(
+				(int) $variation_id,
+				array_merge(
+					array(
+						'name'       => 'Product ' . $id . ' - ' . $variation_id,
+						'type'       => 'variation',
+						'parent_id'  => (int) $id,
+						'attributes' => array( 'size' => 'small' ),
+					),
+					(array) $overrides
+				)
+			);
+		}
+
+		return $this->product(
+			$id,
+			array_merge(
+				array(
+					'type'     => 'variable',
+					'children' => $children,
+				),
+				$props
+			)
+		);
+	}
+
+	/**
 	 * Save plugin settings over the defaults.
 	 *
 	 * @param array $settings Settings.
