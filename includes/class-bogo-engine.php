@@ -450,29 +450,52 @@ class BOGO_Select_Engine {
 	 * @return bool
 	 */
 	public static function is_get_eligible( $product_id, $variation_id = 0 ) {
-		/*
-		 * Transitional, and removed in PLAN-VARIABLE.md step 3.
-		 *
-		 * The chooser filter, the selection endpoint, and cart validation all
-		 * still call this with one argument. A lone variation ID is genuinely
-		 * awardable — is_awardable() is right to say so — but the selection path
-		 * has nowhere to put it yet, and would hand it to add_to_cart() as though
-		 * it were a simple product, producing a line whose product_id is a
-		 * variation and whose variation_id is zero.
-		 *
-		 * Refusing it here keeps this step from changing any behaviour, which is
-		 * what the plan says it should do. The guard goes when the pair is
-		 * threaded through and those callers pass both halves.
-		 */
-		if ( ! $variation_id ) {
-			$product = wc_get_product( $product_id );
+		return self::is_awardable( $product_id, $variation_id );
+	}
 
-			if ( $product && $product->is_type( 'variation' ) ) {
-				return false;
-			}
+	/**
+	 * Settle a reward into the pair the cart stores it as.
+	 *
+	 * Callers name a reward in whichever way they hold it: a chooser card sends a
+	 * parent and a variation, a curated settings list holds bare IDs, and a cart
+	 * line already carries both. A bare variation ID is resolved to its parent
+	 * here, once, so that nothing downstream has to guess — passing a variation
+	 * to add_to_cart() as a product would build a line whose product_id is a
+	 * variation and whose variation_id is zero.
+	 *
+	 * @param int $product_id   Product ID, or a variation's own ID.
+	 * @param int $variation_id Variation ID, or 0.
+	 * @return array{0:int,1:int} Parent ID, then variation ID.
+	 */
+	public static function reward_pair( $product_id, $variation_id = 0 ) {
+		$product_id   = absint( $product_id );
+		$variation_id = absint( $variation_id );
+
+		if ( $variation_id ) {
+			return array( $product_id, $variation_id );
 		}
 
-		return self::is_awardable( $product_id, $variation_id );
+		$product = wc_get_product( $product_id );
+
+		if ( $product && $product->is_type( 'variation' ) ) {
+			return array( (int) $product->get_parent_id(), $product_id );
+		}
+
+		return array( $product_id, 0 );
+	}
+
+	/**
+	 * The product a reward pair actually refers to.
+	 *
+	 * The variation where there is one, since that is what carries the price, the
+	 * name, and the stock record.
+	 *
+	 * @param int $product_id   Parent ID.
+	 * @param int $variation_id Variation ID, or 0.
+	 * @return WC_Product|false
+	 */
+	public static function reward_product( $product_id, $variation_id = 0 ) {
+		return wc_get_product( $variation_id ? $variation_id : $product_id );
 	}
 
 	/**
@@ -1288,16 +1311,44 @@ class BOGO_Select_Engine {
 	 * @return int Zero when no gift is selected.
 	 */
 	public static function selected_product_id( $cart = null ) {
+		$cart_item = self::selected_reward_item( $cart );
+
+		return $cart_item ? (int) $cart_item['product_id'] : 0;
+	}
+
+	/**
+	 * The variation ID of the currently selected reward, if it is a variation.
+	 *
+	 * Sits beside selected_product_id() rather than replacing it: for a variation
+	 * line the cart's product_id is the parent, so the two together name the
+	 * reward and neither does on its own.
+	 *
+	 * @param WC_Cart|null $cart Cart to inspect.
+	 * @return int Zero when no reward is selected, or it is not a variation.
+	 */
+	public static function selected_variation_id( $cart = null ) {
+		$cart_item = self::selected_reward_item( $cart );
+
+		return $cart_item && ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : 0;
+	}
+
+	/**
+	 * The cart line holding the current reward.
+	 *
+	 * @param WC_Cart|null $cart Cart to inspect.
+	 * @return array|null
+	 */
+	protected static function selected_reward_item( $cart = null ) {
 		$cart = self::resolve_cart( $cart );
 		$key  = self::find_reward_key( $cart );
 
 		if ( ! $key ) {
-			return 0;
+			return null;
 		}
 
 		$cart_item = $cart->get_cart_item( $key );
 
-		return $cart_item ? (int) $cart_item['product_id'] : 0;
+		return $cart_item ? $cart_item : null;
 	}
 
 	/**
@@ -1316,10 +1367,11 @@ class BOGO_Select_Engine {
 		$reward = self::reward_quantity_for_cart( $cart );
 
 		$state = array(
-			'active'              => self::is_active(),
-			'qualifies'           => $reward > 0,
-			'reward_quantity'     => $reward,
-			'selected_product_id' => self::selected_product_id( $cart ),
+			'active'                => self::is_active(),
+			'qualifies'             => $reward > 0,
+			'reward_quantity'       => $reward,
+			'selected_product_id'   => self::selected_product_id( $cart ),
+			'selected_variation_id' => self::selected_variation_id( $cart ),
 		);
 
 		// Other lines matter too: they compete for the same stock, so a gift
@@ -1344,6 +1396,7 @@ class BOGO_Select_Engine {
 						$state['active'] ? '1' : '0',
 						(string) $state['reward_quantity'],
 						(string) $state['selected_product_id'],
+						(string) $state['selected_variation_id'],
 					),
 					$lines
 				)

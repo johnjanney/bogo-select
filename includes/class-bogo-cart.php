@@ -211,7 +211,8 @@ class BOGO_Select_Cart {
 			return;
 		}
 
-		$product = wc_get_product( (int) $cart_item['product_id'] );
+		$variation_id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : 0;
+		$product      = BOGO_Select_Engine::reward_product( (int) $cart_item['product_id'], $variation_id );
 
 		if ( ! BOGO_Select_Engine::is_active() ) {
 			$this->drop(
@@ -226,7 +227,7 @@ class BOGO_Select_Cart {
 			return;
 		}
 
-		if ( ! $product || ! BOGO_Select_Engine::is_get_eligible( (int) $cart_item['product_id'] ) ) {
+		if ( ! $product || ! BOGO_Select_Engine::is_awardable( (int) $cart_item['product_id'], $variation_id ) ) {
 			$this->drop(
 				$cart,
 				$key,

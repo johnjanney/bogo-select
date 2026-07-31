@@ -162,19 +162,33 @@ class VariableEligibilityTest extends TestCase {
 		$this->assertFalse( BOGO_Select_Engine::is_awardable( 21 ) );
 	}
 
-	public function test_the_legacy_entry_point_still_refuses_a_lone_variation() {
-		// Transitional, and removed in PLAN-VARIABLE.md step 3. The chooser filter
-		// and the selection endpoint still call is_get_eligible() with one
-		// argument and have nowhere to put a variation, so it must keep saying no
-		// until they carry the pair — even though is_awardable() rightly says yes.
+	public function test_the_legacy_entry_point_now_accepts_a_lone_variation() {
+		// The transitional guard that refused this is gone: every caller carries
+		// the pair, and reward_pair() resolves a bare variation to its parent.
 		$this->variable_product( 100, array( 101 => array() ) );
 		$this->offering( array( 101 ) );
 
 		$this->assertTrue( BOGO_Select_Engine::is_awardable( 101 ) );
-		$this->assertFalse( BOGO_Select_Engine::is_get_eligible( 101 ) );
-
-		// Named as a pair it is fine, because the caller has both halves.
+		$this->assertTrue( BOGO_Select_Engine::is_get_eligible( 101 ) );
 		$this->assertTrue( BOGO_Select_Engine::is_get_eligible( 100, 101 ) );
+	}
+
+	public function test_a_bare_variation_resolves_to_its_parent() {
+		$this->variable_product( 100, array( 101 => array() ) );
+		$this->product( 20 );
+
+		$this->assertSame( array( 100, 101 ), BOGO_Select_Engine::reward_pair( 101 ) );
+		$this->assertSame( array( 100, 101 ), BOGO_Select_Engine::reward_pair( 100, 101 ) );
+		$this->assertSame( array( 20, 0 ), BOGO_Select_Engine::reward_pair( 20 ) );
+		$this->assertSame( array( 0, 0 ), BOGO_Select_Engine::reward_pair( 0 ) );
+	}
+
+	public function test_the_reward_product_is_the_variation_where_there_is_one() {
+		$this->variable_product( 100, array( 101 => array( 'price' => 30.0 ) ), array( 'price' => 5.0 ) );
+
+		$this->assertSame( 101, BOGO_Select_Engine::reward_product( 100, 101 )->get_id() );
+		$this->assertSame( 30.0, BOGO_Select_Engine::reward_product( 100, 101 )->get_price() );
+		$this->assertSame( 100, BOGO_Select_Engine::reward_product( 100 )->get_id() );
 	}
 
 	public function test_all_products_scope_offers_variable_parents_but_not_variations() {

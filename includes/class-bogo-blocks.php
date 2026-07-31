@@ -180,7 +180,8 @@ class BOGO_Select_Blocks {
 			'active'              => (bool) $state['active'],
 			'qualifies'           => (bool) $state['qualifies'],
 			'reward_quantity'     => (int) $state['reward_quantity'],
-			'selected_product_id' => (int) $state['selected_product_id'],
+			'selected_product_id'   => (int) $state['selected_product_id'],
+			'selected_variation_id' => (int) $state['selected_variation_id'],
 			'signature'           => (string) $state['signature'],
 		);
 	}
@@ -208,7 +209,12 @@ class BOGO_Select_Blocks {
 				'readonly'    => true,
 			),
 			'selected_product_id' => array(
-				'description' => __( 'Product ID of the chosen gift, or 0.', 'bogo-select' ),
+				'description' => __( 'Product ID of the chosen reward, or 0. The parent, when a variation was chosen.', 'bogo-select' ),
+				'type'        => 'integer',
+				'readonly'    => true,
+			),
+			'selected_variation_id' => array(
+				'description' => __( 'Variation ID of the chosen reward, or 0 when it is not a variation.', 'bogo-select' ),
 				'type'        => 'integer',
 				'readonly'    => true,
 			),
@@ -240,7 +246,8 @@ class BOGO_Select_Blocks {
 		}
 
 		$action     = isset( $data['action'] ) ? sanitize_key( $data['action'] ) : '';
-		$product_id = isset( $data['product_id'] ) ? absint( $data['product_id'] ) : 0;
+		$product_id   = isset( $data['product_id'] ) ? absint( $data['product_id'] ) : 0;
+		$variation_id = isset( $data['variation_id'] ) ? absint( $data['variation_id'] ) : 0;
 
 		if ( 'remove' === $action ) {
 			BOGO_Select_Ajax::clear_gift( $cart );
@@ -252,7 +259,7 @@ class BOGO_Select_Blocks {
 			self::error( __( 'Unrecognised gift request.', 'bogo-select' ) );
 		}
 
-		$result = BOGO_Select_Ajax::select_gift( $cart, $product_id );
+		$result = BOGO_Select_Ajax::select_gift( $cart, $product_id, $variation_id );
 
 		if ( is_string( $result ) ) {
 			self::error( $result );

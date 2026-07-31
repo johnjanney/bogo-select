@@ -463,7 +463,11 @@
 		if ( chooseButton ) {
 			event.preventDefault();
 			chooseButton.textContent = settings.i18n.working;
-			mutate( 'choose', { product_id: chooseButton.getAttribute( 'data-product-id' ) } );
+			mutate( 'choose', {
+				product_id: chooseButton.getAttribute( 'data-product-id' ),
+				// Zero unless the card offers variations, which it does not yet.
+				variation_id: chooseButton.getAttribute( 'data-variation-id' ) || 0,
+			} );
 			return;
 		}
 

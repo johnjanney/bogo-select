@@ -41,15 +41,18 @@ class BOGO_Select_Ajax {
 			$this->fail( __( 'Your cart is not available. Please refresh the page.', 'bogo-select' ) );
 		}
 
-		$product_id = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+		$product_id   = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+		$variation_id = isset( $_POST['variation_id'] ) ? absint( wp_unslash( $_POST['variation_id'] ) ) : 0;
 
-		$result = self::select_gift( $cart, $product_id );
+		$result = self::select_gift( $cart, $product_id, $variation_id );
 
 		if ( is_string( $result ) ) {
 			$this->fail( $result );
 		}
 
-		$this->succeed( wc_get_product( $product_id ), (int) $result );
+		list( $product_id, $variation_id ) = BOGO_Select_Engine::reward_pair( $product_id, $variation_id );
+
+		$this->succeed( BOGO_Select_Engine::reward_product( $product_id, $variation_id ), (int) $result );
 	}
 
 	/**
@@ -58,12 +61,15 @@ class BOGO_Select_Ajax {
 	 * Shared by the AJAX endpoint and the Store API update callback, so classic
 	 * and block carts take exactly the same path through validation.
 	 *
-	 * @param WC_Cart $cart       Cart to act on.
-	 * @param int     $product_id Chosen product.
+	 * @param WC_Cart $cart         Cart to act on.
+	 * @param int     $product_id   Chosen product, or a variation's own ID.
+	 * @param int     $variation_id Chosen variation, or 0.
 	 * @return int|string Free units awarded, or a customer-facing error message.
 	 */
-	public static function select_gift( $cart, $product_id ) {
-		$product_id = absint( $product_id );
+	public static function select_gift( $cart, $product_id, $variation_id = 0 ) {
+		// Settled once, here, so everything below names the reward the same way
+		// the cart will.
+		list( $product_id, $variation_id ) = BOGO_Select_Engine::reward_pair( $product_id, $variation_id );
 
 		if ( ! BOGO_Select_Engine::is_active() ) {
 			return __( 'This promotion is no longer running.', 'bogo-select' );
@@ -79,7 +85,7 @@ class BOGO_Select_Ajax {
 			);
 		}
 
-		if ( ! BOGO_Select_Engine::is_get_eligible( $product_id ) ) {
+		if ( ! BOGO_Select_Engine::is_awardable( $product_id, $variation_id ) ) {
 			return sprintf(
 				/* translators: %s: what the reward is called, e.g. "free gift". */
 				__( 'That product is not available as a %s.', 'bogo-select' ),
@@ -87,7 +93,7 @@ class BOGO_Select_Ajax {
 			);
 		}
 
-		$product = wc_get_product( $product_id );
+		$product = BOGO_Select_Engine::reward_product( $product_id, $variation_id );
 
 		// Only one gift may exist at a time (BRIEF.md R4).
 		$existing = BOGO_Select_Engine::find_reward_key( $cart );
@@ -107,7 +113,9 @@ class BOGO_Select_Ajax {
 		if ( $existing ) {
 			$current = $cart->get_cart_item( $existing );
 
-			if ( $current && (int) $current['product_id'] === $product_id ) {
+			$current_variation = $current && ! empty( $current['variation_id'] ) ? (int) $current['variation_id'] : 0;
+
+			if ( $current && (int) $current['product_id'] === $product_id && $current_variation === $variation_id ) {
 				if ( (int) $current['quantity'] !== $qty ) {
 					$cart->set_quantity( $existing, $qty, true );
 				}
@@ -132,8 +140,8 @@ class BOGO_Select_Ajax {
 			$key = $cart->add_to_cart(
 				$product_id,
 				$qty,
-				0,
-				array(),
+				$variation_id,
+				$variation_id && $product ? (array) $product->get_variation_attributes() : array(),
 				array(
 					BOGO_Select_Engine::FLAG => true,
 				)
@@ -168,10 +176,11 @@ class BOGO_Select_Ajax {
 		/**
 		 * Fires after a customer picks a gift.
 		 *
-		 * @param int $product_id Chosen product ID.
-		 * @param int $qty        Free units awarded.
+		 * @param int $product_id   Chosen product ID. The parent, for a variation.
+		 * @param int $qty          Free units awarded.
+		 * @param int $variation_id Chosen variation ID, or 0.
 		 */
-		do_action( 'bogo_select_reward_added', $product_id, $qty );
+		do_action( 'bogo_select_reward_added', $product_id, $qty, $variation_id );
 
 		return $qty;
 	}
