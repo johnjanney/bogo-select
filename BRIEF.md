@@ -242,3 +242,36 @@ be re-installed or diffed without a rebuild.
   or delete the stale file deliberately and by hand.
 - `dist/` is excluded from git via `.gitignore`; the zips are build artefacts and
   live on disk, not in version history.
+
+### 8.4 Tag and publish the release
+
+Once the zip is built (§8.2), the version is published to GitHub so every release
+has an immutable commit and a downloadable installer.
+
+```bash
+# 1. Annotated tag on the release commit — never lightweight.
+git tag -a v<version> -m "BOGO Select for WooCommerce <version>"
+git push origin v<version>
+
+# 2. GitHub release, with the zip attached as an asset.
+gh release create v<version> dist/bogo-select-<version>.zip \
+    --verify-tag \
+    --title "BOGO Select for WooCommerce <version>" \
+    --notes-file <notes>
+```
+
+Rules:
+
+- Tag name is `v` + the version (`v1.0.0`) — the `v` prefix is in the tag only,
+  never in the plugin header or the zip filename.
+- Tags are **annotated** (`-a`), not lightweight, so the release carries a message
+  and an author date.
+- Always pass `--verify-tag` so a typo fails loudly instead of creating a stray
+  tag that points at the wrong commit.
+- Release notes are the matching `## [x.y.z]` section of `CHANGELOG.md` — that
+  section only, so the `[Unreleased]` heading never leaks into published notes —
+  prefixed with a one-line install instruction naming the attached zip.
+- Tags are never moved or force-pushed once published. A bad release is
+  superseded by the next PATCH version, not rewritten.
+- Attaching the zip to the release is what makes §8.3 durable off-machine: the
+  archive of every past version survives even if local `dist/` is lost.
