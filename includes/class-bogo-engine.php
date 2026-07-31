@@ -602,6 +602,20 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * The product types the chooser enumerates.
+	 *
+	 * Variations are absent on purpose: a variable parent stands for all of its
+	 * variations as one card, and enumerating them separately would turn fifty
+	 * variable products into a thousand (PLAN-VARIABLE.md §1). A variation
+	 * reaches the chooser only by being listed individually.
+	 *
+	 * @return string[]
+	 */
+	protected static function offerable_types() {
+		return array( 'simple', 'variable' );
+	}
+
+	/**
 	 * Why a product could never be offered as a reward, whatever the scope.
 	 *
 	 * Scope-blind on purpose: the settings screen asks this while saving the very
@@ -954,7 +968,7 @@ class BOGO_Select_Engine {
 		$results = wc_get_products(
 			array(
 				'status'   => 'publish',
-				'type'     => 'simple',
+				'type'     => self::offerable_types(),
 				'limit'    => $per_page,
 				'page'     => $page,
 				'orderby'  => 'title',
@@ -1043,10 +1057,18 @@ class BOGO_Select_Engine {
 			return null;
 		}
 
-		// Signature: term, type, include_variations, all_statuses, limit,
-		// include, exclude. Older signatures simply ignore the trailing
-		// arguments, and the caller intersects with $include regardless.
-		$ids = $store->search_products( $search, '', false, false, $limit, $include ? $include : null, null );
+		/*
+		 * Signature: term, type, include_variations, all_statuses, limit,
+		 * include, exclude. Older signatures simply ignore the trailing
+		 * arguments, and the caller intersects with $include regardless.
+		 *
+		 * Variations are searched only when the search is constrained to a
+		 * curated list, which is the only way a variation reaches the chooser.
+		 * Without this a store that pinned "Tee - Small" could never find it by
+		 * typing its name. In the All Products scope the flag stays off, so a
+		 * search there returns parents rather than every size of everything.
+		 */
+		$ids = $store->search_products( $search, '', (bool) $include, false, $limit, $include ? $include : null, null );
 
 		return array_map( 'absint', (array) $ids );
 	}
@@ -1065,7 +1087,7 @@ class BOGO_Select_Engine {
 	protected static function query_search( $search, $limit, $include ) {
 		$base = array(
 			'status' => 'publish',
-			'type'   => 'simple',
+			'type'   => self::offerable_types(),
 			'limit'  => $limit,
 			'return' => 'ids',
 		);

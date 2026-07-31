@@ -239,6 +239,54 @@ class VariableChooserTest extends TestCase {
 		$this->assertSame( 1, substr_count( $html, '<option' ) );
 	}
 
+	public function test_all_products_scope_lists_variable_parents_as_one_card_each() {
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'buy_scope' => 'all',
+				'get_scope' => 'all',
+				'buy_qty'   => 1,
+				'get_qty'   => 1,
+			)
+		);
+		$this->product( 10, array( 'name' => 'Bought thing' ) );
+		$this->product( 20, array( 'name' => 'Mug' ) );
+		$this->variable_product(
+			100,
+			array(
+				101 => array( 'name' => 'Tee - Small' ),
+				102 => array( 'name' => 'Tee - Large' ),
+			),
+			array( 'name' => 'Tee' )
+		);
+		$this->add_paid_item( 'paid', 10, 1 );
+
+		$ids = BOGO_Select_Engine::get_choice_page()['ids'];
+
+		// The parent is listed; its variations are not cards of their own.
+		$this->assertContains( 100, $ids );
+		$this->assertContains( 20, $ids );
+		$this->assertNotContains( 101, $ids );
+		$this->assertNotContains( 102, $ids );
+
+		$html = $this->grid();
+
+		// Three cards: the bought product is itself a valid reward in this scope,
+		// alongside the mug and the one card standing for the whole tee.
+		$this->assertSame( 3, substr_count( $html, '<li class=' ) );
+		$this->assertSame( 1, substr_count( $html, 'data-bogo-variation' ) );
+	}
+
+	public function test_a_pinned_variation_can_be_found_by_searching_for_it() {
+		// The search is constrained to the curated list, which is the only way a
+		// variation reaches the chooser at all, so it has to look inside it.
+		$this->offering( array( 101 => array( 'name' => 'Tee - Small' ) ), array( 'get_products' => array( 101 ) ) );
+
+		$page = BOGO_Select_Engine::get_choice_page( array( 'search' => 'Small' ) );
+
+		$this->assertContains( 101, $page['ids'] );
+	}
+
 	public function test_the_discount_applies_to_each_option() {
 		$this->offering(
 			array(
