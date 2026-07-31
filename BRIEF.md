@@ -3,6 +3,9 @@
 **Status:** v1.0.0 specification
 **Last updated:** 2026-07-30
 
+> Release rules that apply to every future update — versioning, zip builds, and
+> archive retention — are in [§8 Release process](#8-release-process-standing-requirements).
+
 ---
 
 ## 1. Purpose
@@ -182,3 +185,60 @@ and after any cart quantity update:
 | Free item priced $0 but taxed as if paid. | Price override happens before totals are calculated, so tax is computed on $0. |
 | Third-party plugins also filter cart item prices. | Price override runs at priority 20 on `woocommerce_before_calculate_totals`. |
 | Out-of-stock Get product selected. | Stock checked at selection time and again at checkout by WooCommerce's own validation. |
+
+---
+
+## 8. Release process (standing requirements)
+
+These three rules apply to **every** update of this plugin, not just v1.0.0.
+
+### 8.1 Version numbering
+
+The plugin follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html)
+— `MAJOR.MINOR.PATCH`:
+
+| Bump | When |
+|---|---|
+| **MAJOR** (`2.0.0`) | Breaking change: settings schema change requiring migration, removal or renaming of a public hook/filter, or a raised WordPress/PHP/WooCommerce minimum. |
+| **MINOR** (`1.1.0`) | New backwards-compatible functionality: a new setting, a new hook, a new customer-facing feature. |
+| **PATCH** (`1.0.1`) | Backwards-compatible bug fixes, security fixes, wording/i18n corrections, and performance work with no behaviour change. |
+
+Rules:
+
+- Documentation-only or tooling-only changes do **not** bump the version. The
+  released version number always describes the shipped plugin code.
+- The version appears in exactly **two** places and they must always agree:
+  1. the `Version:` header in `bogo-select.php`
+  2. the `BOGO_SELECT_VERSION` constant in `bogo-select.php`
+- Every version bump adds a dated section to `CHANGELOG.md` under a matching
+  `## [x.y.z] — YYYY-MM-DD` heading, with the compare/tag link references at the
+  bottom of the file updated.
+- No pre-release or build-metadata suffixes (`-beta`, `+build.5`) in released
+  builds; WordPress plugin update checks compare these poorly.
+
+### 8.2 Build a versioned zip after every update
+
+After each update that changes plugin code, produce an installable zip:
+
+```
+bash bin/build-zip.sh
+```
+
+- Output path: `dist/bogo-select-<version>.zip`, where `<version>` is read from
+  the `Version:` header in `bogo-select.php` — the filename is never typed by
+  hand, so it can never disagree with the code.
+- The archive contains a single top-level `bogo-select/` directory, which is what
+  WordPress's *Plugins → Add New → Upload Plugin* expects.
+- Excluded from the archive: `.git/`, `dist/`, `bin/`, and OS/editor cruft
+  (`.DS_Store`, `*.swp`, `Thumbs.db`).
+
+### 8.3 Never delete previous zips
+
+`dist/` is an append-only archive. Prior versions are retained so any release can
+be re-installed or diffed without a rebuild.
+
+- The build script **refuses to overwrite** an existing zip for the same version.
+  If a zip for the current version already exists, bump the version first (§8.1)
+  or delete the stale file deliberately and by hand.
+- `dist/` is excluded from git via `.gitignore`; the zips are build artefacts and
+  live on disk, not in version history.

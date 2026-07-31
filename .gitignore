@@ -1,0 +1,9 @@
+# Build artefacts — versioned plugin zips are kept on disk, not in git.
+# See BRIEF.md §8.3: previous zips are never deleted.
+/dist/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*~
