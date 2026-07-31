@@ -191,6 +191,45 @@ class VariableEligibilityTest extends TestCase {
 		$this->assertSame( 100, BOGO_Select_Engine::reward_product( 100 )->get_id() );
 	}
 
+	public function test_offerability_is_judged_without_consulting_the_scope() {
+		// The settings screen asks this while saving the very list that decides
+		// scope, so it must not consult the saved list. Nothing here is listed.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'get_scope'    => 'select',
+				'get_products' => array(),
+			)
+		);
+		$this->product( 20 );
+		$this->variable_product( 100, array( 101 => array() ) );
+
+		$this->assertSame( '', BOGO_Select_Engine::unofferable_reason( 20 ) );
+		$this->assertSame( '', BOGO_Select_Engine::unofferable_reason( 100 ) );
+		$this->assertSame( '', BOGO_Select_Engine::unofferable_reason( 101 ) );
+	}
+
+	public function test_unofferable_products_each_say_why() {
+		$this->product( 30, array( 'type' => 'grouped' ) );
+		$this->product( 31, array( 'type' => 'external' ) );
+		$this->product( 32, array( 'purchasable' => false ) );
+		$this->product( 33, array( 'type' => 'variation' ) );
+		$this->variable_product( 100, array( 101 => array( 'attributes' => array( 'size' => '' ) ) ) );
+		$this->variable_product( 200, array() );
+
+		$this->assertStringContainsString( 'grouped and external', BOGO_Select_Engine::unofferable_reason( 30 ) );
+		$this->assertStringContainsString( 'grouped and external', BOGO_Select_Engine::unofferable_reason( 31 ) );
+		$this->assertStringContainsString( 'cannot be purchased', BOGO_Select_Engine::unofferable_reason( 32 ) );
+		$this->assertStringContainsString( 'no parent product', BOGO_Select_Engine::unofferable_reason( 33 ) );
+		$this->assertStringContainsString( '"Any"', BOGO_Select_Engine::unofferable_reason( 101 ) );
+
+		// A parent whose only variation is unusable, and one with none at all.
+		$this->assertStringContainsString( 'at least one variation', BOGO_Select_Engine::unofferable_reason( 100 ) );
+		$this->assertStringContainsString( 'at least one variation', BOGO_Select_Engine::unofferable_reason( 200 ) );
+
+		$this->assertStringContainsString( 'no longer exists', BOGO_Select_Engine::unofferable_reason( 999 ) );
+	}
+
 	public function test_all_products_scope_offers_variable_parents_but_not_variations() {
 		$this->settings(
 			array(

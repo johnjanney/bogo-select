@@ -602,6 +602,47 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * Why a product could never be offered as a reward, whatever the scope.
+	 *
+	 * Scope-blind on purpose: the settings screen asks this while saving the very
+	 * list that decides scope, so consulting the saved list would judge the new
+	 * selection against the old one. Sits beside unavailable_reason(), which
+	 * answers the same shape of question about stock.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return string Empty when the product can be offered.
+	 */
+	public static function unofferable_reason( $product_id ) {
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product ) {
+			return __( 'the product no longer exists', 'bogo-select' );
+		}
+
+		if ( ! self::is_offerable_type( $product ) ) {
+			return __( 'grouped and external products cannot be given as rewards', 'bogo-select' );
+		}
+
+		if ( $product->is_type( 'variable' ) ) {
+			return self::offerable_variation_ids( $product )
+				? ''
+				: __( 'a variable product needs at least one variation that can be given', 'bogo-select' );
+		}
+
+		if ( $product->is_type( 'variation' ) ) {
+			if ( ! $product->get_parent_id() ) {
+				return __( 'a variation with no parent product cannot be added to a cart', 'bogo-select' );
+			}
+
+			if ( self::has_any_attribute( $product ) ) {
+				return __( 'a variation that leaves an option set to "Any" would still need a choice', 'bogo-select' );
+			}
+		}
+
+		return $product->is_purchasable() ? '' : __( 'the product cannot be purchased', 'bogo-select' );
+	}
+
+	/**
 	 * The variations of a parent that could be given.
 	 *
 	 * Reads each child directly rather than through

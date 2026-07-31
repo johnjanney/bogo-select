@@ -70,37 +70,44 @@ class BOGO_Select_Admin {
 	public function sanitize( $raw ) {
 		$clean = BOGO_Select_Settings::sanitize( $raw );
 
-		// Gifts must be addable without a variation choice (DECISION.md D-006).
+		// A reward has to be something the customer can actually be given. Grouped
+		// and external products never are; a variable product needs at least one
+		// usable variation; a variation must not leave an option open. The reasons
+		// come from the engine so the rule lives in one place, and are grouped so
+		// a list rejected for several different reasons says so once each.
 		$rejected = array();
 
 		$clean['get_products'] = array_values(
 			array_filter(
 				$clean['get_products'],
 				function ( $product_id ) use ( &$rejected ) {
+					$reason = BOGO_Select_Engine::unofferable_reason( $product_id );
+
+					if ( '' === $reason ) {
+						return true;
+					}
+
 					$product = wc_get_product( $product_id );
 
-					if ( ! $product ) {
-						return false;
-					}
+					$rejected[ $reason ][] = $product
+						? $product->get_name()
+						/* translators: %d: product ID. */
+						: sprintf( __( 'product %d', 'bogo-select' ), (int) $product_id );
 
-					if ( $product->is_type( 'variable' ) || $product->is_type( 'variation' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
-						$rejected[] = $product->get_name();
-						return false;
-					}
-
-					return true;
+					return false;
 				}
 			)
 		);
 
-		if ( $rejected ) {
+		foreach ( $rejected as $reason => $names ) {
 			add_settings_error(
 				BOGO_Select_Settings::OPTION,
-				'bogo_select_variable_gift',
+				'bogo_select_unofferable_gift',
 				sprintf(
-					/* translators: %s: comma-separated product names. */
-					__( 'Removed from the gift list because variable, variation, grouped, and external products cannot be given as gifts: %s.', 'bogo-select' ),
-					implode( ', ', array_map( 'sanitize_text_field', $rejected ) )
+					/* translators: 1: why they were removed, 2: comma-separated product names. */
+					__( 'Removed from the reward list (%1$s): %2$s.', 'bogo-select' ),
+					$reason,
+					implode( ', ', array_map( 'sanitize_text_field', $names ) )
 				),
 				'warning'
 			);
@@ -380,10 +387,13 @@ class BOGO_Select_Admin {
 								$o . '[get_products][]',
 								'bogo-get-products-field',
 								$s['get_products'],
-								__( 'Search for products…', 'bogo-select' )
+								__( 'Search for products or variations…', 'bogo-select' ),
+								// Offers individual variations as well as products, so a
+								// single size can be pinned as the reward.
+								'woocommerce_json_search_products_and_variations'
 							);
 							?>
-							<p class="description"><?php esc_html_e( 'Simple products only — variable, grouped, and external products, and individual variations, are removed when you save, because a gift must be addable without choosing options.', 'bogo-select' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Add a simple product, a variable product — the customer then picks the option — or one specific variation to pin the reward to it. Grouped and external products are removed when you save, as is anything that could not be given as it stands.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -418,7 +428,7 @@ class BOGO_Select_Admin {
 	 * @param int[]  $selected    Selected product IDs.
 	 * @param string $placeholder Placeholder text.
 	 */
-	protected function product_select( $name, $id, $selected, $placeholder ) {
+	protected function product_select( $name, $id, $selected, $placeholder, $action = 'woocommerce_json_search_products' ) {
 		?>
 		<select class="wc-product-search bogo-product-search"
 			multiple="multiple"
@@ -426,7 +436,7 @@ class BOGO_Select_Admin {
 			id="<?php echo esc_attr( $id ); ?>"
 			name="<?php echo esc_attr( $name ); ?>"
 			data-placeholder="<?php echo esc_attr( $placeholder ); ?>"
-			data-action="woocommerce_json_search_products">
+			data-action="<?php echo esc_attr( $action ); ?>">
 			<?php
 			foreach ( (array) $selected as $product_id ) {
 				$product = wc_get_product( $product_id );
