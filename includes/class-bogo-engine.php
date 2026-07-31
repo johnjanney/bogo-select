@@ -308,10 +308,16 @@ class BOGO_Select_Engine {
 	 * "free", or "percent:50". Written to each reward order line so the order
 	 * still explains itself after the settings move on.
 	 *
+	 * Reads the configured type rather than is_free_reward(), which is a question
+	 * about wording: it answers true for a percentage of 100, so asking it here
+	 * would record an explicit 100%-off campaign as `free` and leave reports
+	 * unable to tell one from the other. A 100% offer still *reads* as "Free"
+	 * everywhere the customer sees it (`CODEX-REVIEW.md` L-01).
+	 *
 	 * @return string
 	 */
 	public static function discount_snapshot() {
-		if ( self::is_free_reward() ) {
+		if ( 'percent' !== BOGO_Select_Settings::get( 'get_discount_type' ) ) {
 			return 'free';
 		}
 

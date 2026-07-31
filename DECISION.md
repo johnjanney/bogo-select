@@ -367,8 +367,8 @@ judged on the spot.
 **Decision.** The reward may be discounted by a percentage rather than only given
 away. The undiscounted figure it is calculated from is read from a product loaded
 fresh on every pricing pass, never from the cart line's own product object.
-Coupons stack on top of the discounted price, and rounding happens once, on the
-unit price.
+Eligible coupons stack on top of the discounted price, and rounding happens once,
+on the unit price.
 
 **Why.** `set_reward_price()` runs on `woocommerce_before_calculate_totals`, which
 WooCommerce fires more than once in some requests. Setting a price to zero is
@@ -384,7 +384,8 @@ cannot disagree by a penny.
 than discounted, even though the priority-20 hook ordering deliberately runs after
 such plugins. Stores running dynamic pricing will see the reward line priced from
 the catalogue. Because coupons apply afterwards, a site-wide 20% coupon compounds
-with a 50% reward discount and the customer pays 40% of list; this is
+with a 50% reward discount and the customer pays 40% of list, wherever that
+coupon's own product, category, and sale-exclusion rules permit it; this is
 WooCommerce's normal treatment of a reduced price, and is left alone.
 
 A discounted reward also carries real tax and real subtotal, unlike a free one, so

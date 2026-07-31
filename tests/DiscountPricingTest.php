@@ -381,6 +381,27 @@ class DiscountPricingTest extends TestCase {
 		$this->assertSame( '12.5% off — BOGO promotion', $discounted->get_meta( 'Discounted item' ) );
 	}
 
+	public function test_an_explicit_full_discount_is_recorded_as_a_percentage() {
+		// A 100% campaign reads as "Free" to the customer, but it is not the Free
+		// mode and reporting has to be able to tell them apart. The snapshot asks
+		// the configured type, not the wording (`CODEX-REVIEW.md` L-01).
+		$this->discount_of( 100 );
+
+		$this->assertTrue( BOGO_Select_Engine::is_free_reward() );
+		$this->assertSame( 'Free', BOGO_Select_Engine::reward_label() );
+		$this->assertSame( 'percent:100', BOGO_Select_Engine::discount_snapshot() );
+
+		$this->settings( array( 'get_discount_type' => 'free' ) );
+
+		$this->assertSame( 'free', BOGO_Select_Engine::discount_snapshot() );
+	}
+
+	public function test_a_zero_discount_is_still_recorded_as_a_percentage() {
+		$this->discount_of( 0 );
+
+		$this->assertSame( 'percent:0', BOGO_Select_Engine::discount_snapshot() );
+	}
+
 	public function test_a_paid_line_records_nothing() {
 		$this->product( 20, array( 'price' => 100.0 ) );
 		$this->add_paid_item( 'paid', 20 );

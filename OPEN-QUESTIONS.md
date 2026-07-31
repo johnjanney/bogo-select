@@ -152,7 +152,8 @@ reachable from plain JavaScript. No React, no build step, no bundled block. See
 
 ### Q-008 — Should the Get product support a percentage discount rather than only being free? — **Answered 2026-07-31**
 
-**Answer:** yes, and it has shipped. The offer expresses "Buy X, Get Y at N% off"
+**Answer:** yes. The offer is implemented and on `main`, unreleased at the
+time of writing, and expresses "Buy X, Get Y at N% off"
 as readily as "Get Y free", configured by `get_discount_type` and
 `get_discount_value` and controlled from the settings screen. Both default to the
 free behaviour, so an option row saved before the feature reads back as a free
@@ -168,10 +169,10 @@ overwritten rather than discounted. Rounding happens once, on the unit price.
 
 Three of the surrounding decisions are worth restating. The discount comes off
 the effective selling price, so a reward already on sale is discounted from its
-sale price. Coupons stack, leaving a 20% coupon over a 50% reward at 40% of list
-— that follows from where the pricing hook sits rather than from a test, since
-the unit stubs have no coupon support, and it is expected behaviour rather than
-verified behaviour. And `free` stayed a discount type of its own rather than
+sale price. Eligible coupons stack, leaving a 20% coupon over a 50%
+reward at 40% of list wherever that coupon's own rules permit it — that follows
+from where the pricing hook sits rather than from a test, since the unit stubs
+have no coupon support, and it is expected behaviour rather than verified. And `free` stayed a discount type of its own rather than
 becoming a percentage of 100, so the interface can say "Free" without
 special-casing a magic number.
 

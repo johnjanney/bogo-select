@@ -106,10 +106,12 @@ Three consequences worth knowing before switching an offer to a percentage:
 - **The discount comes off the effective selling price.** A reward already on
   sale is discounted from its sale price, so a 50%-off reward on a product
   already at 40% off costs 30% of list.
-- **Coupons stack.** A 20% site-wide coupon over a 50% reward leaves the customer
-  paying 40% of list, as it would on any reduced price. This follows from where
-  the pricing hook sits rather than from a test — the unit stubs have no coupon
-  support — so treat it as expected rather than verified.
+- **Eligible coupons stack.** A 20% site-wide coupon over a 50% reward leaves
+  the customer paying 40% of list, as it would on any reduced price — subject to
+  that coupon's own product, category, and sale-exclusion rules, which still
+  apply. This follows from where the pricing hook sits rather than from a test —
+  the unit stubs have no coupon support — so treat it as expected rather than
+  verified.
 - **A discounted reward has taxable value.** Unlike a free one it contributes to
   the order subtotal, so it counts toward free-shipping thresholds by value as
   well as by weight.

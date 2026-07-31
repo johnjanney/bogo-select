@@ -61,7 +61,7 @@ update_option(
 		'buy_scope'    => 'all',
 		'get_scope'    => 'all',
 		'get_products' => array(),
-		'repeating'    => 'no',
+		'repeat'       => 'no',
 	)
 );
 

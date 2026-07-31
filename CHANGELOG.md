@@ -26,10 +26,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   rather than discounted, which matters to stores running dynamic pricing.
 
   The discount comes off the effective selling price, so a reward already on
-  sale is discounted from its sale price. Coupons still apply on top, as they do
-  to any reduced price — a 20% coupon over a 50% reward leaves the customer
-  paying 40% of list. That follows from where the pricing hook sits rather than
-  from a test; the unit stubs have no coupon support.
+  sale is discounted from its sale price. Eligible coupons still apply on top,
+  as they do to any reduced price — a 20% coupon over a 50% reward leaves the
+  customer paying 40% of list, where that coupon's own product, category, and
+  sale-exclusion rules allow it at all. That follows from where the pricing hook
+  sits rather than from a test; the unit stubs have no coupon support.
 
   Fixed-amount discounts were deliberately left out. A percentage is linear, so
   it needs no clamping against negative prices and raises no per-unit versus

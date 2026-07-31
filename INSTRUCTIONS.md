@@ -220,9 +220,10 @@ default, or the discounted figure — and not a coupon discount. That means:
 - **A free gift doesn't count toward free-shipping thresholds**, because it adds
   nothing to the order subtotal. Its weight *is* included in weight-based
   shipping. A discounted reward *does* count, because it has real value.
-- **Coupons apply on top of a discounted reward.** A 20% site-wide coupon over a
-  50% reward leaves the customer paying 40% of list, as it would on any reduced
-  price.
+- **Eligible coupons apply on top of a discounted reward.** A 20% site-wide
+  coupon over a 50% reward leaves the customer paying 40% of list, as it would on
+  any reduced price. A coupon that excludes the product, its category, or
+  sale items still excludes it here.
 - **A reward already on sale is discounted from its sale price**, not from its
   regular price.
 - **Refunds** behave as for any other line: restocking through the order screen

@@ -198,12 +198,12 @@ class BOGO_Select_Blocks {
 				'readonly'    => true,
 			),
 			'qualifies'           => array(
-				'description' => __( 'Whether this cart has earned a free gift.', 'bogo-select' ),
+				'description' => __( 'Whether this cart has earned a reward.', 'bogo-select' ),
 				'type'        => 'boolean',
 				'readonly'    => true,
 			),
 			'reward_quantity'     => array(
-				'description' => __( 'Number of free units earned.', 'bogo-select' ),
+				'description' => __( 'Number of reward units earned.', 'bogo-select' ),
 				'type'        => 'integer',
 				'readonly'    => true,
 			),
