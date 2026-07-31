@@ -83,6 +83,51 @@ class SettingsTest extends TestCase {
 		$this->assertSame( 'no', BOGO_Select_Settings::get( 'show_notice' ) );
 	}
 
+	public function test_the_reward_is_free_until_a_discount_is_configured() {
+		$this->assertSame( 'free', BOGO_Select_Settings::get( 'get_discount_type' ) );
+		$this->assertSame( 0.0, BOGO_Select_Settings::get( 'get_discount_value' ) );
+	}
+
+	public function test_an_option_row_saved_before_discounts_reads_back_as_free() {
+		// What every existing install has: a settings row with no discount keys
+		// at all. It must keep giving the reward away, with no upgrade routine.
+		update_option(
+			BOGO_Select_Settings::OPTION,
+			array(
+				'enabled' => 'yes',
+				'buy_qty' => 2,
+				'get_qty' => 1,
+			)
+		);
+		BOGO_Select_Settings::flush();
+
+		$this->assertSame( 'free', BOGO_Select_Settings::get( 'get_discount_type' ) );
+		$this->assertSame( 0.0, BOGO_Select_Settings::get( 'get_discount_value' ) );
+	}
+
+	public function test_unknown_discount_types_fall_back_to_free() {
+		$this->settings( array( 'get_discount_type' => 'amount' ) );
+
+		$this->assertSame( 'free', BOGO_Select_Settings::get( 'get_discount_type' ) );
+	}
+
+	public function test_discount_percentages_are_clamped_to_the_range() {
+		$this->settings( array( 'get_discount_value' => 150 ) );
+		$this->assertSame( 100.0, BOGO_Select_Settings::get( 'get_discount_value' ) );
+
+		$this->settings( array( 'get_discount_value' => -20 ) );
+		$this->assertSame( 0.0, BOGO_Select_Settings::get( 'get_discount_value' ) );
+
+		$this->settings( array( 'get_discount_value' => 'not a number' ) );
+		$this->assertSame( 0.0, BOGO_Select_Settings::get( 'get_discount_value' ) );
+	}
+
+	public function test_fractional_discount_percentages_survive() {
+		$this->settings( array( 'get_discount_value' => '12.5' ) );
+
+		$this->assertSame( 12.5, BOGO_Select_Settings::get( 'get_discount_value' ) );
+	}
+
 	public function test_a_corrupt_option_falls_back_to_defaults() {
 		update_option( BOGO_Select_Settings::OPTION, 'not-an-array' );
 		BOGO_Select_Settings::flush();
@@ -107,6 +152,8 @@ class SettingsTest extends TestCase {
 		$this->assertSame( 'no', $clean['show_notice'] );
 		$this->assertSame( 4, $clean['buy_qty'] );
 		$this->assertSame( 8, $clean['get_qty'] );
+		$this->assertSame( 'free', $clean['get_discount_type'] );
+		$this->assertSame( 0.0, $clean['get_discount_value'] );
 		$this->assertSame( array( 12 ), $clean['buy_products'] );
 		$this->assertSame( BOGO_Select_Settings::defaults()['offer_title'], $clean['offer_title'] );
 	}

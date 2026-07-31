@@ -159,6 +159,54 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * How much of the reward's price the customer still pays.
+	 *
+	 * 0.0 gives the item away, 0.5 halves it, 1.0 charges full price.
+	 *
+	 * @return float Between 0.0 and 1.0.
+	 */
+	public static function discount_factor() {
+		if ( 'percent' !== BOGO_Select_Settings::get( 'get_discount_type' ) ) {
+			return 0.0;
+		}
+
+		$percent = (float) BOGO_Select_Settings::get( 'get_discount_value' );
+
+		// Settings clamp this already; clamped again because a filter or a
+		// hand-edited option row can reach here without passing through them.
+		return max( 0.0, min( 1.0, 1 - ( $percent / 100 ) ) );
+	}
+
+	/**
+	 * What one unit of the reward costs.
+	 *
+	 * Rounded per unit, because WooCommerce multiplies a unit price by the
+	 * quantity everywhere else. Rounding here and nowhere else keeps the line
+	 * total, the price shown in the chooser, and the order from disagreeing by a
+	 * penny on a quantity of eight.
+	 *
+	 * @param float $base Undiscounted unit price.
+	 * @return float
+	 */
+	public static function reward_price( $base ) {
+		$decimals = function_exists( 'wc_get_price_decimals' ) ? (int) wc_get_price_decimals() : 2;
+
+		return round( max( 0.0, (float) $base * self::discount_factor() ), $decimals );
+	}
+
+	/**
+	 * Whether the reward costs the customer nothing.
+	 *
+	 * True for the 'free' type and for a percentage of 100, so the display layer
+	 * can say "Free" without comparing floats itself.
+	 *
+	 * @return bool
+	 */
+	public static function is_free_reward() {
+		return self::discount_factor() <= 0.0;
+	}
+
+	/**
 	 * Whether a product may be offered as a gift.
 	 *
 	 * Scope membership only — this says nothing about stock. Use

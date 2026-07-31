@@ -31,16 +31,18 @@ class BOGO_Select_Settings {
 	 */
 	public static function defaults() {
 		return array(
-			'enabled'      => 'no',
-			'offer_title'  => __( 'Choose your free gift', 'bogo-select' ),
-			'buy_qty'      => 1,
-			'get_qty'      => 1,
-			'buy_scope'    => 'all',
-			'buy_products' => array(),
-			'get_scope'    => 'select',
-			'get_products' => array(),
-			'repeat'       => 'no',
-			'show_notice'  => 'yes',
+			'enabled'            => 'no',
+			'offer_title'        => __( 'Choose your free gift', 'bogo-select' ),
+			'buy_qty'            => 1,
+			'get_qty'            => 1,
+			'get_discount_type'  => 'free',
+			'get_discount_value' => 0.0,
+			'buy_scope'          => 'all',
+			'buy_products'       => array(),
+			'get_scope'          => 'select',
+			'get_products'       => array(),
+			'repeat'             => 'no',
+			'show_notice'        => 'yes',
 		);
 	}
 
@@ -58,16 +60,18 @@ class BOGO_Select_Settings {
 		$stored = is_array( $stored ) ? $stored : array();
 		$values = wp_parse_args( $stored, self::defaults() );
 
-		$values['enabled']      = self::to_bool_string( $values['enabled'] );
-		$values['repeat']       = self::to_bool_string( $values['repeat'] );
-		$values['show_notice']  = self::to_bool_string( $values['show_notice'] );
-		$values['offer_title']  = (string) $values['offer_title'];
-		$values['buy_qty']      = max( 1, absint( $values['buy_qty'] ) );
-		$values['get_qty']      = max( 1, absint( $values['get_qty'] ) );
-		$values['buy_scope']    = self::to_scope( $values['buy_scope'] );
-		$values['get_scope']    = self::to_scope( $values['get_scope'] );
-		$values['buy_products'] = self::to_id_array( $values['buy_products'] );
-		$values['get_products'] = self::to_id_array( $values['get_products'] );
+		$values['enabled']            = self::to_bool_string( $values['enabled'] );
+		$values['repeat']             = self::to_bool_string( $values['repeat'] );
+		$values['show_notice']        = self::to_bool_string( $values['show_notice'] );
+		$values['offer_title']        = (string) $values['offer_title'];
+		$values['buy_qty']            = max( 1, absint( $values['buy_qty'] ) );
+		$values['get_qty']            = max( 1, absint( $values['get_qty'] ) );
+		$values['get_discount_type']  = self::to_discount_type( $values['get_discount_type'] );
+		$values['get_discount_value'] = self::to_percent( $values['get_discount_value'] );
+		$values['buy_scope']          = self::to_scope( $values['buy_scope'] );
+		$values['get_scope']          = self::to_scope( $values['get_scope'] );
+		$values['buy_products']       = self::to_id_array( $values['buy_products'] );
+		$values['get_products']       = self::to_id_array( $values['get_products'] );
 
 		self::$cache = $values;
 
@@ -132,6 +136,9 @@ class BOGO_Select_Settings {
 		$clean['buy_qty'] = isset( $raw['buy_qty'] ) ? max( 1, absint( $raw['buy_qty'] ) ) : 1;
 		$clean['get_qty'] = isset( $raw['get_qty'] ) ? max( 1, absint( $raw['get_qty'] ) ) : 1;
 
+		$clean['get_discount_type']  = isset( $raw['get_discount_type'] ) ? self::to_discount_type( $raw['get_discount_type'] ) : 'free';
+		$clean['get_discount_value'] = isset( $raw['get_discount_value'] ) ? self::to_percent( $raw['get_discount_value'] ) : 0.0;
+
 		$clean['buy_scope'] = isset( $raw['buy_scope'] ) ? self::to_scope( $raw['buy_scope'] ) : 'all';
 		$clean['get_scope'] = isset( $raw['get_scope'] ) ? self::to_scope( $raw['get_scope'] ) : 'select';
 
@@ -151,6 +158,35 @@ class BOGO_Select_Settings {
 	 */
 	protected static function to_scope( $value ) {
 		return 'select' === $value ? 'select' : 'all';
+	}
+
+	/**
+	 * Normalise the reward's discount type.
+	 *
+	 * 'free' is the default for anything unrecognised, so a corrupt or
+	 * hand-edited option row gives the item away rather than charging for a
+	 * reward the customer was promised.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string 'free' or 'percent'.
+	 */
+	protected static function to_discount_type( $value ) {
+		return 'percent' === $value ? 'percent' : 'free';
+	}
+
+	/**
+	 * Normalise a percentage, clamped to 0–100.
+	 *
+	 * Clamped rather than rejected: a value outside the range would otherwise
+	 * price the reward above its own value or below nothing.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return float
+	 */
+	protected static function to_percent( $value ) {
+		$value = is_scalar( $value ) ? (float) $value : 0.0;
+
+		return max( 0.0, min( 100.0, $value ) );
 	}
 
 	/**
