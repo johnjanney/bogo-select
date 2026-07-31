@@ -1,0 +1,61 @@
+# Disposable WordPress + WooCommerce for the block integration job.
+#
+# Apache rather than PHP's built-in server on purpose. `wp server` was tried
+# first and a worker died mid-request on current WooCommerce — the connection
+# was accepted and closed without a response, so the browser saw
+# ERR_EMPTY_RESPONSE. The built-in server is documented as a development toy and
+# is not worth debugging; this is the configuration the fix was verified against
+# by hand.
+#
+# BOGO_DIST and BOGO_TESTS are set by the workflow.
+
+services:
+  db:
+    image: mariadb:10.11
+    environment:
+      MARIADB_ROOT_PASSWORD: root
+      MARIADB_DATABASE: wp
+      MARIADB_USER: wp
+      MARIADB_PASSWORD: wp
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 40
+
+  wp:
+    image: wordpress:php8.2-apache
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8910:80"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wp
+    volumes:
+      - wpdata:/var/www/html
+      - ${BOGO_DIST}:/artifact:ro
+      - ${BOGO_TESTS}:/integration:ro
+
+  cli:
+    image: wordpress:cli-php8.2
+    depends_on:
+      - wp
+    # The cli image runs as uid 33 so it shares the web user's file ownership.
+    user: "33:33"
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wp
+    volumes:
+      - wpdata:/var/www/html
+      - ${BOGO_DIST}:/artifact:ro
+      - ${BOGO_TESTS}:/integration:ro
+    entrypoint: ["tail", "-f", "/dev/null"]
+
+volumes:
+  wpdata:

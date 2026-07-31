@@ -12,3 +12,13 @@
 Thumbs.db
 *.swp
 *~
+
+# Integration-test scratch. The browser and its deps are installed per run, and
+# screenshots are per-run artifacts uploaded by CI — none of it belongs in git.
+/node_modules/
+/package.json
+/package-lock.json
+/tests/integration/node_modules/
+/tests/integration/package.json
+/tests/integration/package-lock.json
+integration-*.png

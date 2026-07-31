@@ -87,28 +87,13 @@ jobs:
         # rather than in someone's store.
         woocommerce: [ '9.9.5', 'latest' ]
 
-    services:
-      mariadb:
-        image: mariadb:10.11
-        env:
-          MARIADB_ROOT_PASSWORD: root
-          MARIADB_DATABASE: wp
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="healthcheck.sh --connect --innodb_initialized"
-          --health-interval=5s
-          --health-timeout=5s
-          --health-retries=30
+    env:
+      BASE: http://localhost:8910
+      BOGO_DIST: ${{ github.workspace }}/dist
+      BOGO_TESTS: ${{ github.workspace }}/tests/integration
 
     steps:
       - uses: actions/checkout@v5
-
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-          extensions: mysqli, gd, zip
-          coverage: none
 
       - uses: actions/setup-node@v5
         with:
@@ -118,61 +103,58 @@ jobs:
       - name: Build the plugin zip
         run: bash bin/build-zip.sh
 
-      - name: Install WP-CLI
+      - name: Start WordPress
         run: |
-          curl -sSLo /usr/local/bin/wp \
-            https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
-          chmod +x /usr/local/bin/wp
-          wp --info --allow-root
+          docker compose -f tests/integration/docker-compose.yml up -d
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8910/ || true)
+            case "$code" in 200|301|302) echo "web up ($code)"; exit 0;; esac
+            sleep 3
+          done
+          echo "WordPress did not come up"
+          docker compose -f tests/integration/docker-compose.yml logs --tail=60
+          exit 1
 
       - name: Install WordPress
         run: |
-          mkdir -p "$RUNNER_TEMP/wp"
-          cd "$RUNNER_TEMP/wp"
-          wp core download --allow-root
-          wp config create --allow-root \
-            --dbname=wp --dbuser=root --dbpass=root --dbhost=127.0.0.1:3306
-          wp core install --allow-root \
-            --url=http://127.0.0.1:8080 --title="BOGO CI" \
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          $C wp core install --url=http://localhost:8910 --title="BOGO CI" \
             --admin_user=admin --admin_password=admin \
             --admin_email=ci@example.com --skip-email
-          wp rewrite structure '/%postname%/' --allow-root
+          $C wp rewrite structure '/%postname%/'
+          # Pretty permalinks need mod_rewrite and .htaccess honoured; the base
+          # image ships neither enabled.
+          docker compose -f tests/integration/docker-compose.yml exec -T wp bash -c \
+            'a2enmod rewrite >/dev/null && sed -i "s|AllowOverride None|AllowOverride All|g" /etc/apache2/apache2.conf && apache2ctl graceful'
+          sleep 3
+          $C wp rewrite flush --hard
 
       - name: Install WooCommerce and the plugin
         run: |
-          cd "$RUNNER_TEMP/wp"
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
           if [ "${{ matrix.woocommerce }}" = "latest" ]; then
-            wp plugin install woocommerce --activate --allow-root
+            $C wp plugin install woocommerce --activate
           else
-            wp plugin install woocommerce --version=${{ matrix.woocommerce }} --activate --allow-root
+            $C wp plugin install woocommerce --version=${{ matrix.woocommerce }} --activate
           fi
-          wp plugin install "$GITHUB_WORKSPACE"/dist/bogo-select-*.zip --activate --allow-root
-          wp plugin list --fields=name,status,version --allow-root
+          # Name the archive exactly. A glob would match every previously built
+          # version in dist/ — harmless on a fresh CI checkout, silently wrong
+          # for anyone running this locally.
+          VERSION=$(grep -m1 -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+' bogo-select.php)
+          echo "installing bogo-select ${VERSION}"
+          $C wp plugin install "/artifact/bogo-select-${VERSION}.zip" --activate
+          $C wp plugin list --fields=name,status,version
+          # Fail loudly if anything but the version under test ended up active.
+          $C wp plugin get bogo-select --field=version | tr -d '\r' | grep -qx "${VERSION}"
 
       - name: Seed the store
         id: seed
         run: |
-          cd "$RUNNER_TEMP/wp"
-          OUT=$(wp eval-file "$GITHUB_WORKSPACE/tests/integration/setup-store.php" --allow-root | tail -1)
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-store.php | tail -1 | tr -d '\r')
           echo "seed: $OUT"
           echo "paid=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')" >> "$GITHUB_OUTPUT"
           echo "gift=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["gift_a"])')" >> "$GITHUB_OUTPUT"
-
-      - name: Serve WordPress
-        env:
-          # The built-in server is single-threaded by default, so a request that
-          # triggers a loopback request to itself deadlocks. Blocks do exactly
-          # that.
-          PHP_CLI_SERVER_WORKERS: 6
-        run: |
-          cd "$RUNNER_TEMP/wp"
-          nohup wp server --host=127.0.0.1 --port=8080 --allow-root > "$RUNNER_TEMP/server.log" 2>&1 &
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/ || true)
-            [ "$code" = "200" ] && echo "server up" && exit 0
-            sleep 2
-          done
-          echo "server did not come up"; cat "$RUNNER_TEMP/server.log"; exit 1
 
       - name: Install Chromium
         run: |
@@ -182,15 +164,14 @@ jobs:
 
       - name: Run the block integration test
         env:
-          BASE: http://127.0.0.1:8080
           PAID_ID: ${{ steps.seed.outputs.paid }}
           GIFT_ID: ${{ steps.seed.outputs.gift }}
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/blocks.test.mjs
 
-      - name: Server log on failure
+      - name: Container logs on failure
         if: failure()
-        run: tail -100 "$RUNNER_TEMP/server.log" || true
+        run: docker compose -f tests/integration/docker-compose.yml logs --tail=120
 
       - name: Upload screenshots
         if: always()
@@ -200,3 +181,7 @@ jobs:
           path: integration-*.png
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f tests/integration/docker-compose.yml down -v
