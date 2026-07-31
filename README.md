@@ -55,6 +55,7 @@ line item at **$0.00** — so stock is still reduced.
 | WordPress | 6.0 or later |
 | WooCommerce | 7.0 or later |
 | PHP | 7.4 or later |
+| Tested with | WooCommerce 9.9.5 and 10.9.4 — classic cart and checkout, plus the Cart and Checkout blocks verified in a browser |
 
 ## Installation
 

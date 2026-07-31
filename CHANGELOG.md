@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] — 2026-07-31
+
+Compatibility metadata only. No functional change: 13 of the 14 runtime files
+are byte-identical to 1.2.0, and the fourteenth — `bogo-select.php` — differs
+only in the version string and the `WC tested up to` header. Upgrading changes
+nothing a customer can see.
+
+### Changed
+
+- **`WC tested up to` advanced from 9.9 to 10.9.** The previous review declined
+  to advance it while the Checkout block was broken on current WooCommerce, and
+  1.2.0 shipped the fix without the matrix that would justify the claim. That
+  matrix has now been run: a disposable WordPress 7.0.2 / PHP 8.2 / MariaDB
+  10.11 stack with Twenty Twenty-Five, the plugin installed **from the 1.2.0
+  zip** rather than from source, exercised in a real browser on WooCommerce
+  9.9.5 and 10.9.4 — 10.9.4 being the current release. All four block surfaces
+  pass: the chooser renders, the block root keeps its own `data-block-name`,
+  the Cart and Checkout blocks mount and leave `is-loading`, the checkout
+  renders contact, address, and Place Order, the gift line reads `$10.00 →
+  $0.00` against an unchanged cart total, and `Free gift: BOGO promotion` is
+  visible in the order summary. No JavaScript errors.
+
+  H-01 was confirmed causally rather than by coincidence: toggling only the
+  injection priority between 10 and 20 on the installed plugin reproduced the
+  empty loading shell at 10 and a working checkout at 20, on WooCommerce
+  10.9.4, with nothing else changed.
+
+  Two limits are worth recording. WooCommerce did not preload a cart response
+  into the page in this configuration, so the blocks fetched it after load and
+  the hydration half of the label fix was never observed running — it remains
+  covered by source reading and unit tests only. And with no payment gateway
+  configured, checkout was verified up to a populated Place Order form rather
+  than a completed order.
+- **README records the tested versions** alongside the minimum requirements.
+
 ## [1.2.0] — 2026-07-30
 
 Addresses the follow-up Codex review (`CODEX-REVIEW.md`) and its central

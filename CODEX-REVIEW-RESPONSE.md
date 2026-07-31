@@ -22,8 +22,10 @@ M-02, M-03, L-01, L-02, L-03.
 reproducible from the WooCommerce source, and is fixed with a regression test
 that fails without the fix. M-01 was real and is fixed, with a new mechanical
 gate so it cannot recur silently. The three low-severity findings are resolved
-or documented. The one thing this response cannot supply is the live matrix —
-see *What this still does not prove*.
+or documented. The live block matrix was subsequently run against a real
+WordPress + WooCommerce stack on 9.9.5 and 10.9.4, in a browser, from the
+published ZIP: **all four block surfaces pass**, and H-01 was proved causally by
+toggling the priority in place. See *The live matrix — run, and it passes*.
 
 The review was accurate on every point I could check. Nothing in it was
 overstated, and two findings (H-01, M-01) would have shipped a broken release.
@@ -434,49 +436,106 @@ negative and disable the label.
 | `bin/verify-zip.sh` against the stale archive | **Failed as intended** — named the stale class |
 | `bin/verify-zip.sh` against the rebuilt archive | **Pass — 14 runtime files verified** |
 
-## What this still does not prove
+## The live matrix — run, and it passes
 
-The same caveat as the last round, and it is the honest limit of this response.
+**Update, same day.** The caveat that stood here ("none of it was verified in a
+browser") no longer holds. A disposable WordPress + WooCommerce + MariaDB stack
+was stood up and the block matrix run against it, including a real headless
+browser. Environment: WordPress 7.0.2, PHP 8.2, MariaDB 10.11, Twenty
+Twenty-Five, Chromium via Playwright — matching the reviewer's setup. The
+plugin was installed **from `dist/bogo-select-1.2.0.zip`**, not run from the
+worktree, so this exercises the published artifact.
 
-Everything above was verified against source and the unit suite. **None of it
-was verified in a browser**, because there is no WordPress, WooCommerce, or
-database in this environment. Specifically not proved here:
+| WooCommerce | Surface | Server markup | Browser | Result |
+|---|---|---|---|---|
+| 9.9.5 | Cart block | slot clean, root stamped | mounted, 2 line items, label visible | **Pass** |
+| 9.9.5 | Checkout block | slot clean, root stamped | form rendered, label visible | **Pass** |
+| 10.9.4 | Cart block | slot clean, root stamped | mounted, 2 line items, label visible | **Pass** |
+| 10.9.4 | Checkout block | slot clean, root stamped | form rendered, label visible | **Pass** |
 
-- that the block checkout now leaves `is-loading` and renders its form — the
-  third point of the review's H-01 recommendation;
-- that the fix behaves on WooCommerce 10.9.4, where the defect was found, or on
-  9.9.5;
-- that the rebuilt ZIP installs and works.
+10.9.4 was the latest WooCommerce on wordpress.org at the time of the run, so
+"current release" and "the version the defect was found on" are the same
+version here.
 
-What I can state precisely is narrower: the collision mechanism is confirmed in
-the WooCommerce 10.9.4 source; the fix removes the plugin from contention for
-the first-tag position by ordering, which is deterministic rather than
-load-order dependent; and it is the change the review itself verified live
-("changing only the injection priority from 10 to 20 restored the correct block
-attribute, the checkout UI, and the promotion label"). The reviewer's own
-diagnostic is the live evidence this fix is right — but a re-run on the real
-matrix is still required before publishing.
+### H-01 is fixed, and the proof is causal rather than circumstantial
 
-**Before release, the block cart and block checkout flows should be re-run on
-WooCommerce 9.9.5 and a current release, installed from the rebuilt ZIP** — the
-review's release points 2 and 3.
+The fix was not merely observed to coexist with a working checkout. The
+installed plugin was toggled between priority 10 and priority 20 in place, on
+WooCommerce 10.9.4, changing nothing else:
+
+**At priority 10 — the old code — the defect reproduces exactly as reported:**
+
+```html
+<div data-block-name="woocommerce/checkout" class="bogo-select-slot" data-bogo-slot="1" data-bogo-mode="block">
+<div class="wp-block-woocommerce-checkout alignwide wc-block-checkout is-loading">
+```
+
+In the browser: `is-loading` never cleared, no email field, zero address
+fields, zero line items, no gift label. The screenshot is the chooser sitting
+above a column of empty grey skeleton boxes — the reviewer's "empty loading
+shell", reproduced independently.
+
+**At priority 20 — the shipped code — it is correct:**
+
+```html
+<div class="bogo-select-slot" data-bogo-slot="1" data-bogo-mode="block">
+<div data-block-name="woocommerce/checkout" class="wp-block-woocommerce-checkout alignwide wc-block-checkout is-loading">
+```
+
+In the browser: `is-loading` cleared, email field present, 5 address fields,
+Place Order button, both line items, and **"Free gift: BOGO promotion"** on the
+gift row in the order summary with the gift priced `$10.00 → $0.00` and the
+cart total unchanged at $25.00. No JavaScript errors on any page.
+
+That is the third point of the review's H-01 recommendation — the one the unit
+suite explicitly cannot make — now satisfied against a real browser.
+
+### Store API behaviour, live
+
+On both versions, the cart response carried the extension state
+(`active/qualifies/reward_quantity/selected_product_id/signature`), gift
+selection through `cart/extensions` returned the gift at `line_total: 0`, the
+quantity limits came back `editable: false, minimum: 1, maximum: 1`, and the
+item data carried all four members:
+
+```json
+{"key": "Free gift", "name": "Free gift", "value": "BOGO promotion", "display": "BOGO promotion"}
+```
+
+### What is still not proved
+
+Smaller than before, but not empty:
+
+- **The hydration path was not exercised.** In this configuration WooCommerce
+  did not preload a cart response into the page markup — the blocks fetched it
+  after load — so `woocommerce_hydration_dispatch_request` never fired. The
+  fetched path is confirmed live; the preloaded path remains confirmed only by
+  source reading and unit tests. The rendered outcome is correct either way
+  here, but the hydration half of the label fix has not been observed running.
+- **Classic cart and checkout** were not re-run; this was the block matrix. They
+  were unaffected by the change and were verified in earlier rounds.
+- **Order placement** was not exercised: the test store had no payment gateway
+  configured, so checkout was verified up to a rendered, populated Place Order
+  form rather than a completed order.
+- **One store, one theme.** No multisite, no caching layer, no competing
+  third-party plugins beyond WooCommerce itself.
+
+The environment was disposable and has been removed.
 
 ## Outstanding, not fixed here
 
-1. **The live matrix above** — required before publishing; needs a real
-   environment.
-2. **M-02's integration job** — a reproducible WP/WC harness covering classic
-   and block surfaces across the version matrix, from the ZIP. Real
-   infrastructure work and a cost decision, not a review-response change.
+1. **M-02's integration job** — the matrix above was run by hand, not by CI. A
+   reproducible WP/WC harness covering classic and block surfaces across the
+   version matrix, from the ZIP, is still real infrastructure work.
+2. **The hydration path**, observed live rather than reasoned about.
 3. **L-02's optional truncation signal** in the search response and UI.
 4. **L-03**, if profiling ever justifies it.
-5. **The commit** — the review's point 7 is fair: this is still one large
-   uncommitted change set with untracked files. It is left uncommitted because
-   committing was not part of this task; `git status` shows the full set.
 
-The declared `WC tested up to: 9.9` header is **unchanged**, deliberately. The
-review is right that it should not be advanced until the current-version matrix
-is actually run — and this response does not run it.
+The declared `WC tested up to: 9.9` header is **still 9.9** in the published
+v1.2.0, because the matrix was run after that release was tagged. The results
+above are what the review said should gate advancing it, and they pass on
+10.9.4 — so the header can now be advanced honestly, which requires a v1.2.1
+since v1.2.0 is tagged and immutable.
 
 ---
 
