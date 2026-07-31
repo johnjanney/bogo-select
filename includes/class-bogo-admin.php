@@ -324,7 +324,7 @@ class BOGO_Select_Admin {
 								__( 'Search for products…', 'bogo-select' )
 							);
 							?>
-							<p class="description"><?php esc_html_e( 'Simple products only — variable, grouped, and external products are removed when you save, because a gift must be addable without choosing options.', 'bogo-select' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Simple products only — variable, grouped, and external products, and individual variations, are removed when you save, because a gift must be addable without choosing options.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
 				</table>

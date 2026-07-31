@@ -1,10 +1,26 @@
 /**
- * BOGO Select — cart page gift chooser.
+ * BOGO Select — gift chooser for the cart and checkout pages.
  *
- * Selecting or removing a gift posts to admin-ajax and reloads the cart so that
- * totals, fragments, and any theme cart markup re-render from the server.
- * Paging and searching the gift list swap the grid in place instead, since
- * nothing about the cart has changed.
+ * The chooser lives inside a slot element that the server renders on both the
+ * classic and the block cart and checkout. Everything below is written against
+ * that slot rather than against the chooser itself, because the chooser is
+ * replaced wholesale whenever the cart changes.
+ *
+ * Three modes, decided by the server through data-bogo-mode:
+ *
+ * - classic: the classic cart page. Selecting or removing a gift posts to
+ *   admin-ajax and reloads, so the cart table, totals, and theme fragments
+ *   re-render from PHP.
+ * - checkout: the classic checkout page. Same request, but no reload — that
+ *   would empty a half-filled form — so the chooser re-renders from the
+ *   response and WooCommerce is asked to update the order review.
+ * - block: the cart is changed through the Store API (extensionCartUpdate), so
+ *   the Cart and Checkout blocks update from the response they already trust.
+ *   The chooser then follows the wc/store/cart data store and re-renders
+ *   itself whenever the customer changes the cart elsewhere on the page.
+ *
+ * Paging and searching swap the grid in place in every mode: nothing about the
+ * cart has changed.
  */
 ( function () {
 	'use strict';
@@ -14,26 +30,62 @@
 	}
 
 	var settings = window.bogoSelect;
-	var root = document.getElementById( 'bogo-select' );
+	var slot = document.querySelector( '[data-bogo-slot]' );
 
-	if ( ! root ) {
+	if ( ! slot ) {
 		return;
 	}
 
-	var grid = root.querySelector( '[data-bogo-grid]' );
-	var empty = root.querySelector( '[data-bogo-empty]' );
-	var pagination = root.querySelector( '[data-bogo-pagination]' );
-	var pageStatus = root.querySelector( '[data-bogo-page-status]' );
-	var searchInput = root.querySelector( '[data-bogo-search]' );
+	var mode = slot.getAttribute( 'data-bogo-mode' ) || 'classic';
+	var isBlockMode = 'block' === mode;
+	var isClassicCheckout = 'checkout' === mode;
 
 	var state = {
 		search: '',
-		page: parseInt( root.getAttribute( 'data-page' ), 10 ) || 1,
-		pages: parseInt( root.getAttribute( 'data-pages' ), 10 ) || 1
+		page: 1,
+		pages: 1
 	};
 
 	var searchTimer = null;
 	var latestRequest = 0;
+	var refreshing = false;
+	var refreshQueued = false;
+	var cartSignature = null;
+
+	/**
+	 * The chooser panel currently in the slot, if any.
+	 *
+	 * @return {Element|null} The panel element.
+	 */
+	function root() {
+		return slot.querySelector( '.bogo-select' );
+	}
+
+	/**
+	 * Find an element inside the current chooser.
+	 *
+	 * @param {string} selector CSS selector.
+	 * @return {Element|null} The element.
+	 */
+	function part( selector ) {
+		return slot.querySelector( selector );
+	}
+
+	/**
+	 * Read the page state the server rendered into the chooser.
+	 */
+	function readState() {
+		var el = root();
+
+		if ( ! el ) {
+			state.page = 1;
+			state.pages = 1;
+			return;
+		}
+
+		state.page = parseInt( el.getAttribute( 'data-page' ), 10 ) || 1;
+		state.pages = parseInt( el.getAttribute( 'data-pages' ), 10 ) || 1;
+	}
 
 	/**
 	 * Fill %1$d-style placeholders in a translated string.
@@ -55,30 +107,39 @@
 	 * @param {string} type 'error' or 'info'.
 	 */
 	function message( text, type ) {
-		var el = root.querySelector( '.bogo-select__message' );
+		var el = root();
 
 		if ( ! el ) {
-			el = document.createElement( 'p' );
-			el.className = 'bogo-select__message';
-			root.appendChild( el );
+			return;
 		}
 
-		el.textContent = text;
-		el.setAttribute( 'role', 'status' );
-		el.hidden = ! text;
-		el.classList.toggle( 'is-error', 'error' === type );
+		var box = el.querySelector( '.bogo-select__message' );
+
+		if ( ! box ) {
+			box = document.createElement( 'p' );
+			box.className = 'bogo-select__message';
+			el.appendChild( box );
+		}
+
+		box.textContent = text;
+		box.setAttribute( 'role', 'status' );
+		box.hidden = ! text;
+		box.classList.toggle( 'is-error', 'error' === type );
 	}
 
 	/**
 	 * Sync the pagination controls with the current page state.
 	 */
 	function updatePagination() {
+		var pagination = part( '[data-bogo-pagination]' );
+
 		if ( ! pagination ) {
 			return;
 		}
 
 		var prev = pagination.querySelector( '[data-bogo-page="prev"]' );
 		var next = pagination.querySelector( '[data-bogo-page="next"]' );
+		var status = part( '[data-bogo-page-status]' );
 
 		if ( prev ) {
 			prev.disabled = state.page <= 1;
@@ -88,8 +149,8 @@
 			next.disabled = state.page >= state.pages;
 		}
 
-		if ( pageStatus ) {
-			pageStatus.textContent = state.pages > 0
+		if ( status ) {
+			status.textContent = state.pages > 0
 				? format( settings.i18n.pageOf, [ state.page, state.pages ] )
 				: settings.i18n.noPages;
 		}
@@ -101,9 +162,15 @@
 	 * @param {boolean} busy Whether a request is in flight.
 	 */
 	function setBusy( busy ) {
-		root.classList.toggle( 'is-busy', busy );
+		var el = root();
 
-		root.querySelectorAll( 'button' ).forEach( function ( button ) {
+		if ( ! el ) {
+			return;
+		}
+
+		el.classList.toggle( 'is-busy', busy );
+
+		Array.prototype.forEach.call( el.querySelectorAll( 'button' ), function ( button ) {
 			if ( busy ) {
 				button.disabled = true;
 			} else if ( ! button.hasAttribute( 'data-permanently-disabled' ) ) {
@@ -144,18 +211,93 @@
 	}
 
 	/**
-	 * Change the cart, then reload so every cart component re-renders.
+	 * Replace the chooser with freshly rendered markup.
 	 *
-	 * @param {string} action    Endpoint action name.
-	 * @param {Object} extraData Additional POST fields.
+	 * @param {string} html Chooser markup, possibly empty.
+	 */
+	function render( html ) {
+		var searchBox = part( '[data-bogo-search]' );
+		var hadFocus = searchBox === document.activeElement;
+		var term = state.search;
+
+		slot.innerHTML = html || '';
+
+		readState();
+
+		searchBox = part( '[data-bogo-search]' );
+
+		if ( searchBox && term ) {
+			searchBox.value = term;
+
+			if ( hadFocus ) {
+				searchBox.focus();
+			}
+
+			// The server always renders page one of the unfiltered list; put
+			// the customer's search back over the top of it.
+			loadPage( 1 );
+			return;
+		}
+
+		updatePagination();
+	}
+
+	/**
+	 * Re-render the chooser for the cart as it now stands.
+	 */
+	function refresh() {
+		if ( refreshing ) {
+			refreshQueued = true;
+			return;
+		}
+
+		refreshing = true;
+
+		post( 'bogo_select_refresh', {} )
+			.then( function ( result ) {
+				refreshing = false;
+
+				if ( result && result.success && result.data ) {
+					render( result.data.html );
+
+					// Self-healing validation may have changed the cart while
+					// rendering this — a gift whose stock ran out is dropped,
+					// for instance. The blocks are holding the cart as it was,
+					// so tell them to fetch it again.
+					if ( isBlockMode && result.data.state && cartSignature && result.data.state !== cartSignature ) {
+						cartSignature = result.data.state;
+						invalidateBlockCart();
+					}
+				}
+
+				if ( refreshQueued ) {
+					refreshQueued = false;
+					refresh();
+				}
+			} )
+			.catch( function () {
+				refreshing = false;
+			} );
+	}
+
+	/**
+	 * Change the cart, then bring the page up to date.
+	 *
+	 * @param {string} action    'choose' or 'remove'.
+	 * @param {Object} extraData Additional fields.
 	 */
 	function mutate( action, extraData ) {
 		setBusy( true );
 
-		post( action, extraData )
+		if ( isBlockMode ) {
+			mutateThroughStoreApi( action, extraData );
+			return;
+		}
+
+		post( 'bogo_select_' + action, extraData )
 			.then( function ( result ) {
 				if ( result && result.success ) {
-					window.location.reload();
+					settle( result.data );
 					return;
 				}
 
@@ -169,12 +311,104 @@
 	}
 
 	/**
+	 * Bring the page up to date after the cart has changed.
+	 *
+	 * @param {Object} data Successful response payload.
+	 */
+	function settle( data ) {
+		if ( ! isClassicCheckout ) {
+			// The classic cart page is rendered by PHP from top to bottom;
+			// reloading is the only way its table and totals agree with the
+			// cart again.
+			window.location.reload();
+			return;
+		}
+
+		// A checkout form may be half filled in, so it must survive. The order
+		// review re-renders itself over AJAX instead.
+		render( data && data.html );
+		setBusy( false );
+
+		if ( window.jQuery ) {
+			window.jQuery( document.body ).trigger( 'update_checkout' );
+			return;
+		}
+
+		window.location.reload();
+	}
+
+	/**
+	 * Change the cart through the Store API so the blocks re-render with it.
+	 *
+	 * @param {string} action    'choose' or 'remove'.
+	 * @param {Object} extraData Additional fields.
+	 */
+	function mutateThroughStoreApi( action, extraData ) {
+		var update = extensionCartUpdate( Object.assign( { action: action }, extraData || {} ) );
+
+		if ( ! update ) {
+			// WooCommerce Blocks is not exposing its checkout helpers on this
+			// page. Change the cart over admin-ajax instead, then ask the blocks
+			// to fetch it again — heavier, but it always works.
+			post( 'bogo_select_' + action, extraData )
+				.then( function ( result ) {
+					if ( result && result.success ) {
+						setBusy( false );
+						render( result.data && result.data.html );
+						invalidateBlockCart();
+						return;
+					}
+
+					setBusy( false );
+					message( ( result && result.data && result.data.message ) || settings.i18n.error, 'error' );
+				} )
+				.catch( function () {
+					setBusy( false );
+					message( settings.i18n.error, 'error' );
+				} );
+
+			return;
+		}
+
+		update
+			.then( function () {
+				setBusy( false );
+				refresh();
+			} )
+			.catch( function ( error ) {
+				setBusy( false );
+				message( ( error && error.message ) || settings.i18n.error, 'error' );
+			} );
+	}
+
+	/**
+	 * Send a cart update through the WooCommerce Blocks Store API helper.
+	 *
+	 * @param {Object} data Payload for the registered update callback.
+	 * @return {Promise|null} Null when the helper is unavailable.
+	 */
+	function extensionCartUpdate( data ) {
+		if ( ! window.wc || ! window.wc.blocksCheckout || 'function' !== typeof window.wc.blocksCheckout.extensionCartUpdate ) {
+			return null;
+		}
+
+		try {
+			return window.wc.blocksCheckout.extensionCartUpdate( {
+				namespace: settings.namespace,
+				data: data
+			} );
+		} catch ( error ) {
+			return null;
+		}
+	}
+
+	/**
 	 * Fetch and render one page of gift options.
 	 *
 	 * @param {number} page Page number to load.
 	 */
 	function loadPage( page ) {
-		if ( ! grid ) {
+		if ( ! part( '[data-bogo-grid]' ) ) {
 			return;
 		}
 
@@ -199,7 +433,12 @@
 				state.page = parseInt( result.data.page, 10 ) || 1;
 				state.pages = parseInt( result.data.pages, 10 ) || 1;
 
-				grid.innerHTML = result.data.items || '';
+				var grid = part( '[data-bogo-grid]' );
+				var empty = part( '[data-bogo-empty]' );
+
+				if ( grid ) {
+					grid.innerHTML = result.data.items || '';
+				}
 
 				if ( empty ) {
 					empty.textContent = result.data.empty || '';
@@ -218,13 +457,13 @@
 			} );
 	}
 
-	root.addEventListener( 'click', function ( event ) {
+	slot.addEventListener( 'click', function ( event ) {
 		var chooseButton = event.target.closest( '.bogo-select__choose' );
 
 		if ( chooseButton ) {
 			event.preventDefault();
 			chooseButton.textContent = settings.i18n.working;
-			mutate( 'bogo_select_choose', { product_id: chooseButton.getAttribute( 'data-product-id' ) } );
+			mutate( 'choose', { product_id: chooseButton.getAttribute( 'data-product-id' ) } );
 			return;
 		}
 
@@ -237,7 +476,7 @@
 				return;
 			}
 
-			mutate( 'bogo_select_remove', {} );
+			mutate( 'remove', {} );
 			return;
 		}
 
@@ -258,32 +497,135 @@
 		}
 	} );
 
-	if ( searchInput ) {
-		searchInput.addEventListener( 'input', function () {
-			window.clearTimeout( searchTimer );
+	slot.addEventListener( 'input', function ( event ) {
+		if ( ! event.target.hasAttribute( 'data-bogo-search' ) ) {
+			return;
+		}
 
-			searchTimer = window.setTimeout( function () {
-				var term = searchInput.value.trim();
+		var input = event.target;
 
-				if ( term === state.search ) {
-					return;
-				}
+		window.clearTimeout( searchTimer );
 
-				state.search = term;
-				loadPage( 1 );
-			}, 350 );
-		} );
+		searchTimer = window.setTimeout( function () {
+			var term = input.value.trim();
 
-		// Enter would otherwise submit the surrounding cart form.
-		searchInput.addEventListener( 'keydown', function ( event ) {
-			if ( 'Enter' === event.key ) {
-				event.preventDefault();
-				window.clearTimeout( searchTimer );
-				state.search = searchInput.value.trim();
-				loadPage( 1 );
+			if ( term === state.search ) {
+				return;
 			}
-		} );
+
+			state.search = term;
+			loadPage( 1 );
+		}, 350 );
+	} );
+
+	slot.addEventListener( 'keydown', function ( event ) {
+		if ( 'Enter' !== event.key || ! event.target.hasAttribute( 'data-bogo-search' ) ) {
+			return;
+		}
+
+		// Enter would otherwise submit the surrounding cart or checkout form.
+		event.preventDefault();
+		window.clearTimeout( searchTimer );
+		state.search = event.target.value.trim();
+		loadPage( 1 );
+	} );
+
+	/**
+	 * A fingerprint of the block cart's current contents.
+	 *
+	 * The server sends its own signature through the Store API extension data;
+	 * the item fallback covers a cart response that predates it.
+	 *
+	 * @param {Object} cart Cart data from the wc/store/cart store.
+	 * @return {string} Fingerprint.
+	 */
+	function cartFingerprint( cart ) {
+		if ( ! cart ) {
+			return '';
+		}
+
+		var extension = cart.extensions && cart.extensions[ settings.namespace ];
+
+		if ( extension && extension.signature ) {
+			return String( extension.signature );
+		}
+
+		return ( cart.items || [] ).map( function ( item ) {
+			return item.key + ':' + item.quantity;
+		} ).join( '|' );
 	}
 
+	/**
+	 * Ask the blocks to fetch the cart again.
+	 */
+	function invalidateBlockCart() {
+		try {
+			var actions = window.wp.data.dispatch( 'wc/store/cart' );
+
+			if ( actions && 'function' === typeof actions.invalidateResolutionForStore ) {
+				actions.invalidateResolutionForStore();
+			} else if ( actions && 'function' === typeof actions.invalidateResolution ) {
+				actions.invalidateResolution( 'getCartData', [] );
+			}
+		} catch ( error ) {
+			// Nothing to do: the chooser itself is already up to date.
+		}
+	}
+
+	/**
+	 * Follow the block cart and re-render the chooser when it changes.
+	 *
+	 * @return {boolean} Whether the store was found and subscribed to.
+	 */
+	function watchBlockCart() {
+		if ( ! window.wp || ! window.wp.data || 'function' !== typeof window.wp.data.subscribe ) {
+			return false;
+		}
+
+		var store;
+
+		try {
+			store = window.wp.data.select( 'wc/store/cart' );
+		} catch ( error ) {
+			return false;
+		}
+
+		if ( ! store || 'function' !== typeof store.getCartData ) {
+			return false;
+		}
+
+		cartSignature = cartFingerprint( store.getCartData() );
+
+		window.wp.data.subscribe( function () {
+			if ( store.isCustomerDataUpdating && store.isCustomerDataUpdating() ) {
+				return;
+			}
+
+			var next = cartFingerprint( store.getCartData() );
+
+			if ( '' === next || next === cartSignature ) {
+				return;
+			}
+
+			cartSignature = next;
+			refresh();
+		} );
+
+		return true;
+	}
+
+	readState();
 	updatePagination();
+
+	if ( isBlockMode && ! watchBlockCart() ) {
+		// The blocks bundle may register its store after this script runs.
+		var attempts = 0;
+		var poll = window.setInterval( function () {
+			attempts++;
+
+			if ( watchBlockCart() || attempts > 40 ) {
+				window.clearInterval( poll );
+			}
+		}, 250 );
+	}
 }() );

@@ -14,7 +14,8 @@ line item at **$0.00** — so stock is still reduced.
 ## What it does
 
 1. A customer adds a qualifying quantity of products to the cart.
-2. A chooser appears on the cart page: *"Choose your free gift — pick 1 of 3."*
+2. A chooser appears on the cart or checkout page: *"Choose your free gift —
+   pick 1 of 3."*
 3. They pick one product. It is added to the cart at the configured Get quantity,
    priced at $0.00.
 4. On checkout, WooCommerce reduces stock for the free item exactly as it would
@@ -26,8 +27,13 @@ line item at **$0.00** — so stock is still reduced.
 - **Independent Buy/Get scopes.** Each side is set to *All Products* or *Select
   Products* with its own list. Mix freely: Buy = all products, Get = two specific SKUs.
 - **Searchable, paged chooser.** Long gift lists are paged 24 at a time with a
-  name/SKU search, so *All Products* reaches the whole catalogue without loading it
-  all at once.
+  search over name, description, and SKU — run by WooCommerce's own product
+  search — so *All Products* reaches the whole catalogue without loading it all at
+  once.
+- **Classic and block, cart and checkout.** The chooser renders above the classic
+  cart table and checkout form, and above the Cart and Checkout blocks. In a block
+  cart it follows the Store API: picking a gift updates the blocks in place, and
+  the chooser appears the moment the cart qualifies, without a page reload.
 - **Real inventory reduction.** The gift is a normal cart/order line item at $0.00,
   not a coupon discount, so stock, reports, and packing slips all behave.
 - **Customer picks, and can change their mind.** Swapping the gift adds the new
@@ -93,7 +99,8 @@ includes/
   class-bogo-engine.php      Qualification logic (pure, testable)
   class-bogo-cart.php        Cart hooks: $0 pricing, qty lock, revalidation
   class-bogo-frontend.php    Chooser UI, notices, asset enqueue
-  class-bogo-ajax.php        Front-end select/remove endpoints
+  class-bogo-ajax.php        Front-end select/remove/refresh endpoints
+  class-bogo-blocks.php      Cart/Checkout Blocks: injection, Store API, limits
   class-bogo-admin.php       Settings screen + product search
 assets/
   css/bogo-select.css        Front-end chooser styles
@@ -131,8 +138,17 @@ covered.
 // Change the products offered in the chooser (runs per page of results).
 add_filter( 'bogo_select_get_products', function ( $product_ids ) { … } );
 
+// The same, but told which page it is looking at: scope, search, page, per_page.
+add_filter( 'bogo_select_choice_ids', function ( $product_ids, $context ) { … }, 10, 2 );
+
 // Change the chooser's page size (default 24).
 add_filter( 'bogo_select_all_products_limit', function ( $per_page ) { … } );
+
+// Cap how many matches a gift search inspects (default 200).
+add_filter( 'bogo_select_search_limit', function ( $limit ) { … } );
+
+// How long the eligibility of a curated gift list is cached (default 600s).
+add_filter( 'bogo_select_eligibility_ttl', function ( $seconds ) { … } );
 
 // Override whether the cart qualifies.
 add_filter( 'bogo_select_qualifies', function ( $qualifies, $buy_count ) { … }, 10, 2 );
@@ -152,12 +168,22 @@ Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
 - Product IDs only — no category, tag, or attribute scoping.
 - Variable products cannot be gifts (an ambiguous "one free t-shirt" has no size);
   they remain eligible on the Buy side, matched by variation ID or parent ID.
-- Classic (shortcode) cart and checkout only. On block-based stores the
-  qualification notice still appears on shop and product pages, but there is no
-  chooser to send customers to — treat the blocks as unsupported.
 - WooCommerce runtime behaviour (sessions, checkout, stock reduction) is covered by
   manual staging tests rather than an automated integration suite.
 - Not tested against Subscriptions, Bundles, or Composite Products.
+- **Browse counts in "All Products" mode are catalogue counts, not gift counts.**
+  Browsing the whole catalogue pages the catalogue and filters each page for
+  eligibility afterwards, so the reported total counts publishable simple
+  products rather than selectable gifts. A page can therefore show fewer than
+  the page size — or nothing at all — while eligible products still wait on a
+  later page. Searching does not have this problem: it resolves matches first
+  and pages the filtered result, so its total is exact. Curate the gift list
+  with "Select Products" when the count needs to be exact.
+- **Gift search looks at the first 200 matches.** A search reports the eligible
+  products among the first 200 catalogue matches for the term, not among every
+  match, so a very broad term on a large catalogue can leave later matches out.
+  Narrow the term, or raise `bogo_select_search_limit` from measured
+  catalogue data.
 
 ## License
 

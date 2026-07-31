@@ -8,22 +8,6 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
-### Q-001 — Cart/Checkout blocks or classic shortcodes?
-
-**Raised:** 2026-07-30
-
-WooCommerce ships two cart/checkout front ends: the classic
-`[woocommerce_cart]` shortcode and the newer Cart/Checkout **blocks**. The chooser
-UI hooks into classic template actions, which do not fire on block-based pages.
-
-**Working assumption:** the store uses classic cart/checkout. Block support would
-need a separate React/`@wordpress/scripts` integration and a build step.
-
-**Needed:** confirmation of which the live store runs. If it is blocks, this is a
-meaningful additional piece of work.
-
----
-
 ### Q-002 — "Buy 2" — two units total, or two of the same product?
 
 **Raised:** 2026-07-30
@@ -116,4 +100,14 @@ rather than retrofitted.
 
 ## Resolved
 
-*None yet.*
+### Q-001 — Cart/Checkout blocks or classic shortcodes? — **Answered 2026-07-30**
+
+**Answer:** both, as of v1.2.0. Rather than wait to learn which front end the
+store runs, the plugin now supports each of them.
+
+The working assumption — that block support needs a React build step — turned out
+to be wrong. The chooser is server-rendered ahead of the Cart and Checkout blocks
+through the `render_block` filter, and the browser side talks to the blocks
+through the Store API and the `wc/store/cart` data store, both of which are
+reachable from plain JavaScript. No React, no build step, no bundled block. See
+`DECISION.md` D-008.

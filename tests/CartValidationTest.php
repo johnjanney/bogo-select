@@ -300,6 +300,56 @@ class CartValidationTest extends TestCase {
 		$this->assertFalse( $this->has_item( 'gift' ) );
 	}
 
+	/**
+	 * The regression behind CODEX-REVIEW.md L-01.
+	 *
+	 * The re-entrancy guard used to be raised and lowered around a bare call,
+	 * so an extension that threw while observing a removal or a quantity change
+	 * left the flag stuck on and validation dead for the rest of the request —
+	 * every later pass returning early and leaving unearned gifts in place.
+	 */
+	public function test_validation_survives_an_extension_that_throws() {
+		$this->product( 10 );
+		$this->product( 20 );
+
+		$this->add_paid_item( 'paid', 10, 1 );
+		$this->add_gift_item( 'gift', 20, 2 );
+
+		$exploding = true;
+
+		// bogo_select_qualifies rather than bogo_select_reward_quantity: this one
+		// runs on every pass, including the passes that go on to drop the gift.
+		// DomainException rather than RuntimeException, because PHPUnit's own
+		// failure exception extends the latter and a catch block would swallow it.
+		add_filter(
+			'bogo_select_qualifies',
+			function ( $qualifies ) use ( &$exploding ) {
+				if ( $exploding ) {
+					throw new \DomainException( 'Third-party plugin blew up mid-pass.' );
+				}
+
+				return $qualifies;
+			},
+			10,
+			2
+		);
+
+		try {
+			$this->validate();
+			$this->fail( 'The exception should have escaped the validation pass.' );
+		} catch ( \DomainException $e ) {
+			$this->assertSame( 'Third-party plugin blew up mid-pass.', $e->getMessage() );
+		}
+
+		// The cart no longer qualifies, so the next pass must still drop the
+		// gift. It only can if the failed pass released the guard on its way out.
+		$exploding = false;
+
+		$this->validate();
+
+		$this->assertFalse( $this->has_item( 'gift' ), 'Validation must keep working after an extension throws.' );
+	}
+
 	public function test_gift_price_is_forced_to_zero() {
 		$this->product( 10 );
 		$this->product( 20, array( 'price' => 25.0 ) );

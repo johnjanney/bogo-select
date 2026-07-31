@@ -38,6 +38,7 @@ class WC_Product {
 				'backorders'        => false,
 				'sold_individually' => false,
 				'stock_managed_by'  => 0,
+				'description'       => '',
 			),
 			$props
 		);
@@ -187,6 +188,25 @@ class WC_Product {
 	public function get_stock_managed_by_id() {
 		return (int) ( $this->props['stock_managed_by'] ? $this->props['stock_managed_by'] : $this->props['id'] );
 	}
+
+	/**
+	 * Product description, which WordPress keyword search does cover.
+	 *
+	 * @return string
+	 */
+	public function get_description() {
+		return (string) $this->props['description'];
+	}
+
+	/**
+	 * A placeholder image tag.
+	 *
+	 * @param string $size Image size.
+	 * @return string
+	 */
+	public function get_image( $size = 'woocommerce_thumbnail' ) {
+		return '<img src="' . esc_attr( $size ) . '.png" alt="" />';
+	}
 }
 
 /**
@@ -223,6 +243,44 @@ class WC_Cart {
 		}
 
 		$this->items[ $key ] = $item;
+
+		return $key;
+	}
+
+	/**
+	 * Add a line the way WC_Cart::add_to_cart() does.
+	 *
+	 * Returns false — after raising an error notice — when the test has asked
+	 * for a rejected add, which is how core stock validation and third-party
+	 * woocommerce_add_to_cart_validation callbacks refuse a product.
+	 *
+	 * @param int   $product_id     Product ID.
+	 * @param int   $quantity       Quantity.
+	 * @param int   $variation_id   Variation ID.
+	 * @param array $variation      Variation attributes.
+	 * @param array $cart_item_data Extra cart item data.
+	 * @return string|false Cart item key, or false when refused.
+	 */
+	public function add_to_cart( $product_id, $quantity = 1, $variation_id = 0, $variation = array(), $cart_item_data = array() ) {
+		if ( BOGO_Test_Env::$reject_add_to_cart ) {
+			wc_add_notice( BOGO_Test_Env::$reject_add_to_cart, 'error' );
+
+			return false;
+		}
+
+		$key = 'added_' . $product_id . '_' . count( $this->items );
+
+		$this->add_item(
+			$key,
+			array_merge(
+				(array) $cart_item_data,
+				array(
+					'product_id'   => (int) $product_id,
+					'variation_id' => (int) $variation_id,
+					'quantity'     => (int) $quantity,
+				)
+			)
+		);
 
 		return $key;
 	}
@@ -280,6 +338,94 @@ class WC_Cart {
 }
 
 /**
+ * The product data store's search, which is where SKU matching lives.
+ *
+ * Mirrors WC_Product_Data_Store_CPT::search_products(): title, excerpt,
+ * description, and SKU, optionally constrained to a list of IDs and capped by
+ * a limit.
+ */
+class BOGO_Test_Product_Data_Store {
+
+	/**
+	 * Search products by keyword or SKU.
+	 *
+	 * @param string $term               Search term.
+	 * @param string $type               Product type filter.
+	 * @param bool   $include_variations Unused.
+	 * @param bool   $all_statuses       Unused.
+	 * @param int    $limit              Maximum matches.
+	 * @param array  $include            IDs to constrain to.
+	 * @param array  $exclude            IDs to leave out.
+	 * @return int[]
+	 */
+	public function search_products( $term, $type = '', $include_variations = false, $all_statuses = false, $limit = null, $include = null, $exclude = null ) {
+		$term    = (string) $term;
+		$include = $include ? array_map( 'absint', (array) $include ) : array();
+		$exclude = $exclude ? array_map( 'absint', (array) $exclude ) : array();
+		$found   = array();
+
+		foreach ( BOGO_Test_Env::$products as $product ) {
+			if ( 'publish' !== $product->get_status() ) {
+				continue;
+			}
+
+			if ( $type && ! $product->is_type( $type ) ) {
+				continue;
+			}
+
+			if ( $include && ! in_array( $product->get_id(), $include, true ) ) {
+				continue;
+			}
+
+			if ( $exclude && in_array( $product->get_id(), $exclude, true ) ) {
+				continue;
+			}
+
+			$haystack = $product->get_name() . ' ' . $product->get_description() . ' ' . $product->get_sku();
+
+			if ( false === stripos( $haystack, $term ) ) {
+				continue;
+			}
+
+			$found[] = $product->get_id();
+		}
+
+		if ( $limit ) {
+			$found = array_slice( $found, 0, (int) $limit );
+		}
+
+		BOGO_Test_Env::$store_searches[] = array(
+			'term'    => $term,
+			'include' => $include,
+			'limit'   => $limit,
+		);
+
+		return $found;
+	}
+}
+
+/**
+ * Stand-in for WooCommerce's data store loader.
+ */
+class WC_Data_Store {
+
+	/**
+	 * Load a data store.
+	 *
+	 * @param string $name Store name.
+	 * @return BOGO_Test_Product_Data_Store
+	 * @throws Exception When the test has switched the store off.
+	 */
+	public static function load( $name ) {
+		if ( 'product' !== $name || ! BOGO_Test_Env::$data_store ) {
+			throw new Exception( 'Invalid data store.' );
+		}
+
+		return new BOGO_Test_Product_Data_Store();
+	}
+}
+
+/**
  * Stand-in for the WooCommerce singleton.
  */
 class BOGO_Test_WooCommerce {
@@ -331,20 +477,28 @@ function wc_get_product( $product_id ) {
 /**
  * Query the fake catalogue.
  *
- * Supports the arguments the plugin passes: status, type, s, orderby title,
- * limit, page, paginate, and return => ids.
+ * Supports the arguments the plugin passes: status, type, s, sku, include,
+ * orderby title, limit, page, paginate, and return => ids.
+ *
+ * `s` deliberately behaves the way WordPress does — it searches the title,
+ * excerpt, and content and knows nothing about SKUs. Making it match SKUs here
+ * is what let a broken "search by SKU" claim pass its own test in 1.1.0.
+ * WooCommerce matches SKUs through the separate `sku` argument, so that is what
+ * this stub does too.
  *
  * @param array $args Query arguments.
  * @return int[]|stdClass
  */
 function wc_get_products( $args = array() ) {
-	$status = isset( $args['status'] ) ? $args['status'] : '';
-	$type   = isset( $args['type'] ) ? $args['type'] : '';
-	$search = isset( $args['s'] ) ? (string) $args['s'] : '';
+	$status  = isset( $args['status'] ) ? $args['status'] : '';
+	$type    = isset( $args['type'] ) ? $args['type'] : '';
+	$search  = isset( $args['s'] ) ? (string) $args['s'] : '';
+	$sku     = isset( $args['sku'] ) ? (string) $args['sku'] : '';
+	$include = isset( $args['include'] ) ? array_map( 'absint', (array) $args['include'] ) : array();
 
 	$matches = array_filter(
 		array_values( BOGO_Test_Env::$products ),
-		function ( $product ) use ( $status, $type, $search ) {
+		function ( $product ) use ( $status, $type, $search, $sku, $include ) {
 			if ( $status && $product->get_status() !== $status ) {
 				return false;
 			}
@@ -353,7 +507,17 @@ function wc_get_products( $args = array() ) {
 				return false;
 			}
 
-			if ( '' !== $search && false === stripos( $product->get_name() . ' ' . $product->get_sku(), $search ) ) {
+			if ( $include && ! in_array( $product->get_id(), $include, true ) ) {
+				return false;
+			}
+
+			// Keyword search: title, excerpt, and content. Not the SKU.
+			if ( '' !== $search && false === stripos( $product->get_name() . ' ' . $product->get_description(), $search ) ) {
+				return false;
+			}
+
+			// SKU search: a partial, case-insensitive match, as WooCommerce does.
+			if ( '' !== $sku && false === stripos( $product->get_sku(), $sku ) ) {
 				return false;
 			}
 

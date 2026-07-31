@@ -34,9 +34,10 @@ your settings; restoring WooCommerce brings the offer back exactly as it was. (O
 WordPress 6.5 and later, WordPress enforces the dependency itself and may
 deactivate the plugin for you.)
 
-**Cart and checkout pages must use the classic shortcodes** (`[woocommerce_cart]`
-and `[woocommerce_checkout]`). If your cart page uses the WooCommerce *Cart block*,
-the gift chooser will not appear — see [Troubleshooting](#8-troubleshooting).
+**Either cart and checkout style works.** The classic shortcodes
+(`[woocommerce_cart]`, `[woocommerce_checkout]`) and the WooCommerce *Cart* and
+*Checkout blocks* are both supported, as of v1.2.0. Nothing needs configuring —
+the chooser works out which it is looking at.
 
 ---
 
@@ -174,12 +175,18 @@ Every paid item earns another free one, all of the same chosen product.
 1. **Shop and product pages** — once the cart qualifies, a short notice appears:
    *"You've unlocked a free gift — choose it in your cart."* Turn this off with
    **Show notice on shop pages** if you'd rather keep it to the cart.
-2. **Cart page** — a panel above the cart table with your offer title and a grid of
-   gift options: image, name, price struck through, and a **Select** button. If
-   there is more than one page of gifts, a search box and Previous/Next buttons
-   appear above and below the grid.
-3. **After choosing** — the gift appears in the cart table marked **Free (BOGO)**
-   at $0.00. Its quantity is fixed and can't be edited, but it can be removed.
+2. **Cart and checkout pages** — a panel above the cart table, the checkout form,
+   or the Cart/Checkout block, with your offer title and a grid of gift options:
+   image, name, price struck through, and a **Select** button. If there is more
+   than one page of gifts, a search box and Previous/Next buttons appear above and
+   below the grid. On a block cart the panel appears the moment the cart qualifies
+   and updates as the cart changes, with no page reload; on a classic cart page,
+   choosing a gift reloads the page so the cart table and totals agree with it.
+   Choosing a gift at the checkout never reloads — a half-filled form is left
+   alone.
+3. **After choosing** — the gift appears in the cart at $0.00, marked **Free
+   (BOGO)** on a classic cart and **Free gift: BOGO promotion** in a block cart.
+   Its quantity is fixed and can't be edited either way, but it can be removed.
    The chosen card shows **Selected ✓** with a **Change** link. If a swap is
    refused — say the new gift has just sold out — the original gift stays put and
    the reason is shown.
@@ -229,11 +236,18 @@ Before going live, run through this on a staging site or with a test product:
 
 ## 8. Troubleshooting
 
-**The chooser doesn't appear on the cart page.**
+**The chooser doesn't appear on the cart or checkout page.**
 Check, in order: the offer is enabled; the cart holds at least the Buy quantity of
-*eligible* products; the Get list has at least one product that is purchasable and
-in stock for the full Get quantity; and your cart page uses the `[woocommerce_cart]`
-shortcode rather than the Cart block. The Cart block is not supported in v1.0.0.
+*eligible* products; and the Get list has at least one product that is purchasable
+and in stock for the full Get quantity. Both the classic shortcodes and the
+Cart/Checkout blocks are supported from v1.2.0 — on v1.1.0 and earlier the blocks
+show no chooser at all, so upgrade if that is what you are running.
+
+**On a block cart, the chooser is there but a gift won't select.**
+The block cart makes its changes through WooCommerce's Store API. If another
+plugin blocks that route, or the browser console shows a failed request to
+`/wp-json/wc/store/`, the chooser falls back to reloading the page — which still
+works, but is the symptom to report.
 
 **A gift product is greyed out.**
 It's out of stock, has less stock than the Get quantity *plus* any units of the
@@ -293,9 +307,28 @@ add_filter( 'bogo_select_get_products', function ( array $product_ids ) {
     return $product_ids;
 } );
 
+// The same list, with the context that produced it. Use this one when a callback
+// needs to know which page, scope, or search term it is being handed.
+add_filter( 'bogo_select_choice_ids', function ( array $product_ids, array $context ) {
+    // $context: scope, search, page, per_page.
+    return $product_ids;
+}, 10, 2 );
+
 // Change how many gifts one page of the chooser holds (default 24).
 add_filter( 'bogo_select_all_products_limit', function ( $per_page ) {
     return 12;
+} );
+
+// Cap how many matching products a gift search inspects (default 200).
+add_filter( 'bogo_select_search_limit', function ( $limit ) {
+    return 500;
+} );
+
+// How long the eligibility of a "Select Products" gift list is cached, in
+// seconds (default 600). The cache is also cleared whenever the settings or any
+// product are saved. Return 0 to switch it off.
+add_filter( 'bogo_select_eligibility_ttl', function ( $seconds ) {
+    return 0;
 } );
 
 // Override qualification entirely.

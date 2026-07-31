@@ -2,9 +2,9 @@
 # See BRIEF.md §8.3: previous zips are never deleted.
 /dist/
 
-# Development dependencies — the shipped plugin has none.
+# Development dependencies — the shipped plugin has none. composer.lock is
+# tracked so CI resolves the same versions the suite was written against.
 /vendor/
-composer.lock
 .phpunit.result.cache
 
 # OS / editor cruft

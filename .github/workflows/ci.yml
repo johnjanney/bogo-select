@@ -28,7 +28,7 @@ jobs:
         run: find . -name '*.php' -not -path './vendor/*' -print0 | xargs -0 -n1 php -l
 
       - name: Install dependencies
-        run: composer update --no-interaction --no-progress --prefer-dist
+        run: composer install --no-interaction --no-progress --prefer-dist
 
       - name: Run unit tests
         run: ./vendor/bin/phpunit
@@ -48,4 +48,21 @@ jobs:
         run: for f in assets/js/*.js; do node --check "$f"; done
 
       - name: Check build script syntax
-        run: bash -n bin/build-zip.sh
+        run: bash -n bin/build-zip.sh bin/verify-zip.sh
+
+  package:
+    name: Package parity
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # A green test suite says nothing about what was packaged: v1.2.0 was
+      # built before its own fix landed and shipped a superseded class
+      # (CODEX-REVIEW.md M-01). Building the archive and diffing it against the
+      # worktree is the check that would have caught it.
+      - name: Build the plugin zip
+        run: bash bin/build-zip.sh
+
+      - name: Verify the zip matches the source
+        run: bash bin/verify-zip.sh

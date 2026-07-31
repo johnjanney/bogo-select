@@ -1,8 +1,24 @@
 /**
- * BOGO Select — cart page gift chooser.
+ * BOGO Select — gift chooser for the cart and checkout pages.
  *
  * Deliberately low-specificity and colour-neutral so it inherits the theme.
+ * The same markup is used by the classic templates and by the Cart/Checkout
+ * blocks, so nothing here assumes a cart table around it.
  */
+
+/*
+ * The mount point the chooser is replaced inside. It keeps the block layout
+ * from collapsing when the chooser is empty, and constrains the panel to the
+ * same width as the block it sits above.
+ */
+.bogo-select-slot:empty {
+	display: none;
+}
+
+.bogo-select-slot {
+	width: 100%;
+	max-width: 100%;
+}
 
 .bogo-select {
 	border: 2px dashed currentColor;

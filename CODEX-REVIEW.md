@@ -1,296 +1,414 @@
 # Codex Repository Review
 
-**Reviewed:** 2026-07-30  
-**Revision:** `8e1b7fe`  
-**Scope:** PHP, JavaScript, CSS, release tooling, the built `1.0.0` archive, and all
-project documentation in this repository.
+**Review date:** 2026-07-30
 
-## Executive assessment
+**Reviewed state:** the uncommitted v1.2.0 worktree on top of commit
+`4029f64`
 
-The repository has a clear, compact architecture and unusually good product
-documentation for its size. The main classic-cart flow is implemented coherently:
-settings are sanitized, qualification is recalculated server-side, gift lines are
-distinguished from paid lines, their price is forced to zero, their quantity is
-locked in the UI and corrected server-side, and order metadata is added so normal
-WooCommerce stock reduction can operate.
+**Overall assessment:** the promotion-label fix is correct in the source
+worktree, but the release is not ready. The packaged ZIP does not contain the
+fix, and WooCommerce 10.9.4 exposes a separate high-severity regression that
+prevents the Checkout block from rendering whenever the promotion is enabled.
 
-The implementation is suitable for staging, but it should not be treated as
-production-ready for the stated `1.0.0` objectives yet. Two high-severity
-correctness gaps remain:
+## Executive summary
 
-1. Existing gifts are not rechecked for stock unless their earned quantity changes.
-2. “All Products” exposes only the first 50 simple products and provides no search,
-   despite the acceptance criterion promising the whole catalogue.
+Claude Code correctly diagnosed the original missing-label defect. A Cart or
+Checkout block can build its first Store API response during page hydration,
+while the outer HTTP request is still `/cart/` or `/checkout/`.
+`WC()->is_store_api_request()` therefore was not a sufficient gate for
+`woocommerce_get_item_data`.
 
-There are also material resilience and lifecycle gaps around gift replacement,
-duplicate reward lines, dependency handling, and the absence of automated
-WordPress/WooCommerce tests.
+The revised source fixes that defect:
 
-No obvious SQL injection, stored/reflected XSS, unauthenticated privilege
-escalation, or direct “mint a free gift” path was found in this static review.
-Public AJAX requests use nonces and repeat the important qualification, product
-eligibility, quantity, and stock checks on the server. The security concern below
-is primarily defense-in-depth around cart integrity rather than a demonstrated
-standalone exploit.
+- the REST and WooCommerce hydration filters bracket Store API response
+  generation;
+- the gift metadata supplies both `key`/`name` and `value`/`display`;
+- the new tests cover the two request scopes and assert the customer-facing
+  string rather than merely inspecting one array key.
 
-## Prioritized findings
+Live testing confirms that **“Free gift: BOGO promotion”** now appears:
 
-| ID | Severity | Area | Finding |
-|---|---|---|---|
-| F-01 | High | Correctness / inventory | Stock is not continuously revalidated when the earned quantity is unchanged. |
-| F-02 | High | Objectives / performance | “All Products” silently means the first 50 products, not the whole catalogue. |
-| F-03 | Medium | Correctness / UX | Changing gifts removes the current gift before the replacement is known to be addable. |
-| F-04 | Medium | Security / integrity | Only the first reward line is validated or removed; the documented settings token does not exist. |
-| F-05 | Medium | Compatibility / lifecycle | WooCommerce dependency behavior contradicts the installation documentation. |
-| F-06 | Medium | Quality / regression risk | There is no automated test suite or WordPress/WooCommerce runtime harness. |
-| F-07 | Low | Correctness / presentation | Gift subtotals strike through a unit price rather than the line total. |
-| F-08 | Low | Documentation / maintainability | Several implementation details have drifted from the specification. |
+- after selecting a gift in the Cart block;
+- after a fresh Cart block page load, which exercises the hydration path;
+- in the Checkout block order summary;
+- on WooCommerce 9.9.5 and in the Cart block on WooCommerce 10.9.4.
 
-### F-01 — Existing gifts can remain selected after stock becomes insufficient
+The fix is therefore adequate in `includes/class-bogo-blocks.php`. It is not
+adequately released: `dist/bogo-select-1.2.0.zip` still contains the old
+URL-gated implementation and empty `display` member.
 
-`BOGO_Select_Cart::validate()` calls
-`BOGO_Select_Engine::unavailable_reason()` only inside the
-`$earned !== $current` branch (`includes/class-bogo-cart.php:116-142`). If stock
-drops while the customer still earns the same gift quantity, the validation hooks
-run but never inspect stock. `is_get_eligible()` checks purchasability and product
-type, not stock (`includes/class-bogo-engine.php:163-180`).
+Live testing also found a separate regression on WooCommerce 10.9.4. The
+plugin's `render_block` filter prepends the chooser at priority 10. WooCommerce
+also runs its block-attribute filter at priority 10, after this plugin in the
+tested load order. WooCommerce consequently adds
+`data-block-name="woocommerce/checkout"` to the newly prepended BOGO slot
+instead of to the real Checkout block. The Checkout frontend mounts against the
+empty slot, and the real checkout remains `is-loading` with no address, order
+summary, payment, or place-order UI.
 
-This directly contradicts `BRIEF.md:116-124`, which says a reward that becomes
-out of stock or falls below the required quantity is removed with a notice.
-WooCommerce may still block checkout through its own stock validation, but that is
-a checkout failure rather than the promised self-healing cart.
+This is not caused by the new label metadata:
 
-**Recommendation:** Check `unavailable_reason()` on every validation pass, before
-comparing quantities. The check should account for total cart demand against the
-stock-managed product ID, including paid and free lines. Also validate on
-`woocommerce_cart_item_restored` so an undone removal cannot bypass the current
-rule state.
+- it reproduces with no gift selected;
+- it reproduces with an empty chooser slot when the cart does not qualify;
+- disabling the promotion, or deactivating the plugin, restores checkout;
+- changing only the injection priority from 10 to 20 restores the correct block
+  attribute, the checkout UI, and the promotion label. That diagnostic change
+  was reverted after verification and is **not** present in the reviewed code.
 
-**Tests to add:** Stock changes from sufficient to insufficient while earned
-quantity stays constant; backorders on/off; paid and free copies sharing stock;
-restoring a removed gift.
+No new critical/high security defect was found. Classic cart and checkout
+continue to work. The current source is good on the declared WooCommerce 9.9
+line, but it should not be described as generally compatible with current
+WooCommerce Blocks until the checkout-root collision is fixed.
 
-### F-02 — “All Products” is incomplete and has no catalogue search
+## Scope and evidence
 
-For Get scope `all`, `get_choice_ids()` queries only 50 simple products ordered by
-title (`includes/class-bogo-engine.php:219-239`). The cart UI renders that fixed
-set; there is no paging or search endpoint. Products after the first 50 are
-therefore impossible to select.
+Reviewed:
 
-This conflicts with:
+- `CODEX-REVIEW-RESPONSE.md`, including its new Part 0;
+- all PHP and JavaScript implementation files affected by v1.2.0;
+- the Blocks tests and supporting WordPress/WooCommerce stubs;
+- requirements, instructions, decisions, README, changelog, and compatibility
+  metadata;
+- CI, dependency locking, the build script, and the v1.2.0 ZIP;
+- WooCommerce 9.9.5 and 10.9.4 hydration and block-rendering source.
 
-- `BRIEF.md:174`: “lets the chooser search the whole catalogue”;
-- `INSTRUCTIONS.md:104`: “any purchasable product in your catalogue”;
-- `INSTRUCTIONS.md:115`: describes a large catalogue as producing a long chooser.
+Automated checks:
 
-Removing the limit would satisfy the wording but create a substantial cart-page
-performance problem. Selected-product scope is already unbounded, and rendering
-loads and formats each product individually.
+| Check | Result |
+|---|---|
+| PHPUnit | **Pass — 127 tests, 252 assertions** |
+| PHP syntax, repository PHP outside `vendor` | **Pass** |
+| JavaScript syntax, `assets/js/bogo-select.js` | **Pass** |
+| `bin/build-zip.sh` shell syntax | **Pass** |
+| `git diff --check` | **Pass** |
+| v1.2.0 ZIP compared with worktree | **Fail — stale Blocks class; label fix absent** |
 
-**Recommendation:** Make the chooser paginated or searchable over AJAX, keeping a
-bounded page size while allowing every eligible product to be reached. If that is
-out of scope, rename/document the setting as a capped catalogue sample and remove
-the unmet acceptance criterion.
+Live environment:
 
-**Tests to add:** A catalogue of at least 60 eligible products; page/search access
-to the first, fiftieth, and last product; unavailable and non-simple products in
-the result set.
+| Component | Versions exercised |
+|---|---|
+| WordPress | 7.0.2 |
+| PHP | 8.2.33 |
+| WooCommerce | 9.9.5 and 10.9.4 |
+| Database | MariaDB 10.11 |
+| Theme | Twenty Twenty-Five |
 
-### F-03 — Gift replacement is not atomic
+The live environment was isolated and temporary. Its containers, network, and
+volume were removed after testing.
 
-The choose endpoint removes the existing gift at
-`includes/class-bogo-ajax.php:63-68`, then attempts to add the new product at
-lines 72-81. WooCommerce or another extension can still reject the add after the
-plugin’s preliminary checks—for example because of aggregate cart stock, a
-sold-individually rule, or an `add_to_cart_validation` filter. The error path at
-lines 83-92 does not restore the old gift.
+## Findings
 
-The customer is left with no gift even though the request was presented as a
-change of selection.
+### H-01 — WooCommerce 10.9.4 Checkout block mounts into the BOGO slot and never renders
 
-**Recommendation:** Treat replacement as one operation: retain the existing cart
-item until the new item is successfully added, then remove the old item. If hook
-ordering makes that unsafe, snapshot enough cart-item data to restore the original
-on failure.
+**Severity:** High
 
-**Tests to add:** A replacement rejected by core stock validation and a replacement
-rejected by a third-party `woocommerce_add_to_cart_validation` callback.
+**Status:** Open
 
-### F-04 — Multiple free lines are not normalized, and the documented token is unused
+`BOGO_Select_Blocks` registers:
 
-`find_reward_key()` returns the first flagged line and stops
-(`includes/class-bogo-engine.php:275-288`). Validation, AJAX removal, and gift
-replacement all operate on that one key. In contrast, price calculation sets
-**every** flagged line to zero (`includes/class-bogo-cart.php:49-55`).
+```php
+add_filter( 'render_block', array( $this, 'inject_chooser' ), 10, 2 );
+```
 
-If duplicate flagged lines arise through a malformed/stale session, extension
-interaction, import, or race, extra gifts remain free but are not checked or
-removed. This violates the “only one reward line” invariant in `BRIEF.md:114`.
-There is no obvious public request parameter that directly creates such a line,
-so this is an integrity hardening issue, not a confirmed unauthenticated exploit.
+and returns:
 
-The specification also requires a settings-derived `_bogo_select_token`
-(`BRIEF.md:109-110`). The code writes a random `bogo_select_stamp`
-(`includes/class-bogo-ajax.php:77-80`) and never validates it. Current settings are
-rechecked field by field, but the advertised provenance mechanism provides no
-protection because it is not implemented.
+```php
+return BOGO_Select_Frontend::slot_html( 'block' ) . $content;
+```
 
-**Recommendation:** Enumerate all reward keys during validation, retain at most
-one valid reward, and remove all others. Either implement and verify a
-settings-derived stamp or delete the token requirement and explain why current
-state validation is sufficient.
+WooCommerce 10.9.4's `BlockTypesController::add_data_attributes()` is also a
+priority-10 `render_block` filter. It uses `WP_HTML_Tag_Processor::next_tag()`
+and assigns the current block's `data-block-name` to the first tag in the
+filtered content.
 
-**Tests to add:** Two flagged lines in a restored session; settings changed after
-selection; invalid/missing stamp; removal and replacement when duplicates exist.
+Because this plugin's callback ran first in the tested load order, the final
+checkout markup began as:
 
-### F-05 — Dependency lifecycle behavior does not match the documentation
+```html
+<div
+  data-block-name="woocommerce/checkout"
+  class="bogo-select-slot"
+  data-bogo-slot="1"
+  data-bogo-mode="block"
+></div>
+<div class="wp-block-woocommerce-checkout alignwide wc-block-checkout is-loading">
+  ...
+</div>
+```
 
-`INSTRUCTIONS.md:30-31` says the plugin will not activate without WooCommerce and
-will deactivate itself if WooCommerce is later removed. The bootstrap instead
-registers only an admin notice and returns when the `WooCommerce` class is absent
-(`bogo-select.php:48-54`). Its activation hook only stores the version
-(`bogo-select.php:85-89`). The plugin therefore remains activated but inert.
+The BOGO slot has the Checkout block identity; the real Checkout root does not.
+The customer sees the chooser, but no checkout form.
 
-The stated WooCommerce 7.0 minimum is also not checked in code. The custom
-`WC requires at least` header may be displayed by WooCommerce tooling, but the
-runtime currently accepts any version that defines the main class.
+Reproduction controls:
 
-**Recommendation:** Add an explicit dependency declaration where supported and an
-activation/runtime guard for WordPress versions that do not enforce it. Check
-`WC_VERSION` against 7.0 before loading plugin classes. Alternatively, change the
-documentation to accurately describe an inert-with-notice lifecycle.
+- active plugin, enabled offer, selected gift: fails;
+- active plugin, enabled offer, qualifying cart with no selected gift: fails;
+- active plugin, enabled offer, non-qualifying cart and empty slot: fails;
+- active plugin, disabled offer: checkout renders;
+- plugin deactivated: checkout renders.
 
-### F-06 — Core commerce behavior has no automated verification
+Changing only the plugin filter priority to 20 produced:
 
-No `tests/` directory, PHPUnit configuration, Composer configuration, JavaScript
-test configuration, or CI workflow is present. The repository calls the engine
-“pure, testable,” but none of its boundary cases are executable here. Static
-syntax checks cannot verify hook timing, session restoration, order-line
-creation, stock reduction, tax behavior, or compatibility with supported
-WordPress/WooCommerce versions.
+- no `data-block-name` on the BOGO slot;
+- `data-block-name="woocommerce/checkout"` on the real Checkout root;
+- a rendered contact/address/payment checkout;
+- visible `Free gift: BOGO promotion` item metadata.
 
-This is a material release risk because the most important acceptance criteria
-depend on WooCommerce lifecycle behavior rather than syntax.
+The priority change was used only to confirm causality and was reverted.
 
-**Recommendation:** Add:
+**Recommendation:** inject after WooCommerce has decorated the original block
+root, for example with a later `render_block` priority or an equivalent
+block-specific hook whose ordering is explicit. Add a real integration
+assertion that:
 
-1. Unit tests for settings normalization, eligibility, cart counting, repeat mode,
-   and filtered quantities.
-2. WooCommerce integration tests for AJAX choose/change/remove, cart-session
-   restoration, totals, checkout, order metadata, and stock reduction.
-3. A version matrix covering PHP 7.4 and at least the minimum and current supported
-   WooCommerce releases.
-4. Static checks such as WordPress Coding Standards and PHP compatibility rules.
+1. the BOGO slot does not receive the WooCommerce block name;
+2. the actual `.wp-block-woocommerce-checkout` root does;
+3. the checkout leaves `is-loading` and renders its form.
 
-### F-07 — Multi-unit gift subtotal displays the wrong original amount
+A unit test that calls `inject_chooser()` directly cannot detect this
+cross-plugin filter-order failure.
 
-The same `label_price()` callback handles both unit price and subtotal filters
-(`includes/class-bogo-cart.php:39-42`). It always displays one unit’s normal price
-(`includes/class-bogo-cart.php:196-207`). For eight $10 gifts, the subtotal column
-strikes through $10 rather than $80.
+### M-01 — The source label fix is absent from `dist/bogo-select-1.2.0.zip`
 
-This does not affect charged totals, but it understates the promotion and is
-visibly incorrect for the arbitrary Get quantities that are a core feature.
+**Severity:** Medium; release blocker
 
-**Recommendation:** Use separate unit-price and subtotal callbacks, multiplying
-the display price by cart quantity for the subtotal.
+**Status:** Open
 
-### F-08 — Documentation and implementation have drifted
+The worktree class and packaged class have different SHA-256 hashes. The ZIP
+still contains the superseded implementation:
 
-In addition to the token and dependency discrepancies above:
+```php
+if ( ! BOGO_Select_Engine::is_reward_item( $cart_item ) || ! self::is_store_api_request() ) {
+    return $item_data;
+}
 
-- The decision log says Cart/Checkout blocks “will see the notice but not the
-  chooser” (`DECISION.md:146-147`), but the notice callback explicitly returns on
-  cart and checkout pages (`includes/class-bogo-frontend.php:177`). Block pages
-  receive neither component from this plugin.
-- The brief names the cart flag `_bogo_select_free`
-  (`BRIEF.md:109`), while runtime cart data uses `bogo_select_free`; only order
-  metadata uses the underscored key.
-- The technical class table describes front-end AJAX as having “nonce + capability
-  checks” (`BRIEF.md:155`). The endpoints are intentionally public for guest
-  shoppers and have nonce plus business-rule checks, not capability checks.
-- Runtime eligibility rejects `variable`, `grouped`, and `external` products but
-  does not reject a `variation` product object
-  (`includes/class-bogo-engine.php:171-177`). The settings sanitizer follows the
-  same rule. That is looser than the documentation’s “simple products only”
-  language and should be either explicitly supported and tested or rejected.
+$item_data[] = array(
+    'key'     => __( 'Free gift', 'bogo-select' ),
+    'value'   => __( 'BOGO promotion', 'bogo-select' ),
+    'display' => '',
+);
+```
 
-**Recommendation:** Make the brief authoritative and update code to match it, or
-revise the brief/decision log in the same change whenever the design changes.
+It contains none of the new hydration/REST scope hooks. Anyone installing the
+current v1.2.0 ZIP still receives the missing-label defect.
 
-## Objective coverage
+**Recommendation:** fix H-01, rerun the full suite and live matrix, rebuild the
+ZIP from that exact reviewed state, and compare packaged runtime files with the
+source before publishing.
 
-| Objective | Assessment | Notes |
+### M-02 — Framework-boundary coverage is still too weak
+
+**Severity:** Medium release risk
+
+**Status:** Open
+
+The new label tests are better than the old one, but they manually fire the
+expected hooks. They do not run WooCommerce's hydration service, its
+`BlockTypesController`, Store API serialization, or browser frontend.
+
+H-01 is the concrete consequence: 127 tests pass while the current Checkout
+block is unusable.
+
+**Recommendation:** add a reproducible WordPress/WooCommerce integration job or
+release smoke suite. At minimum cover:
+
+- classic cart and checkout;
+- Cart and Checkout blocks;
+- minimum supported WooCommerce, declared tested version, and a current
+  version;
+- gift selection, fresh-page hydration, visible metadata, zero totals,
+  quantity limits, reactive qualification, and checkout form rendering;
+- the installable ZIP rather than only the source directory.
+
+### M-03 — All Products browse totals remain pre-filter totals
+
+**Severity:** Medium
+
+**Status:** Partially addressed
+
+Unsearched All Products browsing still:
+
+1. queries one catalogue page;
+2. publishes WooCommerce's pre-eligibility `total` and `max_num_pages`;
+3. filters only the IDs on that page.
+
+The displayed option count can therefore be too high, and a page can be short
+or empty even when eligible products exist later. The legacy
+`bogo_select_get_products` filter can also append the same product independently
+on every page.
+
+**Recommendation:** count/page an eligibility-compatible candidate set, fetch
+forward to fill pages, or explicitly document that browse totals are catalogue
+counts rather than exact selectable-gift counts.
+
+### L-01 — The validation re-entry guard is not exception-safe
+
+**Severity:** Low
+
+**Status:** Open
+
+`BOGO_Select_Cart::validate()` sets `$this->validating = true`, calls
+`run_validation()`, and then clears the flag without `finally`. An exception
+from an extension observing a cart removal or quantity change can leave
+validation disabled for the rest of that PHP request.
+
+**Recommendation:** clear the flag in `finally`, matching the exception-safe
+gift-swap suspend/resume implementation.
+
+### L-02 — Search completeness is deliberately capped
+
+**Severity:** Low
+
+**Status:** Accepted trade-off; clarify
+
+Search examines at most 200 candidates by default. That bounds work but means a
+broad term can omit later eligible matches and report only the bounded result
+set.
+
+**Recommendation:** document “first 200 matches,” expose truncation in the
+response/UI if useful, and raise the limit only from measured catalogue data.
+
+### L-03 — Curated-list caching still has a cold O(N) path
+
+**Severity:** Low
+
+**Status:** Accepted partial fix
+
+The transient and request memo materially reduce repeat work, but the first
+request after expiration or invalidation still loads every configured product.
+Any product save clears the full map, including saves for products not in the
+configured gift list.
+
+**Recommendation:** retain the current design unless profiling shows a problem.
+If it does, narrow invalidation to configured products or cache eligibility per
+product behind a versioned list index.
+
+## Verification of Claude Code's Part 0 response
+
+| Claim | Assessment | Evidence |
 |---|---|---|
-| Customer chooses one free product | Mostly implemented | Works through classic cart UI and AJAX; replacement failure and duplicate-line cases remain. |
-| Gift is a real $0 order line reducing inventory | Implemented, runtime unverified | Price override and order metadata are present; actual order stock reduction requires WooCommerce integration testing. |
-| Arbitrary positive Buy/Get quantities | Implemented | Settings clamp values to at least one; repeat math matches the brief. |
-| Independent Buy/Get scopes | Partially implemented | Select scope is implemented; Get “All Products” is capped at 50. |
-| Server-side tamper resistance | Good baseline | Nonce, qualification, eligibility, quantity, and availability are rechecked on selection. Duplicate reward normalization is missing. |
-| Self-healing cart | Partially implemented | Qualification and quantity changes heal; unchanged-quantity stock changes do not. |
-| One reward product per cart | Intended but not enforced globally | Helpers inspect only the first reward line. |
-| Classic cart/checkout support | Implemented by hooks, runtime unverified | Blocks are explicitly declared incompatible. |
-| Uninstall cleanup | Implemented | Both plugin options are removed, including multisite iteration. |
-| Release archive | Valid | `dist/bogo-select-1.0.0.zip` has one top-level plugin directory and passes archive integrity testing. |
+| URL sniffing misses block hydration | **Correct** | Confirmed against WooCommerce 9.9.5/10.9.4 source and live fresh-page rendering. |
+| REST and hydration hook names/signatures | **Correct** | Both filter pairs exist with the registered argument counts in the tested versions. |
+| Request-depth approach fixes hydrated and fetched responses | **Correct on normal paths** | Label appeared after Store API mutation and after a fresh hydrated page load. |
+| `key`/`name` plus `value`/`display` fixes presentation | **Correct** | Live DOM contained `Free gift: BOGO promotion`. |
+| Four new unit tests prove browser presentation | **Not claimed, and still not proved by them** | The response correctly says a live check remains necessary; this review supplies it. |
+| The label issue is fixed | **Yes in source; no in the packaged ZIP** | Worktree passes live checks; ZIP contains the old implementation. |
+| Everything needed is fixed | **No** | H-01 blocks checkout on WooCommerce 10.9.4 and M-01 leaves the release artifact stale. |
 
-## Quality, performance, and security notes
+The depth counter is reasonable for normal web requests. The accompanying
+comment that the closing filters “always” run is stronger than the framework
+code guarantees if a callback terminates abnormally, but an uncaught fatal or
+exception normally ends the PHP request and resets static state. This is not a
+release blocker.
 
-### Strengths
+## Cart and checkout compatibility
 
-- Responsibilities are separated cleanly across settings, engine, cart, AJAX,
-  front-end, and admin classes.
-- The settings option is normalized on both read and save.
-- Direct request data used by AJAX is unslashed and converted with `absint`.
-- Front-end/admin output is consistently escaped or passed through an appropriate
-  allow-list helper.
-- Admin settings use the Settings API and a `manage_woocommerce`-protected page.
-- Public AJAX selection does not trust the submitted product or quantity.
-- Reward items are excluded from Buy counting, preventing self-qualification.
-- The all-products query is bounded, and cart validation is linear in cart size;
-  performance should be acceptable for ordinary small catalogues/carts.
-- The build script checks version consistency, stages into the expected top-level
-  directory, refuses to overwrite an existing release, and cleans up its temporary
-  directory.
+| WooCommerce | Surface | Result |
+|---|---|---|
+| 9.9.5 | Classic cart | **Works** — previously live-verified; unaffected by the label patch |
+| 9.9.5 | Classic checkout | **Works** — previously live-verified; unaffected by the label patch |
+| 9.9.5 | Cart block | **Works** — chooser, selection, zero price, quantity lock, and label verified |
+| 9.9.5 | Checkout block | **Works** — chooser, checkout form, gift summary, and label verified |
+| 10.9.4 | Classic cart | **Works** — chooser, selection, `Free (BOGO)`, zero price, and totals verified |
+| 10.9.4 | Classic checkout | **Works** — chooser, checkout form, order review, `Free (BOGO)`, and totals verified |
+| 10.9.4 | Cart block | **Works** — selection, fresh hydration, zero price, quantity lock, and label verified |
+| 10.9.4 | Checkout block | **Does not work** — chooser renders, but the checkout remains an empty loading shell (H-01) |
 
-### Remaining risks
+Answer to the mode question:
 
-- Fixing F-02 by simply removing the 50-product cap would turn correctness into a
-  performance problem. Search/pagination is the appropriate design.
-- Select scope can contain an unbounded product list and renders every choice on
-  each qualifying cart view.
-- Product objects are retrieved during eligibility filtering and again during
-  rendering. WooCommerce caching limits database cost, but large choice lists still
-  incur object, image, price, and markup work.
-- Pricing at hook priority 20 is not an absolute guarantee; another extension can
-  mutate the price later. This limitation is already documented, but an integration
-  compatibility test would make failures visible.
-- The plugin has no direct database queries, file uploads, dynamic code execution,
-  or custom HTML input, which keeps its attack surface comparatively small.
+- **Classic cart and checkout:** yes.
+- **Cart block:** yes on both tested WooCommerce versions.
+- **Checkout block:** yes on WooCommerce 9.9.5; no on WooCommerce 10.9.4 in the
+  reviewed code.
 
-## Verification performed
+The declared header remains `WC tested up to: 9.9`. The 9.9.5 result supports
+that declaration. The current-version failure means the header should not be
+advanced until H-01 and an appropriate release matrix are completed.
 
-- `php -l` passed for all nine PHP files.
-- `node --check` passed for both JavaScript files.
-- `bash -n bin/build-zip.sh` passed.
-- `unzip -t dist/bogo-select-1.0.0.zip` passed.
-- The archive contains one `bogo-select/` top-level directory and excludes
-  `.git/`, `dist/`, and `bin/`.
-- No test/configuration files were found.
-- `phpcs` and `phpunit` are not installed in the review environment.
+## Quality assessment
 
-This was a static repository review. A running WordPress/WooCommerce test
-environment was not present, so acceptance criteria involving rendered templates,
-AJAX sessions, checkout, `WP_DEBUG`, taxes, and physical stock reduction were not
-executed. Those criteria should remain unverified until F-06 is addressed.
+### Code quality
 
-## Recommended release gate
+The plugin remains well separated into settings, qualification, cart mutation,
+frontend rendering, AJAX, and Blocks integration. Shared mutation methods,
+escaping, naming, and comments are generally strong.
 
-Before the next production release:
+The main weakness is framework integration testing. The label regression and
+the new checkout-root collision both passed unit tests because the stubs model
+the plugin's callbacks, not WooCommerce's competing filters or browser mount
+logic.
 
-1. Fix F-01 and F-02.
-2. Make replacement atomic (F-03) and normalize duplicate rewards (F-04).
-3. Add integration coverage for qualification, selection, session restoration,
-   checkout, and stock reduction (F-06).
-4. Resolve the dependency and documentation mismatches (F-05 and F-08).
-5. Run WordPress Coding Standards, PHP compatibility checks, and the integration
-   suite against the declared minimum versions.
+**Assessment:** good internal structure, but not release-grade verification at
+framework boundaries.
+
+### Performance
+
+Paged catalogue access, bounded search, and cached curated eligibility are
+substantial improvements. No new performance blocker was found. The known
+limitations are inaccurate unfiltered browse totals, a capped search universe,
+and cold O(N) curated-list hydration.
+
+**Assessment:** acceptable for typical stores; profile unusually large or
+frequently imported catalogues.
+
+### Security
+
+Positive controls remain in place:
+
+- AJAX nonces;
+- input sanitization;
+- server-side qualification, product-scope, purchasability, stock, and quantity
+  validation;
+- server-enforced zero pricing;
+- self-healing removal/resizing;
+- escaped frontend output;
+- Store API errors through WooCommerce's route-exception mechanism;
+- no sensitive data in public extension fields.
+
+No critical/high injection, authorization, arbitrary free-product, or data
+exposure issue was found. The open exception-safety guard is a low-severity
+robustness concern, not an observed privilege or pricing bypass.
+
+**Assessment:** strong for the plugin's scope.
+
+### Stated objectives
+
+The business engine accomplishes the stated BOGO behavior: independently
+configurable Buy/Get scopes, repeating and non-repeating quantities, a real
+zero-priced inventory-bearing gift line, stock-aware atomic selection,
+revalidation, paging, and name/SKU search.
+
+The source label objective is now met. The complete “supports Cart and Checkout
+Blocks” objective is met on WooCommerce 9.9.5 but not on WooCommerce 10.9.4.
+The installable ZIP also does not contain the claimed label fix.
+
+**Assessment:** core promotion behavior is sound; current-version block checkout
+and release packaging prevent a production-ready verdict.
+
+## Release recommendation
+
+Do not publish the current v1.2.0 ZIP as the fixed release.
+
+Required before release:
+
+1. Fix H-01 by ordering chooser injection after WooCommerce decorates the real
+   block root, and retain an integration regression test.
+2. Rerun the block cart and checkout flows on WooCommerce 9.9.5 and a current
+   release.
+3. Rebuild `dist/bogo-select-1.2.0.zip` from the exact passing state and compare
+   packaged runtime files with the worktree.
+4. Add the ZIP-based Store API/browser smoke test to the release process.
+
+Recommended follow-up:
+
+5. Decide whether All Products browse totals are an accepted limitation.
+6. Make the validation guard exception-safe.
+7. Commit the v1.2.0 work as one reviewable release state; the reviewed tree is
+   still a large uncommitted change set with important new files untracked.
+
+## Authoritative references
+
+- [WooCommerce 10.9.4 `BlockTypesController::add_data_attributes()`](https://github.com/woocommerce/woocommerce/blob/10.9.4/plugins/woocommerce/src/Blocks/BlockTypesController.php#L287-L324)
+- [WooCommerce 10.9.4 hydration filters](https://github.com/woocommerce/woocommerce/blob/10.9.4/plugins/woocommerce/src/Blocks/Domain/Services/Hydration.php#L156-L188)
+- [WooCommerce: updating the cart on demand](https://developer.woocommerce.com/docs/apis/store-api/extending-store-api/extend-store-api-update-cart/)
+- [WooCommerce: exposing data through Store API schemas](https://developer.woocommerce.com/docs/apis/store-api/extending-store-api/extend-store-api-add-data/)

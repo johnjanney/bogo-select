@@ -52,16 +52,69 @@ class BOGO_Test_Env {
 	public static $cart = null;
 
 	/**
+	 * Stored transients.
+	 *
+	 * @var array
+	 */
+	public static $transients = array();
+
+	/**
+	 * Whether WC_Data_Store::load() answers, so the query fallback can be
+	 * exercised too.
+	 *
+	 * @var bool
+	 */
+	public static $data_store = true;
+
+	/**
+	 * Every data-store search performed, for asserting what was asked for.
+	 *
+	 * @var array[]
+	 */
+	public static $store_searches = array();
+
+	/**
+	 * Error message add_to_cart() should refuse with, or an empty string.
+	 *
+	 * @var string
+	 */
+	public static $reject_add_to_cart = '';
+
+	/**
+	 * Assets enqueued through the stubs, keyed by handle.
+	 *
+	 * @var array
+	 */
+	public static $enqueued = array();
+
+	/**
+	 * Data passed to wp_localize_script(), keyed by object name.
+	 *
+	 * @var array
+	 */
+	public static $localized = array();
+
+	/**
 	 * Reset everything between tests.
 	 */
 	public static function reset() {
-		self::$options  = array();
-		self::$hooks    = array();
-		self::$products = array();
-		self::$notices  = array();
-		self::$cart     = new WC_Cart();
+		self::$options            = array();
+		self::$hooks              = array();
+		self::$products           = array();
+		self::$notices            = array();
+		self::$transients         = array();
+		self::$store_searches     = array();
+		self::$data_store         = true;
+		self::$reject_add_to_cart = '';
+		self::$enqueued           = array();
+		self::$localized          = array();
+		self::$cart               = new WC_Cart();
 
 		BOGO_Select_Settings::flush();
+		BOGO_Select_Engine::flush_choice_cache();
+		BOGO_Select_Frontend::forget_slot();
+
+		unset( $_SERVER['REQUEST_URI'] );
 	}
 
 	/**
@@ -249,6 +302,201 @@ function update_option( $name, $value ) {
 	return true;
 }
 
+/**
+ * Read a transient.
+ *
+ * @param string $name Transient name.
+ * @return mixed False when unset.
+ */
+function get_transient( $name ) {
+	return array_key_exists( $name, BOGO_Test_Env::$transients ) ? BOGO_Test_Env::$transients[ $name ] : false;
+}
+
+/**
+ * Write a transient.
+ *
+ * @param string $name       Transient name.
+ * @param mixed  $value      Value.
+ * @param int    $expiration Ignored.
+ * @return bool
+ */
+function set_transient( $name, $value, $expiration = 0 ) {
+	BOGO_Test_Env::$transients[ $name ] = $value;
+
+	return true;
+}
+
+/**
+ * Delete a transient.
+ *
+ * @param string $name Transient name.
+ * @return bool
+ */
+function delete_transient( $name ) {
+	unset( BOGO_Test_Env::$transients[ $name ] );
+
+	return true;
+}
+
+// --- Request context ---------------------------------------------------------
+
+/**
+ * Whether this is an admin screen.
+ *
+ * @return bool
+ */
+function is_admin() {
+	return false;
+}
+
+/**
+ * Whether this is an AJAX request.
+ *
+ * @return bool
+ */
+function wp_doing_ajax() {
+	return false;
+}
+
+/**
+ * Sanitize a key.
+ *
+ * @param string $key Key.
+ * @return string
+ */
+function sanitize_key( $key ) {
+	return preg_replace( '/[^a-z0-9_\-]/', '', strtolower( (string) $key ) );
+}
+
+/**
+ * Sanitize a URL.
+ *
+ * @param string $url URL.
+ * @return string
+ */
+function esc_url_raw( $url ) {
+	return (string) $url;
+}
+
+/**
+ * Escape post-safe HTML.
+ *
+ * @param string $html HTML.
+ * @return string
+ */
+function wp_kses_post( $html ) {
+	return (string) $html;
+}
+
+/**
+ * Echo escaped translated text.
+ *
+ * @param string $text   Text.
+ * @param string $domain Unused.
+ */
+function esc_html_e( $text, $domain = null ) { // phpcs:ignore
+	echo esc_html( $text );
+}
+
+/**
+ * Echo an escaped translated attribute.
+ *
+ * @param string $text   Text.
+ * @param string $domain Unused.
+ */
+function esc_attr_e( $text, $domain = null ) { // phpcs:ignore
+	echo esc_attr( $text );
+}
+
+/**
+ * Pass-through escaped translated attribute.
+ *
+ * @param string $text   Text.
+ * @param string $domain Unused.
+ * @return string
+ */
+function esc_attr__( $text, $domain = null ) { // phpcs:ignore
+	return $text;
+}
+
+// --- Assets ------------------------------------------------------------------
+
+/**
+ * Whether a script is in the given state.
+ *
+ * Nothing is registered or enqueued in the unit environment, except what the
+ * plugin itself enqueues.
+ *
+ * @param string $handle Script handle.
+ * @param string $state  State to test.
+ * @return bool
+ */
+function wp_script_is( $handle, $state = 'enqueued' ) {
+	return 'enqueued' === $state && isset( BOGO_Test_Env::$enqueued[ $handle ] );
+}
+
+/**
+ * Record an enqueued script.
+ *
+ * @param string $handle    Handle.
+ * @param string $src       Source.
+ * @param array  $deps      Dependencies.
+ * @param string $version   Version.
+ * @param bool   $in_footer Whether it loads in the footer.
+ */
+function wp_enqueue_script( $handle, $src = '', $deps = array(), $version = '', $in_footer = false ) {
+	BOGO_Test_Env::$enqueued[ $handle ] = array(
+		'src'  => $src,
+		'deps' => (array) $deps,
+	);
+}
+
+/**
+ * Record an enqueued style.
+ *
+ * @param string $handle  Handle.
+ * @param string $src     Source.
+ * @param array  $deps    Dependencies.
+ * @param string $version Version.
+ */
+function wp_enqueue_style( $handle, $src = '', $deps = array(), $version = '' ) {
+	BOGO_Test_Env::$enqueued[ $handle . '-style' ] = array( 'src' => $src );
+}
+
+/**
+ * Record localized script data.
+ *
+ * @param string $handle Handle.
+ * @param string $name   JavaScript object name.
+ * @param array  $data   Data.
+ * @return bool
+ */
+function wp_localize_script( $handle, $name, $data ) {
+	BOGO_Test_Env::$localized[ $name ] = $data;
+
+	return true;
+}
+
+/**
+ * An admin URL.
+ *
+ * @param string $path Path.
+ * @return string
+ */
+function admin_url( $path = '' ) {
+	return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+}
+
+/**
+ * A predictable nonce.
+ *
+ * @param string $action Action.
+ * @return string
+ */
+function wp_create_nonce( $action = '' ) {
+	return 'nonce-' . $action;
+}
+
 // --- Hooks -------------------------------------------------------------------
 
 /**
@@ -328,5 +576,36 @@ function do_action( $tag ) {
 		foreach ( $callbacks as $entry ) {
 			call_user_func_array( $entry['callback'], array_slice( $args, 0, max( 0, (int) $entry['args'] ) ) );
 		}
+	}
+}
+
+// --- REST ---------------------------------------------------------------------
+
+/**
+ * Just enough of a REST request for route-based checks.
+ */
+class WP_REST_Request {
+
+	/**
+	 * Route being requested.
+	 *
+	 * @var string
+	 */
+	protected $route;
+
+	/**
+	 * @param string $route Route.
+	 */
+	public function __construct( $route = '' ) {
+		$this->route = $route;
+	}
+
+	/**
+	 * The route.
+	 *
+	 * @return string
+	 */
+	public function get_route() {
+		return $this->route;
 	}
 }

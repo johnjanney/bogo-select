@@ -21,6 +21,13 @@ class BOGO_Select_Engine {
 	const FLAG = 'bogo_select_free';
 
 	/**
+	 * Per-request memo of which configured gift IDs are eligible.
+	 *
+	 * @var array<int,bool>|null
+	 */
+	protected static $eligibility = null;
+
+	/**
 	 * Whether the offer can run at all.
 	 *
 	 * @return bool
@@ -344,6 +351,32 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * How many products a gift search may inspect before it stops looking.
+	 *
+	 * Search runs over the whole catalogue, so it needs a ceiling of its own —
+	 * page size bounds what is rendered, not what is examined.
+	 *
+	 * The ceiling is a real limit on completeness, not just on cost: a search
+	 * reports the eligible products among the first 200 matches, so a broad
+	 * term on a large catalogue can omit later matches entirely and say nothing
+	 * about having done so. That is the accepted trade-off (CODEX-REVIEW.md
+	 * L-02), documented in README.md. Raise it from measured catalogue data if
+	 * a store needs deeper searches and can afford them.
+	 *
+	 * @return int
+	 */
+	public static function search_limit() {
+		/**
+		 * Filter how many matching products a gift search considers.
+		 *
+		 * Raising this makes deep searches more thorough and more expensive.
+		 *
+		 * @param int $limit Maximum candidates inspected.
+		 */
+		return max( 1, (int) apply_filters( 'bogo_select_search_limit', 200 ) );
+	}
+
+	/**
 	 * Page the admin-configured gift list.
 	 *
 	 * @param string $search   Search term.
@@ -352,19 +385,26 @@ class BOGO_Select_Engine {
 	 * @return array
 	 */
 	protected static function page_selected_choices( $search, $page, $per_page ) {
-		$ids = self::filter_choice_ids( BOGO_Select_Settings::get( 'get_products' ) );
+		$configured = array_values( array_unique( array_filter( array_map( 'absint', (array) BOGO_Select_Settings::get( 'get_products' ) ) ) ) );
 
 		if ( '' !== $search ) {
-			$ids = array_values(
-				array_filter(
-					$ids,
-					function ( $product_id ) use ( $search ) {
-						return BOGO_Select_Engine::matches_search( $product_id, $search );
-					}
-				)
-			);
+			// The search runs in the database, constrained to the configured
+			// list, rather than loading every configured product to compare it
+			// in PHP.
+			$matched = self::search_product_ids( $search, self::search_limit(), $configured );
+			$ids     = array_values( array_intersect( $configured, $matched ) );
+		} else {
+			$ids = $configured;
 		}
 
+		$context = array(
+			'scope'    => 'select',
+			'search'   => $search,
+			'page'     => $page,
+			'per_page' => $per_page,
+		);
+
+		$ids   = self::filter_choice_ids( $ids, $context );
 		$total = count( $ids );
 		$pages = (int) max( 1, ceil( $total / $per_page ) );
 		$page  = min( $page, $pages );
@@ -380,28 +420,66 @@ class BOGO_Select_Engine {
 	/**
 	 * Page the whole catalogue.
 	 *
+	 * Browsing pages one catalogue query at a time; searching resolves the
+	 * matches first (bounded by self::search_limit()) and pages the result.
+	 *
+	 * The two halves report totals of different things, deliberately:
+	 *
+	 * - Searching filters for eligibility before paging, so "total" and "pages"
+	 *   count selectable gifts exactly.
+	 * - Browsing pages the catalogue and filters each page afterwards, so
+	 *   "total" and "pages" are WooCommerce's pre-eligibility catalogue counts.
+	 *   The count can overstate what is selectable, and a page can come back
+	 *   short or empty while eligible products remain on later pages.
+	 *
+	 * Making browse counts exact means counting an eligibility-filtered
+	 * candidate set, which is the O(catalogue) query paging exists to avoid.
+	 * The inexact count is the accepted price of paging (CODEX-REVIEW.md M-03);
+	 * the limitation is documented in README.md. Stores that need an exact
+	 * count should curate a list with the "Select Products" scope, which pages
+	 * a filtered set and counts it exactly.
+	 *
 	 * @param string $search   Search term.
 	 * @param int    $page     Page number.
 	 * @param int    $per_page Page size.
 	 * @return array
 	 */
 	protected static function page_all_choices( $search, $page, $per_page ) {
-		$query_args = array(
-			'status'   => 'publish',
-			'type'     => 'simple',
-			'limit'    => $per_page,
+		$context = array(
+			'scope'    => 'all',
+			'search'   => $search,
 			'page'     => $page,
-			'orderby'  => 'title',
-			'order'    => 'ASC',
-			'return'   => 'ids',
-			'paginate' => true,
+			'per_page' => $per_page,
 		);
 
 		if ( '' !== $search ) {
-			$query_args['s'] = $search;
+			$ids = self::filter_choice_ids( self::search_product_ids( $search, self::search_limit() ), $context );
+			$ids = self::sort_by_name( $ids );
+
+			$total = count( $ids );
+			$pages = (int) max( 1, ceil( $total / $per_page ) );
+			$page  = min( $page, $pages );
+
+			return array(
+				'ids'   => array_slice( $ids, ( $page - 1 ) * $per_page, $per_page ),
+				'page'  => $page,
+				'pages' => $pages,
+				'total' => $total,
+			);
 		}
 
-		$results = wc_get_products( $query_args );
+		$results = wc_get_products(
+			array(
+				'status'   => 'publish',
+				'type'     => 'simple',
+				'limit'    => $per_page,
+				'page'     => $page,
+				'orderby'  => 'title',
+				'order'    => 'ASC',
+				'return'   => 'ids',
+				'paginate' => true,
+			)
+		);
 
 		$ids   = isset( $results->products ) ? (array) $results->products : (array) $results;
 		$total = isset( $results->total ) ? (int) $results->total : count( $ids );
@@ -409,11 +487,139 @@ class BOGO_Select_Engine {
 		$pages = max( 1, $pages );
 
 		return array(
-			'ids'   => self::filter_choice_ids( $ids ),
+			'ids'   => self::filter_choice_ids( $ids, $context ),
 			'page'  => min( $page, $pages ),
 			'pages' => $pages,
 			'total' => $total,
 		);
+	}
+
+	/**
+	 * Product IDs matching a search term by name, description, or SKU.
+	 *
+	 * WooCommerce's product data store owns "search products the way the admin
+	 * product search does", which covers the SKU. WP_Query's `s` does not look
+	 * at SKUs at all, so it cannot be used on its own here.
+	 *
+	 * @param string $search  Search term.
+	 * @param int    $limit   Maximum matches to return.
+	 * @param int[]  $include Optional list to constrain the search to.
+	 * @return int[]
+	 */
+	public static function search_product_ids( $search, $limit, $include = array() ) {
+		$search  = trim( (string) $search );
+		$limit   = max( 1, (int) $limit );
+		$include = array_values( array_unique( array_filter( array_map( 'absint', (array) $include ) ) ) );
+
+		if ( '' === $search ) {
+			return array();
+		}
+
+		$ids = self::store_search( $search, $limit, $include );
+
+		if ( null === $ids ) {
+			$ids = self::query_search( $search, $limit, $include );
+		}
+
+		/**
+		 * Filter the raw search matches before eligibility filtering.
+		 *
+		 * @param int[]  $ids     Matching product IDs.
+		 * @param string $search  Search term.
+		 * @param int[]  $include IDs the search was constrained to, if any.
+		 */
+		$ids = (array) apply_filters( 'bogo_select_search_results', $ids, $search, $include );
+
+		return array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+	}
+
+	/**
+	 * Search through WooCommerce's product data store.
+	 *
+	 * This is the same call the admin product search uses; it matches title,
+	 * excerpt, description, and SKU, and it goes through the data store rather
+	 * than assuming products are posts.
+	 *
+	 * @param string $search  Search term.
+	 * @param int    $limit   Maximum matches.
+	 * @param int[]  $include Optional constraint list.
+	 * @return int[]|null Null when the data store cannot answer.
+	 */
+	protected static function store_search( $search, $limit, $include ) {
+		if ( ! class_exists( 'WC_Data_Store' ) ) {
+			return null;
+		}
+
+		try {
+			$store = WC_Data_Store::load( 'product' );
+		} catch ( Exception $e ) {
+			return null;
+		}
+
+		if ( ! is_object( $store ) || ! method_exists( $store, 'search_products' ) ) {
+			return null;
+		}
+
+		// Signature: term, type, include_variations, all_statuses, limit,
+		// include, exclude. Older signatures simply ignore the trailing
+		// arguments, and the caller intersects with $include regardless.
+		$ids = $store->search_products( $search, '', false, false, $limit, $include ? $include : null, null );
+
+		return array_map( 'absint', (array) $ids );
+	}
+
+	/**
+	 * Search with product queries when the data store is unavailable.
+	 *
+	 * Two queries, because WooCommerce matches SKUs through `sku` and keywords
+	 * through the post search; neither one covers both.
+	 *
+	 * @param string $search  Search term.
+	 * @param int    $limit   Maximum matches.
+	 * @param int[]  $include Optional constraint list.
+	 * @return int[]
+	 */
+	protected static function query_search( $search, $limit, $include ) {
+		$base = array(
+			'status' => 'publish',
+			'type'   => 'simple',
+			'limit'  => $limit,
+			'return' => 'ids',
+		);
+
+		if ( $include ) {
+			$base['include'] = $include;
+		}
+
+		$by_sku     = (array) wc_get_products( array_merge( $base, array( 'sku' => $search ) ) );
+		$by_keyword = (array) wc_get_products( array_merge( $base, array( 's' => $search ) ) );
+
+		return array_merge( $by_keyword, $by_sku );
+	}
+
+	/**
+	 * Order product IDs by product name.
+	 *
+	 * @param int[] $ids Product IDs.
+	 * @return int[]
+	 */
+	protected static function sort_by_name( $ids ) {
+		$ids   = array_values( (array) $ids );
+		$names = array();
+
+		foreach ( $ids as $id ) {
+			$product      = wc_get_product( $id );
+			$names[ $id ] = $product ? $product->get_name() : '';
+		}
+
+		usort(
+			$ids,
+			function ( $a, $b ) use ( $names ) {
+				return strcasecmp( $names[ $a ], $names[ $b ] );
+			}
+		);
+
+		return $ids;
 	}
 
 	/**
@@ -438,28 +644,173 @@ class BOGO_Select_Engine {
 	/**
 	 * Normalise, filter, and eligibility-check a list of candidate gift IDs.
 	 *
-	 * @param mixed $ids Raw ID list.
+	 * @param mixed $ids     Raw ID list.
+	 * @param array $context Page context: scope, search, page, per_page.
 	 * @return int[]
 	 */
-	protected static function filter_choice_ids( $ids ) {
+	protected static function filter_choice_ids( $ids, $context = array() ) {
 		$ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+
+		$context = wp_parse_args(
+			$context,
+			array(
+				'scope'    => BOGO_Select_Settings::get( 'get_scope' ),
+				'search'   => '',
+				'page'     => 1,
+				'per_page' => self::choices_per_page(),
+			)
+		);
 
 		/**
 		 * Filter the products offered in the gift chooser.
 		 *
 		 * Applied per page of results, so a callback that appends IDs appends
-		 * them to every page.
+		 * them to every page. Callbacks that need to know which page they are
+		 * looking at should use bogo_select_choice_ids instead.
 		 *
 		 * @param int[] $ids Product IDs.
 		 */
 		$ids = (array) apply_filters( 'bogo_select_get_products', $ids );
 
-		return array_values(
-			array_filter(
-				array_map( 'absint', $ids ),
-				array( __CLASS__, 'is_get_eligible' )
-			)
-		);
+		/**
+		 * Filter one page of gift options, with the context that produced it.
+		 *
+		 * Unlike bogo_select_get_products, this one says which scope, search
+		 * term, page, and page size are in play, so a callback can act on the
+		 * first page only, leave searches alone, and so on.
+		 *
+		 * @param int[] $ids     Product IDs for this page.
+		 * @param array $context Scope, search, page, and per_page.
+		 */
+		$ids = (array) apply_filters( 'bogo_select_choice_ids', $ids, $context );
+
+		return self::eligible_only( array_map( 'absint', $ids ) );
+	}
+
+	/**
+	 * Keep only the IDs that may be offered as gifts.
+	 *
+	 * Eligibility for the configured "Select Products" list is cached, because
+	 * it depends on product state rather than on the request — a long curated
+	 * list would otherwise be loaded product by product on every page view and
+	 * every search keystroke.
+	 *
+	 * @param int[] $ids Candidate IDs.
+	 * @return int[]
+	 */
+	protected static function eligible_only( $ids ) {
+		$known = self::eligibility_map();
+		$out   = array();
+
+		foreach ( (array) $ids as $id ) {
+			$id = (int) $id;
+
+			if ( ! $id ) {
+				continue;
+			}
+
+			if ( array_key_exists( $id, $known ) ) {
+				if ( $known[ $id ] ) {
+					$out[] = $id;
+				}
+
+				continue;
+			}
+
+			if ( self::is_get_eligible( $id ) ) {
+				$out[] = $id;
+			}
+		}
+
+		return array_values( array_unique( $out ) );
+	}
+
+	/**
+	 * Cached eligibility of every configured gift product.
+	 *
+	 * Empty for the "All Products" scope, where a page is already bounded by
+	 * the catalogue query.
+	 *
+	 * @return array<int,bool>
+	 */
+	protected static function eligibility_map() {
+		if ( null !== self::$eligibility ) {
+			return self::$eligibility;
+		}
+
+		self::$eligibility = array();
+
+		if ( 'select' !== BOGO_Select_Settings::get( 'get_scope' ) ) {
+			return self::$eligibility;
+		}
+
+		$configured = array_values( array_unique( array_filter( array_map( 'absint', (array) BOGO_Select_Settings::get( 'get_products' ) ) ) ) );
+
+		if ( ! $configured ) {
+			return self::$eligibility;
+		}
+
+		$key    = self::eligibility_key( $configured );
+		$cached = function_exists( 'get_transient' ) ? get_transient( $key ) : false;
+
+		if ( is_array( $cached ) ) {
+			self::$eligibility = array_map( 'boolval', $cached );
+
+			return self::$eligibility;
+		}
+
+		foreach ( $configured as $id ) {
+			self::$eligibility[ $id ] = self::is_get_eligible( $id );
+		}
+
+		if ( function_exists( 'set_transient' ) ) {
+			/**
+			 * Filter how long gift eligibility stays cached, in seconds.
+			 *
+			 * The cache is also cleared when the settings or any product are
+			 * saved; this is the ceiling, not the only refresh.
+			 *
+			 * @param int $ttl Seconds.
+			 */
+			$ttl = (int) apply_filters( 'bogo_select_eligibility_ttl', 600 );
+
+			if ( $ttl > 0 ) {
+				set_transient( $key, self::$eligibility, $ttl );
+			}
+		}
+
+		return self::$eligibility;
+	}
+
+	/**
+	 * Transient key for a configured gift list.
+	 *
+	 * @param int[] $configured Configured IDs.
+	 * @return string
+	 */
+	protected static function eligibility_key( $configured ) {
+		return 'bogo_select_eligible_' . md5( implode( ',', $configured ) );
+	}
+
+	/**
+	 * Forget cached eligibility.
+	 *
+	 * Called when the settings change and when any product is saved or
+	 * deleted, so a gift that stops being purchasable leaves the chooser
+	 * without waiting for the cache to expire.
+	 */
+	public static function flush_choice_cache() {
+		self::$eligibility = null;
+
+		if ( ! function_exists( 'delete_transient' ) ) {
+			return;
+		}
+
+		$configured = array_values( array_unique( array_filter( array_map( 'absint', (array) BOGO_Select_Settings::get( 'get_products' ) ) ) ) );
+
+		if ( $configured ) {
+			delete_transient( self::eligibility_key( $configured ) );
+		}
 	}
 
 	/**
@@ -528,6 +879,71 @@ class BOGO_Select_Engine {
 		$cart_item = $cart->get_cart_item( $key );
 
 		return $cart_item ? (int) $cart_item['product_id'] : 0;
+	}
+
+	/**
+	 * Everything the chooser needs to know about the cart's offer state.
+	 *
+	 * Exposed through the Store API on block carts and returned by the AJAX
+	 * endpoints, so the front end can tell — without re-rendering anything —
+	 * whether the cart has crossed the qualifying threshold, changed the number
+	 * of free units, or had its gift removed elsewhere on the page.
+	 *
+	 * @param WC_Cart|null $cart Cart to inspect.
+	 * @return array
+	 */
+	public static function state( $cart = null ) {
+		$cart   = self::resolve_cart( $cart );
+		$reward = self::reward_quantity_for_cart( $cart );
+
+		$state = array(
+			'active'              => self::is_active(),
+			'qualifies'           => $reward > 0,
+			'reward_quantity'     => $reward,
+			'selected_product_id' => self::selected_product_id( $cart ),
+		);
+
+		// Other lines matter too: they compete for the same stock, so a gift
+		// that was available a moment ago may not be now.
+		$lines = array();
+
+		if ( $cart ) {
+			foreach ( $cart->get_cart() as $cart_item ) {
+				$lines[] = (int) $cart_item['product_id']
+					. ':' . ( isset( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : 0 )
+					. ':' . (int) $cart_item['quantity'];
+			}
+		}
+
+		sort( $lines );
+
+		$state['signature'] = md5(
+			implode(
+				'|',
+				array_merge(
+					array(
+						$state['active'] ? '1' : '0',
+						(string) $state['reward_quantity'],
+						(string) $state['selected_product_id'],
+					),
+					$lines
+				)
+			)
+		);
+
+		return $state;
+	}
+
+	/**
+	 * A hash that changes whenever the chooser would render differently.
+	 *
+	 * @param WC_Cart|null $cart Cart to inspect.
+	 * @return string
+	 */
+	public static function state_signature( $cart = null ) {
+		$state = self::state( $cart );
+
+		return $state['signature'];
 	}
 
 	/**

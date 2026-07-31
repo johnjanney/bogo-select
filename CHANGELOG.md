@@ -7,7 +7,127 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Nothing yet.
+## [1.2.0] — 2026-07-30
+
+Addresses the follow-up Codex review (`CODEX-REVIEW.md`) and its central
+conclusion: the plugin worked for classic carts and did nothing useful on a
+block store. Responses are recorded in `CODEX-REVIEW-RESPONSE.md`.
+
+### Added
+
+- **Cart and Checkout Blocks support.** The chooser renders ahead of the
+  `woocommerce/cart` and `woocommerce/checkout` blocks, offer state travels on
+  the Store API cart response, and choosing or removing a gift goes through a
+  registered Store API update callback, so the blocks re-render from the
+  response they already trust — no page reload, and a half-filled block
+  checkout survives. The gift line is labelled through `woocommerce_get_item_data`
+  and its quantity locked through the Store API's own quantity limits, because
+  the classic name and quantity filters never run inside a block. The
+  `cart_checkout_blocks` compatibility declaration is now `true`.
+- **The chooser on the checkout page**, classic and block alike. A customer who
+  goes straight to checkout without visiting the cart previously had nowhere to
+  pick their gift. On classic checkout the page is never reloaded — that would
+  empty a part-filled form — so the chooser re-renders and WooCommerce is asked
+  to update the order review instead.
+- **A chooser that keeps up with a block cart.** The markup now sits in a slot
+  element the script can replace wholesale, and in block mode the script follows
+  the `wc/store/cart` data store: crossing the qualifying threshold makes the
+  chooser appear, and dropping below it makes the chooser go away, without a
+  page load. A new `bogo_select_refresh` AJAX endpoint returns the re-rendered
+  chooser.
+- **`bogo_select_choice_ids`**, a page-aware filter receiving the scope, search
+  term, page, and page size alongside the IDs. `bogo_select_get_products` is
+  unchanged and still applied per page. (C-04)
+- **`bogo_select_search_limit`** (default 200), capping how many matches a gift
+  search inspects, and **`bogo_select_eligibility_ttl`** (default 600 seconds)
+  for the new eligibility cache.
+
+### Fixed
+
+- **The block checkout renders again on current WooCommerce** (`CODEX-REVIEW.md`
+  H-01). The chooser was injected on `render_block` at priority 10, and
+  WooCommerce's own `BlockTypesController::add_data_attributes()` is also a
+  priority-10 `render_block` filter that walks to the *first tag* of the content
+  it is handed and stamps `data-block-name` on it. Which callback ran first was
+  decided by plugin load order; losing that coin toss meant WooCommerce branded
+  the BOGO slot `data-block-name="woocommerce/checkout"` and left the real
+  checkout root unbranded, so the Checkout frontend mounted against an empty div
+  and the customer got a permanent loading shell with no address, order summary,
+  or payment. Injection now runs at priority 20, after WooCommerce has decorated
+  the original block root, which makes the ordering explicit rather than
+  incidental. Observed on WooCommerce 10.9.4; the reproduction did not depend on
+  a gift being selected, or on the cart qualifying at all.
+- **A failed validation pass no longer disables validation for the rest of the
+  request** (`CODEX-REVIEW.md` L-01). `BOGO_Select_Cart::validate()` raised its
+  re-entrancy guard, called `run_validation()`, and lowered the guard on the
+  line after. Since that pass removes cart items and changes quantities, an
+  extension observing either hook could throw straight past the reset and leave
+  the guard stuck on, so every later pass in that request returned early and
+  unearned gifts stayed in the cart. The guard is now cleared in `finally`,
+  matching the exception-safe suspend/resume path.
+- **The "Free gift: BOGO promotion" label now actually appears in the block
+  cart and block checkout** (`CODEX-REVIEW.md`, first round M-01). The label is supplied
+  through `woocommerce_get_item_data`, which only spoke up when WooCommerce
+  reported a Store API request. A block cart paints its first frame from a
+  cart response WooCommerce builds *inside the page request* and preloads into
+  the markup, and during that build `REQUEST_URI` is still `/cart/`, so
+  `WC()->is_store_api_request()` answered no and the row came back empty. The
+  plugin now brackets the response build itself — through
+  `rest_request_before_callbacks`/`rest_request_after_callbacks` for a
+  dispatched Store API route and
+  `woocommerce_hydration_dispatch_request`/`woocommerce_hydration_request_after_callbacks`
+  for the preloaded one — so both the preloaded and the fetched cart carry the
+  label. The entry also sets `name` alongside `key` and a non-empty `display`
+  alongside `value`, because which member the blocks read has moved between
+  WooCommerce versions and the previous empty `display` blanked the row on the
+  versions that prefer it.
+- **Searching gifts by SKU now searches SKUs.** *All Products* search passed the
+  term to `wc_get_products()` as `s`, which WordPress resolves against the post
+  title, excerpt, and content and never the SKU — so a search that matched only
+  a SKU found nothing, contrary to what the search box, README, and acceptance
+  criteria all promised. Search now goes through WooCommerce's product data
+  store (`search_products()`, the call behind the admin product search), which
+  covers name, description, and SKU, with a two-query fallback where that store
+  is unavailable. (C-01)
+- **The unit stub no longer certified the bug.** `wc_get_products()` in the test
+  stubs pretended `s` matched SKUs, which is why a broken SKU search passed its
+  own test in 1.1.0. The stub now follows core semantics — `s` for keywords,
+  `sku` for SKUs — and the data store's search is stubbed separately. (C-01)
+- **Validation can no longer be left suspended.** The suspend/resume pair around
+  a gift swap is now closed by `try`/`finally`, so an exception thrown by a
+  third-party add-to-cart callback cannot leave the next request unguarded.
+
+### Changed
+
+- **A curated gift list is no longer hydrated in full on every request.**
+  Searching *Select Products* is done in the database, constrained to the
+  configured IDs, and the eligibility of that list is cached until the settings
+  or any product are saved. (C-03)
+- **A search total no longer counts gifts that cannot be given.** Totals for a
+  search are taken after the eligibility gate. Browsing *All Products* without a
+  search still reports the catalogue total, which is what bounds the query. (C-04)
+- **Unit suite grown from 71 tests / 146 assertions to 131 / 259**, adding cover
+  for SKU search, the eligibility cache, the page-aware filter, gift selection
+  and replacement, chooser rendering, and the block integration. The last two
+  tests are ordering and exception-safety regressions that a direct call to the
+  method under test cannot catch: one drives the whole `render_block` chain with
+  a stand-in for WooCommerce's `add_data_attributes()` and asserts the chooser
+  slot never takes the block root's identity (H-01), the other throws from a
+  filter mid-validation and asserts the next pass still runs (L-01).
+- **`bin/verify-zip.sh`, and a CI job that runs it** (`CODEX-REVIEW.md` M-01,
+  M-02). The v1.2.0 archive was built before its own fix landed and shipped a
+  superseded class while every test passed, because nothing compared the package
+  with the source. The script now requires every runtime file in the worktree to
+  appear in the archive with an identical SHA-256, CI builds and verifies on
+  every push, and the step is a documented release gate (BRIEF.md §8.5).
+- **Two accepted limitations are now written down** rather than implied
+  (`CODEX-REVIEW.md` M-03, L-02). Browse totals in *All Products* mode are
+  catalogue counts taken before the eligibility gate, so the count can overstate
+  what is selectable and a page can come back short while eligible products wait
+  on later pages; and a gift search reports the eligible products among the
+  first 200 matches, not among every match. Both are documented in README.md
+  under *Limitations* and at the code that implements them. Curating a list with
+  *Select Products* gives exact counts.
 
 ## [1.1.0] — 2026-07-30
 

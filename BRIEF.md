@@ -1,6 +1,6 @@
 # Project Brief — BOGO Select for WooCommerce
 
-**Status:** v1.0.0 specification
+**Status:** v1.0.0 specification, amended through v1.2.0 (see §3.1)
 **Last updated:** 2026-07-30
 
 > Release rules that apply to every future update — versioning, zip builds, and
@@ -67,6 +67,18 @@ These are the requirements as given by the client, restated for implementation.
 - Scheduling (start and end dates for the offer).
 - Subscriptions, bundles, composite products, and other third-party product types.
 - Multi-currency and multi-language (WPML/Polylang) integration testing.
+
+### 3.1 Scope added after v1.0.0
+
+- **v1.2.0 — Cart and Checkout Blocks.** The chooser renders in the WooCommerce
+  Cart and Checkout blocks as well as the classic templates, with gift selection
+  running through the Store API. Blocks were never listed as out of scope; they
+  were simply not implemented, and a block store could not use the promotion at
+  all. See `DECISION.md` D-008.
+- **v1.2.0 — Chooser on the checkout page.** A customer who reaches the checkout
+  without opening the cart previously had nowhere to pick a gift. The chooser now
+  renders above the checkout form (classic) and the Checkout block, and changing
+  a gift there never reloads the page.
 
 ---
 
@@ -168,7 +180,8 @@ Runs on `woocommerce_cart_loaded_from_session`, `woocommerce_check_cart_items`,
 | `BOGO_Select_Engine` | Pure qualification logic (no output, no side effects). |
 | `BOGO_Select_Cart` | Cart hooks: pricing, quantity lock, validation, display. |
 | `BOGO_Select_Frontend` | Renders the chooser and notices, enqueues assets. |
-| `BOGO_Select_Ajax` | `choose`/`remove`/`choices` endpoints, nonce + server-side re-validation. |
+| `BOGO_Select_Ajax` | `choose`/`remove`/`choices`/`refresh` endpoints, nonce + server-side re-validation. |
+| `BOGO_Select_Blocks` | Cart/Checkout Blocks: chooser injection, Store API state, updates, and quantity limits. |
 | `BOGO_Select_Admin` | Settings screen, product search AJAX, settings link. |
 
 The front-end endpoints are deliberately **public** (`wp_ajax_nopriv_*`): guests
@@ -195,8 +208,10 @@ requires `manage_woocommerce`.
 5. Buy scope = Select Products limits qualification to the listed products only.
 6. Get scope = All Products lets the chooser search the whole catalogue: with 60+
    eligible products, the first, fiftieth, and last are all reachable by paging or
-   searching, and no eligible product is unreachable.
-7. The free item's quantity cannot be edited from the cart page.
+   searching, and no eligible product is unreachable. A product whose only match
+   is its SKU is found by searching that SKU.
+7. The free item's quantity cannot be edited from the cart page, or from the Cart
+   block.
 8. No PHP notices/warnings with `WP_DEBUG` enabled.
 9. A gift whose stock falls below the awarded quantity is removed on the next
    validation pass, even when the earned quantity has not changed.
@@ -205,6 +220,10 @@ requires `manage_woocommerce`.
 11. A cart holding more than one flagged free line is normalised to one.
 12. The unit-price and subtotal columns of a multi-unit gift both strike through
     the correct amount (unit price, and unit price × quantity respectively).
+13. The chooser appears, and a gift can be chosen and swapped, on all four
+    combinations of classic/block cart and classic/block checkout.
+14. Choosing a gift on a checkout page does not clear anything already typed into
+    the checkout form.
 
 ---
 
@@ -309,3 +328,35 @@ Rules:
   superseded by the next PATCH version, not rewritten.
 - Attaching the zip to the release is what makes §8.3 durable off-machine: the
   archive of every past version survives even if local `dist/` is lost.
+- Do not tag until §8.5 passes: the tag is immutable, so publishing a zip that
+  disagrees with the tagged commit cannot be corrected in place.
+
+### 8.5 Verify the zip before publishing it
+
+A passing test suite says nothing about what was packaged. The v1.2.0 archive was
+built before its own fix landed and shipped a superseded class, while every test
+passed against a worktree that contained the fix (`CODEX-REVIEW.md` M-01).
+
+Between building (§8.2) and tagging (§8.4), confirm the archive is the code that
+was reviewed:
+
+```
+bash bin/verify-zip.sh
+```
+
+- Every runtime file (`.php`, `.js`, `.css`) in the worktree must appear in the
+  archive with an identical SHA-256, and the archive must carry no runtime file
+  the worktree lacks.
+- The script exits non-zero and names each stale, missing, or extra file.
+- CI runs the same build-then-verify pair on every push, so a zip that disagrees
+  with the source fails the build rather than reaching a customer.
+- If it fails: rebuild from the reviewed state (§8.2 — bump the version or remove
+  the stale archive by hand, per §8.3), then re-verify.
+
+The check is mechanical and covers packaging only. It does **not** establish that
+the packaged plugin works against a real WordPress and WooCommerce. Block cart
+and block checkout defects have twice survived a green suite (`CODEX-REVIEW.md`
+M-02), so a release still needs the manual matrix: classic cart, classic
+checkout, Cart block, and Checkout block, on the minimum supported WooCommerce
+and on a current release, installed **from the zip** rather than run from the
+worktree.

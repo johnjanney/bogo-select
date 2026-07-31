@@ -250,6 +250,56 @@ class ChooserPagingTest extends TestCase {
 		$this->assertFalse( BOGO_Select_Engine::is_get_eligible( $ids[1] ) );
 	}
 
+	/**
+	 * C-04: the older filter says nothing about which page it is looking at,
+	 * so a callback that wants to act on one page — or leave searches alone —
+	 * had no way to tell. The page-aware filter carries that context.
+	 */
+	public function test_the_page_aware_filter_receives_its_context() {
+		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->catalogue( 60 );
+
+		$seen = array();
+
+		add_filter(
+			'bogo_select_choice_ids',
+			function ( $product_ids, $context ) use ( &$seen ) {
+				$seen[] = $context;
+
+				return $product_ids;
+			},
+			10,
+			2
+		);
+
+		BOGO_Select_Engine::get_choice_page( array( 'page' => 2 ) );
+
+		$this->assertCount( 1, $seen );
+		$this->assertSame( 'all', $seen[0]['scope'] );
+		$this->assertSame( 2, $seen[0]['page'] );
+		$this->assertSame( 24, $seen[0]['per_page'] );
+		$this->assertSame( '', $seen[0]['search'] );
+	}
+
+	public function test_the_page_aware_filter_can_drop_products_from_one_page_only() {
+		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$ids = $this->catalogue( 60 );
+
+		add_filter(
+			'bogo_select_choice_ids',
+			function ( $product_ids, $context ) use ( $ids ) {
+				return 1 === $context['page']
+					? array_values( array_diff( $product_ids, array( $ids[0] ) ) )
+					: $product_ids;
+			},
+			10,
+			2
+		);
+
+		$this->assertNotContains( $ids[0], BOGO_Select_Engine::get_choice_page()['ids'] );
+		$this->assertContains( $ids[24], BOGO_Select_Engine::get_choice_page( array( 'page' => 2 ) )['ids'] );
+	}
+
 	public function test_the_choice_filter_can_add_products_in_all_scope() {
 		$ids = $this->catalogue( 5 );
 

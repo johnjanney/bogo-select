@@ -25,6 +25,8 @@ class BOGO_Select_Ajax {
 		add_action( 'wp_ajax_nopriv_bogo_select_remove', array( $this, 'remove' ) );
 		add_action( 'wp_ajax_bogo_select_choices', array( $this, 'choices' ) );
 		add_action( 'wp_ajax_nopriv_bogo_select_choices', array( $this, 'choices' ) );
+		add_action( 'wp_ajax_bogo_select_refresh', array( $this, 'refresh' ) );
+		add_action( 'wp_ajax_nopriv_bogo_select_refresh', array( $this, 'refresh' ) );
 	}
 
 	/**
@@ -41,18 +43,40 @@ class BOGO_Select_Ajax {
 
 		$product_id = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
 
+		$result = self::select_gift( $cart, $product_id );
+
+		if ( is_string( $result ) ) {
+			$this->fail( $result );
+		}
+
+		$this->succeed( wc_get_product( $product_id ), (int) $result );
+	}
+
+	/**
+	 * Put a gift in the cart, replacing whatever is there.
+	 *
+	 * Shared by the AJAX endpoint and the Store API update callback, so classic
+	 * and block carts take exactly the same path through validation.
+	 *
+	 * @param WC_Cart $cart       Cart to act on.
+	 * @param int     $product_id Chosen product.
+	 * @return int|string Free units awarded, or a customer-facing error message.
+	 */
+	public static function select_gift( $cart, $product_id ) {
+		$product_id = absint( $product_id );
+
 		if ( ! BOGO_Select_Engine::is_active() ) {
-			$this->fail( __( 'This promotion is no longer running.', 'bogo-select' ) );
+			return __( 'This promotion is no longer running.', 'bogo-select' );
 		}
 
 		$qty = BOGO_Select_Engine::reward_quantity_for_cart( $cart );
 
 		if ( $qty < 1 ) {
-			$this->fail( __( 'Your cart no longer qualifies for a free gift.', 'bogo-select' ) );
+			return __( 'Your cart no longer qualifies for a free gift.', 'bogo-select' );
 		}
 
 		if ( ! BOGO_Select_Engine::is_get_eligible( $product_id ) ) {
-			$this->fail( __( 'That product is not available as a free gift.', 'bogo-select' ) );
+			return __( 'That product is not available as a free gift.', 'bogo-select' );
 		}
 
 		$product = wc_get_product( $product_id );
@@ -66,7 +90,7 @@ class BOGO_Select_Ajax {
 		$reason       = BOGO_Select_Engine::unavailable_reason( $product, $qty, $other_demand );
 
 		if ( $reason ) {
-			$this->fail( $reason );
+			return $reason;
 		}
 
 		// Re-picking the gift already held is a no-op beyond keeping it the right
@@ -80,7 +104,7 @@ class BOGO_Select_Ajax {
 					$cart->set_quantity( $existing, $qty, true );
 				}
 
-				$this->succeed( $product, $qty );
+				return $qty;
 			}
 		}
 
@@ -94,42 +118,44 @@ class BOGO_Select_Ajax {
 		 */
 		BOGO_Select_Cart::suspend();
 
-		$errors_before = count( wc_get_notices( 'error' ) );
+		try {
+			$errors_before = count( wc_get_notices( 'error' ) );
 
-		$key = $cart->add_to_cart(
-			$product_id,
-			$qty,
-			0,
-			array(),
-			array(
-				BOGO_Select_Engine::FLAG => true,
-			)
-		);
+			$key = $cart->add_to_cart(
+				$product_id,
+				$qty,
+				0,
+				array(),
+				array(
+					BOGO_Select_Engine::FLAG => true,
+				)
+			);
 
-		if ( ! $key ) {
+			if ( ! $key ) {
+				$errors  = wc_get_notices( 'error' );
+				$new     = array_slice( $errors, $errors_before );
+				$message = __( 'That gift could not be added to your cart.', 'bogo-select' );
+
+				if ( $new && ! empty( $new[0]['notice'] ) ) {
+					$message = wp_strip_all_tags( $new[0]['notice'] );
+				}
+
+				// The previous gift is still in the cart, untouched.
+				return $message;
+			}
+
+			// Every prior gift line goes, not just the first: if the session had
+			// drifted into duplicates, the swap is the moment to settle it.
+			foreach ( BOGO_Select_Engine::find_reward_keys( $cart ) as $previous ) {
+				if ( $previous !== $key ) {
+					$cart->remove_cart_item( $previous );
+				}
+			}
+		} finally {
+			// Whatever happens — including an exception thrown by a third-party
+			// add-to-cart callback — validation must not stay suspended.
 			BOGO_Select_Cart::resume();
-
-			$errors  = wc_get_notices( 'error' );
-			$new     = array_slice( $errors, $errors_before );
-			$message = __( 'That gift could not be added to your cart.', 'bogo-select' );
-
-			if ( $new && ! empty( $new[0]['notice'] ) ) {
-				$message = wp_strip_all_tags( $new[0]['notice'] );
-			}
-
-			// The previous gift is still in the cart, untouched.
-			$this->fail( $message );
 		}
-
-		// Every prior gift line goes, not just the first: if the session had
-		// drifted into duplicates, the swap is the moment to settle it.
-		foreach ( BOGO_Select_Engine::find_reward_keys( $cart ) as $previous ) {
-			if ( $previous !== $key ) {
-				$cart->remove_cart_item( $previous );
-			}
-		}
-
-		BOGO_Select_Cart::resume();
 
 		/**
 		 * Fires after a customer picks a gift.
@@ -139,7 +165,24 @@ class BOGO_Select_Ajax {
 		 */
 		do_action( 'bogo_select_reward_added', $product_id, $qty );
 
-		$this->succeed( $product, $qty );
+		return $qty;
+	}
+
+	/**
+	 * Take the current gift out of the cart.
+	 *
+	 * @param WC_Cart $cart Cart to act on.
+	 * @return bool Whether a gift was there to remove.
+	 */
+	public static function clear_gift( $cart ) {
+		$removed = false;
+
+		foreach ( BOGO_Select_Engine::find_reward_keys( $cart ) as $key ) {
+			$cart->remove_cart_item( $key );
+			$removed = true;
+		}
+
+		return $removed;
 	}
 
 	/**
@@ -197,18 +240,34 @@ class BOGO_Select_Ajax {
 			$this->fail( __( 'Your cart is not available. Please refresh the page.', 'bogo-select' ) );
 		}
 
-		$key = BOGO_Select_Engine::find_reward_key( $cart );
-
-		if ( $key ) {
-			$cart->remove_cart_item( $key );
-		}
+		self::clear_gift( $cart );
 
 		wp_send_json_success(
-			array(
-				'message' => __( 'Free gift removed.', 'bogo-select' ),
-				'reload'  => true,
+			$this->chooser_payload(
+				array(
+					'message' => __( 'Free gift removed.', 'bogo-select' ),
+					'reload'  => true,
+				)
 			)
 		);
+	}
+
+	/**
+	 * Re-render the chooser for the cart as it stands.
+	 *
+	 * The block cart and block checkout change the cart without reloading the
+	 * page, so the chooser has to be able to catch up on demand: a customer who
+	 * has just crossed the qualifying threshold needs it to appear, and one who
+	 * has dropped below it needs it to go away.
+	 */
+	public function refresh() {
+		check_ajax_referer( 'bogo-select', 'nonce' );
+
+		if ( ! $this->cart() ) {
+			$this->fail( __( 'Your cart is not available. Please refresh the page.', 'bogo-select' ) );
+		}
+
+		wp_send_json_success( $this->chooser_payload() );
 	}
 
 	/**
@@ -218,6 +277,22 @@ class BOGO_Select_Ajax {
 	 */
 	protected function cart() {
 		return function_exists( 'WC' ) && WC()->cart ? WC()->cart : null;
+	}
+
+	/**
+	 * The current chooser markup and offer state, for a JSON response.
+	 *
+	 * @param array $extra Fields to merge in.
+	 * @return array
+	 */
+	protected function chooser_payload( $extra = array() ) {
+		return array_merge(
+			array(
+				'html'  => BOGO_Select_Frontend::chooser_html(),
+				'state' => BOGO_Select_Engine::state_signature(),
+			),
+			$extra
+		);
 	}
 
 	/**
@@ -237,14 +312,16 @@ class BOGO_Select_Ajax {
 	 */
 	protected function succeed( $product, $qty ) {
 		wp_send_json_success(
-			array(
-				'message' => sprintf(
-					/* translators: 1: quantity, 2: product name. */
-					__( '%1$d × %2$s added to your cart free of charge.', 'bogo-select' ),
-					(int) $qty,
-					$product ? $product->get_name() : ''
-				),
-				'reload'  => true,
+			$this->chooser_payload(
+				array(
+					'message' => sprintf(
+						/* translators: 1: quantity, 2: product name. */
+						__( '%1$d × %2$s added to your cart free of charge.', 'bogo-select' ),
+						(int) $qty,
+						$product ? $product->get_name() : ''
+					),
+					'reload'  => true,
+				)
 			)
 		);
 	}

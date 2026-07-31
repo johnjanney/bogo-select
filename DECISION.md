@@ -137,30 +137,62 @@ anyone; removing it re-shows the chooser.
 
 ---
 
-## D-008 — Chooser rendered on the cart page, notices elsewhere
+## D-008 — Chooser on the cart and the checkout, classic and block
 
-**Date:** 2026-07-30 · **Status:** Accepted
+**Date:** 2026-07-30 · **Status:** Accepted · **Supersedes:** D-008 (1.0.0–1.1.0)
 
-**Decision.** The full product chooser renders on the cart page
-(`woocommerce_before_cart_table`). Shop and product pages show only a short notice
-linking to the cart. Cart and checkout pages show neither notice — the cart has
-the chooser itself, and the checkout is deliberately left alone.
+**Decision.** The chooser renders on both the cart and the checkout page, in both
+the classic templates and the Cart/Checkout blocks. Shop and product pages still
+show only a short notice linking to the cart; cart and checkout pages show no
+notice, because they have the chooser itself.
 
-**Why.** The cart is where the customer can see what they qualified for and act on
-it. Rendering a full product grid inside the checkout flow risks conflicting with
-the many checkout customisations found in the wild — and, on block-based
-checkouts, would not render at all.
+**Why.** Through 1.1.0 the chooser rendered only on `woocommerce_before_cart_table`
+and the blocks were declared incompatible. Two customers were left with nothing:
+the one whose store uses the Cart block, who was told a gift was waiting and had
+nowhere to pick it, and the one who goes straight from a product page to checkout
+without opening the cart. Both are ordinary journeys, and the offer simply did not
+work for them. Keeping the chooser off the checkout bought caution about theme
+conflicts at the price of the promotion not working at all.
 
-**Note.** This plugin targets the **shortcode/classic** cart and checkout. Stores
-using the WooCommerce Cart and Checkout *blocks* get the shop/product-page notice
-but no chooser anywhere, so a qualifying customer is told a gift is waiting and
-then has nowhere to pick it. That is the practical reason the blocks are declared
-incompatible rather than merely unsupported. See `OPEN-QUESTIONS.md` Q-001.
+**How the three contexts differ.** The chooser markup is identical everywhere;
+what changes is what happens after the cart is altered, which the server records
+in `data-bogo-mode`:
 
-**Amended 2026-07-30.** The original wording said checkout pages show a notice.
-They do not — `maybe_render_notice()` returns early on both cart and checkout.
-Corrected here rather than changing the code, because suppressing the notice at
-checkout is the intended behaviour.
+| Mode | Where | After a gift changes |
+|---|---|---|
+| `classic` | `woocommerce_before_cart_table` | Reload. The cart table, totals, and theme fragments are PHP-rendered, and a reload is the only way they agree with the cart again. |
+| `checkout` | `woocommerce_before_checkout_form` | No reload — it would empty a part-filled form. The chooser re-renders from the response and WooCommerce's `update_checkout` refreshes the order review. |
+| `block` | ahead of `woocommerce/cart` and `woocommerce/checkout` | Nothing extra. The change was made through the Store API, so the blocks re-render from their own response. |
+
+**Blocks, specifically.** Classic template hooks do not fire inside a block, so
+block support is not a matter of hook placement (see
+[hook alternatives](https://developer.woocommerce.com/docs/block-development/reference/hooks/hook-alternatives/)).
+Four seams are used instead:
+
+- `render_block` puts the chooser ahead of the Cart and Checkout blocks, which is
+  where the classic templates put it.
+- `woocommerce_store_api_register_endpoint_data` carries the offer state — whether
+  the cart qualifies, for how many units, and what is currently chosen — on the
+  cart response the blocks already fetch.
+- `woocommerce_store_api_register_update_callback`, reached from the browser
+  through `wc.blocksCheckout.extensionCartUpdate()`, performs the change inside
+  the Store API's own cart request. Selection runs through the same
+  `BOGO_Select_Ajax::select_gift()` as the classic endpoint, so neither mode can
+  drift from the other's rules.
+- `woocommerce_get_item_data` and the `woocommerce_store_api_product_quantity_*`
+  filters label the gift line and pin its quantity, replacing the classic
+  `woocommerce_cart_item_name` and `woocommerce_cart_item_quantity` filters that
+  the blocks never call.
+
+**Consequence.** `cart_checkout_blocks` is declared `true`. The chooser now has a
+JavaScript path that must stay in step with the blocks' data store; the fallback
+if any of it is missing is the AJAX endpoints and a reload, which is what 1.1.0
+did everywhere. `OPEN-QUESTIONS.md` Q-001 is answered: blocks are supported.
+
+**Amended 2026-07-30 (1.1.0).** The original wording said checkout pages show a
+notice. They do not — `maybe_render_notice()` returns early on both cart and
+checkout. That remains true, and is now also the right behaviour for a second
+reason: the checkout has the chooser.
 
 ---
 
@@ -222,6 +254,12 @@ applied per page, so a callback that appends IDs appends them to every page — 
 in *Select Products* scope such additions are still rejected by the eligibility
 gate, because that gate is the same one the selection endpoint enforces.
 
+**Amended 2026-07-30 (1.2.0).** The search box claimed name *and SKU* from the
+start, and in *All Products* scope it never searched SKUs at all — see D-014.
+`bogo_select_choice_ids` was added alongside `bogo_select_get_products` so a
+callback can tell which page, scope, and search term produced the list it is
+being handed; the older filter is unchanged.
+
 ---
 
 ## D-012 — Gift replacement adds before it removes
@@ -265,5 +303,59 @@ WordPress 6.5+ the dependency header means WordPress handles that case itself.
 
 **Consequence.** Settings survive a WooCommerce outage untouched; reinstating
 WooCommerce restores the offer exactly as it was.
+
+---
+
+## D-014 — Gift search goes through WooCommerce's product data store
+
+**Date:** 2026-07-30 · **Status:** Accepted
+
+**Decision.** Searching gifts in *All Products* scope calls
+`WC_Data_Store::load( 'product' )->search_products()` — the search behind the
+admin product picker — rather than passing the term to `wc_get_products()` as
+`s`. *Select Products* scope makes the same call, constrained to the configured
+IDs. A two-query fallback (`sku` plus `s`) covers a data store that cannot answer.
+
+**Why.** `s` is a WordPress post-search parameter: it matches the title, excerpt,
+and content, and knows nothing about SKUs. The chooser's placeholder, the README,
+the changelog, and an acceptance criterion all promised SKU search, and in the
+*All Products* scope none of it worked; only *Select Products* did, and only
+because it compared names and SKUs in PHP afterwards. `search_products()` covers
+name, description, and SKU in one query, and it is a data-store call rather than
+an assumption that products are posts.
+
+**Consequence.** Search is capped by `bogo_select_search_limit` (200 by default),
+because the query is no longer paginated by the catalogue query itself; totals for
+a search are therefore counted after the eligibility gate, which also means a
+search never promises a gift that cannot be given. The `s`-based path survives
+only as the fallback.
+
+**Note.** The unit stub for `wc_get_products()` used to match SKUs through `s`,
+which is precisely why the broken implementation passed its own test. The stub now
+follows core semantics, so a regression here fails.
+
+---
+
+## D-015 — Eligibility of a curated gift list is cached
+
+**Date:** 2026-07-30 · **Status:** Accepted
+
+**Decision.** In *Select Products* scope the eligibility of every configured gift
+is cached in a transient — 10 minutes by default, filterable through
+`bogo_select_eligibility_ttl` — and cleared whenever the settings or any product
+are saved, trashed, or deleted. The public gift filters are **not** cached: they
+run per request, over the cached eligibility map.
+
+**Why.** Eligibility asks whether a product is published, purchasable, and simple.
+That is product state, not request state, and answering it meant loading every
+configured product on every cart view and every search keystroke. Caching the
+filters as well would have been wrong: a callback may legitimately vary the list
+per customer, and a shared cache would leak one customer's list to another.
+
+**Consequence.** A gift that stops being purchasable can linger in the chooser for
+up to the TTL if nothing triggers a save — the selection endpoint still refuses
+it, and the customer is told why, so the failure mode is a wasted click rather
+than a free product. IDs that a filter adds are not in the cached map and are
+judged on the spot.
 
 ---

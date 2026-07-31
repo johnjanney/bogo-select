@@ -8,24 +8,66 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Renders the gift chooser on the cart page and the notice elsewhere.
+ * Renders the gift chooser on the cart and checkout pages, and the notice
+ * elsewhere.
+ *
+ * The chooser always lives inside a slot element. Classic templates print the
+ * slot through template hooks and block templates get it through the block
+ * renderer (BOGO_Select_Blocks); either way the JavaScript has one mount point
+ * whose contents it can replace when the cart changes underneath it.
  */
 class BOGO_Select_Frontend {
+
+	/**
+	 * Whether the slot has already been printed in this request.
+	 *
+	 * @var bool
+	 */
+	protected static $slot_rendered = false;
 
 	/**
 	 * Register hooks.
 	 */
 	public function __construct() {
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue' ) );
+
+		// Classic templates: above the cart table, and above the checkout form.
 		add_action( 'woocommerce_before_cart_table', array( $this, 'render_chooser' ) );
+		add_action( 'woocommerce_before_checkout_form', array( $this, 'render_checkout_chooser' ), 5 );
+
 		add_action( 'woocommerce_before_main_content', array( $this, 'maybe_render_notice' ), 20 );
 	}
 
 	/**
-	 * Load assets on the cart page only.
+	 * Load assets on the cart and checkout pages.
+	 *
+	 * Block-based cart and checkout pages are still is_cart()/is_checkout(),
+	 * because WooCommerce identifies them by page ID. A cart or checkout block
+	 * dropped on some other page enqueues these from the block renderer
+	 * instead.
 	 */
 	public function enqueue() {
-		if ( ! function_exists( 'is_cart' ) || ! is_cart() ) {
+		if ( ! function_exists( 'is_cart' ) || ! ( is_cart() || is_checkout() ) ) {
+			return;
+		}
+
+		// The order-received and pay-for-order screens are checkout pages with
+		// nothing left to choose.
+		if ( function_exists( 'is_order_received_page' ) && ( is_order_received_page() || is_checkout_pay_page() ) ) {
+			return;
+		}
+
+		self::enqueue_assets();
+	}
+
+	/**
+	 * Register and enqueue the chooser assets.
+	 *
+	 * Safe to call more than once, and late enough to be called while a block
+	 * is rendering.
+	 */
+	public static function enqueue_assets() {
+		if ( wp_script_is( 'bogo-select', 'enqueued' ) ) {
 			return;
 		}
 
@@ -36,6 +78,12 @@ class BOGO_Select_Frontend {
 			BOGO_SELECT_VERSION
 		);
 
+		/*
+		 * No dependencies are declared on the WooCommerce Blocks bundles. A
+		 * block cart loads them for its own sake, and the script waits for
+		 * them; declaring them would drag that whole bundle onto classic cart
+		 * pages that will never use it.
+		 */
 		wp_enqueue_script(
 			'bogo-select',
 			BOGO_SELECT_URL . 'assets/js/bogo-select.js',
@@ -48,25 +96,109 @@ class BOGO_Select_Frontend {
 			'bogo-select',
 			'bogoSelect',
 			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( 'bogo-select' ),
-				'i18n'    => array(
-					'working'  => __( 'Adding…', 'bogo-select' ),
-					'error'    => __( 'Something went wrong. Please refresh and try again.', 'bogo-select' ),
-					'confirm'  => __( 'Remove your free gift?', 'bogo-select' ),
-					'loading'  => __( 'Loading gifts…', 'bogo-select' ),
+				'ajaxUrl'   => admin_url( 'admin-ajax.php' ),
+				'nonce'     => wp_create_nonce( 'bogo-select' ),
+				'namespace' => 'bogo-select',
+				'i18n'      => array(
+					'working' => __( 'Adding…', 'bogo-select' ),
+					'error'   => __( 'Something went wrong. Please refresh and try again.', 'bogo-select' ),
+					'confirm' => __( 'Remove your free gift?', 'bogo-select' ),
+					'loading' => __( 'Loading gifts…', 'bogo-select' ),
 					/* translators: 1: current page, 2: total pages. */
-					'pageOf'   => __( 'Page %1$d of %2$d', 'bogo-select' ),
-					'noPages'  => __( 'No results', 'bogo-select' ),
+					'pageOf'  => __( 'Page %1$d of %2$d', 'bogo-select' ),
+					'noPages' => __( 'No results', 'bogo-select' ),
 				),
 			)
 		);
 	}
 
 	/**
-	 * Render the chooser above the cart table.
+	 * Print the chooser slot, if the offer is running at all.
+	 *
+	 * The slot is printed even when the cart does not currently qualify: in a
+	 * block cart the customer can cross the threshold without a page load, and
+	 * the JavaScript fills the empty slot when they do.
 	 */
 	public function render_chooser() {
+		echo self::slot_html( 'classic' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped fragments.
+	}
+
+	/**
+	 * Print the chooser slot above the classic checkout form.
+	 */
+	public function render_checkout_chooser() {
+		echo self::slot_html( 'checkout' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped fragments.
+	}
+
+	/**
+	 * The chooser slot: a stable mount point wrapping the current chooser.
+	 *
+	 * The mode travels with the markup because the three places the chooser
+	 * appears need different things after a gift changes:
+	 *
+	 * - classic: reload, so the cart table, totals, and theme fragments catch
+	 *   up from PHP;
+	 * - checkout: never reload — that would empty the customer's half-filled
+	 *   checkout form — so refresh the chooser and ask WooCommerce to update
+	 *   the order review instead;
+	 * - block: the Cart and Checkout blocks re-render themselves from the
+	 *   Store API response, so nothing else is needed.
+	 *
+	 * @param string $mode 'classic', 'checkout', or 'block'.
+	 * @return string Empty string when the offer is switched off.
+	 */
+	public static function slot_html( $mode = 'classic' ) {
+		if ( ! BOGO_Select_Engine::is_active() || self::$slot_rendered ) {
+			return '';
+		}
+
+		self::$slot_rendered = true;
+
+		$mode = in_array( $mode, array( 'block', 'checkout' ), true ) ? $mode : 'classic';
+
+		return sprintf(
+			'<div class="bogo-select-slot" data-bogo-slot="1" data-bogo-mode="%s">%s</div>',
+			esc_attr( $mode ),
+			self::chooser_html()
+		);
+	}
+
+	/**
+	 * Whether the slot has been printed in this request.
+	 *
+	 * @return bool
+	 */
+	public static function slot_rendered() {
+		return self::$slot_rendered;
+	}
+
+	/**
+	 * Forget that the slot has been printed.
+	 *
+	 * Only one chooser belongs on a page, and the guard that enforces that is
+	 * per-process — which is fine for a page load, and wrong for anything that
+	 * renders several in one process, such as the unit suite or WP-CLI.
+	 */
+	public static function forget_slot() {
+		self::$slot_rendered = false;
+	}
+
+	/**
+	 * The chooser itself.
+	 *
+	 * @return string Empty string when there is nothing to choose right now.
+	 */
+	public static function chooser_html() {
+		ob_start();
+		self::print_chooser();
+
+		return (string) ob_get_clean();
+	}
+
+	/**
+	 * Render the chooser panel.
+	 */
+	protected static function print_chooser() {
 		if ( ! BOGO_Select_Engine::is_active() ) {
 			return;
 		}

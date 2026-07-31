@@ -38,12 +38,23 @@ class BOGO_Select {
 	protected function __construct() {
 		add_action( 'init', array( $this, 'load_textdomain' ) );
 
+		// Cached gift eligibility is about product state, so anything that
+		// changes a product — or the offer itself — clears it.
+		foreach ( array( 'update_option_' . BOGO_Select_Settings::OPTION, 'woocommerce_update_product', 'woocommerce_new_product', 'woocommerce_delete_product', 'woocommerce_trash_product', 'save_post_product' ) as $hook ) {
+			add_action( $hook, array( 'BOGO_Select_Engine', 'flush_choice_cache' ) );
+		}
+
 		new BOGO_Select_Cart();
 		new BOGO_Select_Ajax();
+		new BOGO_Select_Blocks();
 
 		if ( is_admin() ) {
 			new BOGO_Select_Admin();
-		} else {
+		}
+
+		// The chooser is rendered for the storefront, but also for the AJAX
+		// endpoints that hand a fresh copy of it back to a block cart.
+		if ( ! is_admin() || wp_doing_ajax() ) {
 			new BOGO_Select_Frontend();
 		}
 	}

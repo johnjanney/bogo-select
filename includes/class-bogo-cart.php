@@ -113,9 +113,17 @@ class BOGO_Select_Cart {
 			return;
 		}
 
+		// finally, because run_validation() removes items and changes quantities,
+		// and any extension watching those cart hooks may throw. Clearing the
+		// flag on the way out of an exception keeps a single failed pass from
+		// disabling validation for the rest of the request.
 		$this->validating = true;
-		$this->run_validation( $cart, $keys );
-		$this->validating = false;
+
+		try {
+			$this->run_validation( $cart, $keys );
+		} finally {
+			$this->validating = false;
+		}
 	}
 
 	/**
