@@ -344,34 +344,265 @@ class BOGO_Select_Engine {
 		return number_format_i18n( $percent, $decimals );
 	}
 
-	/**
-	 * Whether a product may be offered as a gift.
+	/*
+	 * Eligibility asks two questions, and they come apart once variations exist.
 	 *
-	 * Scope membership only — this says nothing about stock. Use
-	 * self::unavailable_reason() for availability.
+	 * is_choice()    — may this appear as a card in the chooser?
+	 * is_awardable() — may this exact thing go into the cart?
+	 *
+	 * A variable parent is the first and never the second: it is offered, but
+	 * what the customer receives is one of its variations. One function answered
+	 * both while every reward was a simple product, and could not once they are
+	 * not (PLAN-VARIABLE.md §4).
+	 *
+	 * Neither says anything about stock. Use self::unavailable_reason() for that.
+	 */
+
+	/**
+	 * Whether a product may be offered as a reward at all.
 	 *
 	 * @param int $product_id Product ID.
 	 * @return bool
 	 */
-	public static function is_get_eligible( $product_id ) {
+	public static function is_choice( $product_id ) {
 		$product_id = (int) $product_id;
 		$product    = wc_get_product( $product_id );
 
-		if ( ! $product || ! $product->is_purchasable() ) {
+		if ( ! $product || ! self::is_offerable_type( $product ) ) {
 			return false;
 		}
 
-		// Variable parents are ambiguous as gifts, and their variations are not
-		// offered directly either (DECISION.md D-006).
-		if ( $product->is_type( 'variable' ) || $product->is_type( 'variation' ) || $product->is_type( 'grouped' ) || $product->is_type( 'external' ) ) {
+		if ( ! self::in_get_scope( $product_id, $product ) ) {
 			return false;
 		}
 
+		// A variable product is offerable only through its variations, so it is a
+		// card only while at least one of them can actually be given.
+		if ( $product->is_type( 'variable' ) ) {
+			return (bool) self::offerable_variation_ids( $product );
+		}
+
+		if ( $product->is_type( 'variation' ) ) {
+			return self::is_offerable_variation( $product );
+		}
+
+		return $product->is_purchasable();
+	}
+
+	/**
+	 * Whether this exact product, or product and variation, may be awarded.
+	 *
+	 * @param int $product_id   Product ID. For a variation, its parent.
+	 * @param int $variation_id Variation ID, or 0.
+	 * @return bool
+	 */
+	public static function is_awardable( $product_id, $variation_id = 0 ) {
+		$product_id   = (int) $product_id;
+		$variation_id = (int) $variation_id;
+
+		if ( $variation_id ) {
+			$variation = wc_get_product( $variation_id );
+
+			if ( ! self::is_offerable_variation( $variation ) ) {
+				return false;
+			}
+
+			/*
+			 * The caller names both halves of the pair, and the browser is a
+			 * caller. Without this, naming an in-scope parent alongside any
+			 * variation ID in the catalogue would award that variation.
+			 */
+			if ( $product_id && (int) $variation->get_parent_id() !== $product_id ) {
+				return false;
+			}
+
+			return self::variation_in_scope( $variation );
+		}
+
+		$product = wc_get_product( $product_id );
+
+		if ( ! $product || ! $product->is_purchasable() || ! self::is_offerable_type( $product ) ) {
+			return false;
+		}
+
+		// Named without a variation, a variable product says which product but not
+		// which thing. Its variations are awardable; it is not.
+		if ( $product->is_type( 'variable' ) ) {
+			return false;
+		}
+
+		// A variation named on its own, rather than beside its parent.
+		if ( $product->is_type( 'variation' ) ) {
+			return self::is_offerable_variation( $product ) && self::variation_in_scope( $product );
+		}
+
+		return self::in_get_scope( $product_id, $product );
+	}
+
+	/**
+	 * Whether a product may be offered as a gift.
+	 *
+	 * Retained because the cart, the selection endpoint, and the chooser filters
+	 * all ask it of simple products, where it means exactly what it always did.
+	 *
+	 * @param int $product_id   Product ID.
+	 * @param int $variation_id Variation ID, or 0.
+	 * @return bool
+	 */
+	public static function is_get_eligible( $product_id, $variation_id = 0 ) {
+		/*
+		 * Transitional, and removed in PLAN-VARIABLE.md step 3.
+		 *
+		 * The chooser filter, the selection endpoint, and cart validation all
+		 * still call this with one argument. A lone variation ID is genuinely
+		 * awardable — is_awardable() is right to say so — but the selection path
+		 * has nowhere to put it yet, and would hand it to add_to_cart() as though
+		 * it were a simple product, producing a line whose product_id is a
+		 * variation and whose variation_id is zero.
+		 *
+		 * Refusing it here keeps this step from changing any behaviour, which is
+		 * what the plan says it should do. The guard goes when the pair is
+		 * threaded through and those callers pass both halves.
+		 */
+		if ( ! $variation_id ) {
+			$product = wc_get_product( $product_id );
+
+			if ( $product && $product->is_type( 'variation' ) ) {
+				return false;
+			}
+		}
+
+		return self::is_awardable( $product_id, $variation_id );
+	}
+
+	/**
+	 * Whether a product's type can be a reward at all.
+	 *
+	 * Grouped and external products still cannot: a grouped product is a listing
+	 * rather than a thing, and an external one is bought somewhere else. D-006's
+	 * reasoning survives for both, and only its rejection of variable products
+	 * and variations is being answered here.
+	 *
+	 * @param WC_Product $product Product.
+	 * @return bool
+	 */
+	protected static function is_offerable_type( $product ) {
+		return ! $product->is_type( 'grouped' ) && ! $product->is_type( 'external' );
+	}
+
+	/**
+	 * Whether a product is inside the configured Get scope.
+	 *
+	 * Variations are never enumerated by scope — they reach the chooser only by
+	 * being listed individually, which can only happen in Select Products.
+	 *
+	 * @param int        $product_id Product ID.
+	 * @param WC_Product $product    Product.
+	 * @return bool
+	 */
+	protected static function in_get_scope( $product_id, $product ) {
 		if ( 'select' === BOGO_Select_Settings::get( 'get_scope' ) ) {
-			return in_array( $product_id, BOGO_Select_Settings::get( 'get_products' ), true );
+			return in_array( (int) $product_id, BOGO_Select_Settings::get( 'get_products' ), true );
+		}
+
+		if ( $product->is_type( 'variation' ) ) {
+			return false;
 		}
 
 		return 'publish' === $product->get_status();
+	}
+
+	/**
+	 * Whether a variation is in scope, through its own ID or its parent's.
+	 *
+	 * @param WC_Product $variation Variation.
+	 * @return bool
+	 */
+	protected static function variation_in_scope( $variation ) {
+		$parent_id = (int) $variation->get_parent_id();
+
+		if ( 'select' === BOGO_Select_Settings::get( 'get_scope' ) ) {
+			$allowed = BOGO_Select_Settings::get( 'get_products' );
+
+			return in_array( (int) $variation->get_id(), $allowed, true )
+				|| ( $parent_id && in_array( $parent_id, $allowed, true ) );
+		}
+
+		$parent = $parent_id ? wc_get_product( $parent_id ) : false;
+
+		return $parent && 'publish' === $parent->get_status();
+	}
+
+	/**
+	 * Whether a variation can be given as it stands.
+	 *
+	 * @param mixed $variation Variation, or anything else.
+	 * @return bool
+	 */
+	protected static function is_offerable_variation( $variation ) {
+		if ( ! $variation instanceof WC_Product || ! $variation->is_type( 'variation' ) ) {
+			return false;
+		}
+
+		// A variation is added to the cart as its parent plus itself, so one
+		// without a parent cannot be added at all.
+		if ( ! $variation->get_parent_id() ) {
+			return false;
+		}
+
+		if ( ! $variation->is_purchasable() ) {
+			return false;
+		}
+
+		return ! self::has_any_attribute( $variation );
+	}
+
+	/**
+	 * Whether a variation leaves an attribute open.
+	 *
+	 * WooCommerce spells "any size" as an empty attribute value rather than by
+	 * omitting the attribute, so such a variation still needs a choice made
+	 * before it can be added — the ambiguity D-006 objected to, and the reason
+	 * these are not offered (PLAN-VARIABLE.md §1).
+	 *
+	 * @param WC_Product $variation Variation.
+	 * @return bool
+	 */
+	protected static function has_any_attribute( $variation ) {
+		foreach ( $variation->get_variation_attributes() as $value ) {
+			if ( '' === (string) $value ) {
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	/**
+	 * The variations of a parent that could be given.
+	 *
+	 * Reads each child directly rather than through
+	 * WC_Product_Variable::get_available_variations(), which builds a large array
+	 * per variation including image and attribute data. A page of variable cards
+	 * calls this once each (PLAN-VARIABLE.md §5).
+	 *
+	 * @param WC_Product $parent Variable parent.
+	 * @return int[]
+	 */
+	public static function offerable_variation_ids( $parent ) {
+		if ( ! $parent instanceof WC_Product ) {
+			return array();
+		}
+
+		$ids = array();
+
+		foreach ( $parent->get_children() as $child_id ) {
+			if ( self::is_offerable_variation( wc_get_product( $child_id ) ) ) {
+				$ids[] = (int) $child_id;
+			}
+		}
+
+		return $ids;
 	}
 
 	/**

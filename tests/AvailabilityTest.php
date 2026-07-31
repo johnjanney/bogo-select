@@ -48,7 +48,7 @@ class AvailabilityTest extends TestCase {
 	}
 
 	/**
-	 * @dataProvider ineligible_types
+	 * @dataProvider unawardable_types
 	 *
 	 * @param string $type Product type.
 	 */
@@ -66,17 +66,37 @@ class AvailabilityTest extends TestCase {
 	}
 
 	/**
-	 * Product types that must never be offered as a gift (DECISION.md D-006).
+	 * Product types that cannot be awarded as they stand.
+	 *
+	 * Grouped and external products never can, which is D-006's reasoning and
+	 * survives it. A variable product cannot be awarded *as itself* either — it
+	 * names a product but not a thing — though it may now be offered, and one of
+	 * its variations awarded. See PLAN-VARIABLE.md §4.
 	 *
 	 * @return array[]
 	 */
-	public function ineligible_types() {
+	public function unawardable_types() {
 		return array(
-			'variable'  => array( 'variable' ),
-			'variation' => array( 'variation' ),
-			'grouped'   => array( 'grouped' ),
-			'external'  => array( 'external' ),
+			'variable' => array( 'variable' ),
+			'grouped'  => array( 'grouped' ),
+			'external' => array( 'external' ),
 		);
+	}
+
+	public function test_a_variation_with_no_parent_cannot_be_gifted() {
+		// A variation enters the cart as its parent plus itself, so one with no
+		// parent cannot be added at all. This is what the old "variations are
+		// never gifts" case in this provider was really exercising.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'get_scope'    => 'select',
+				'get_products' => array( 20 ),
+			)
+		);
+		$this->product( 20, array( 'type' => 'variation' ) );
+
+		$this->assertFalse( BOGO_Select_Engine::is_get_eligible( 20 ) );
 	}
 
 	public function test_a_missing_product_is_unavailable() {
