@@ -168,7 +168,7 @@ Runs on `woocommerce_cart_loaded_from_session`, `woocommerce_check_cart_items`,
 
 - **Plugin type:** standalone plugin, no framework dependencies, no build step.
 - **PHP:** 7.4+ (typed properties avoided for 7.4 compatibility; `declare(strict_types)` not used).
-- **WordPress:** 6.0+ / **WooCommerce:** 7.0+ (HPOS compatible — declares
+- **WordPress:** 6.0+ / **WooCommerce:** 9.9+ (HPOS compatible — declares
   `custom_order_tables` support).
 - **Architecture:** small single-responsibility classes autoloaded by an explicit
   `require` manifest in the bootstrap file.

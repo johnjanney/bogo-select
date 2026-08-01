@@ -294,7 +294,8 @@ suspended across the swap — a re-entrancy guard that must stay paired.
 **Date:** 2026-07-30 · **Status:** Accepted
 
 **Decision.** The plugin refuses to activate when WooCommerce is missing or older
-than 7.0, via a `Requires Plugins: woocommerce` header (WordPress 6.5+) and an
+than `BOGO_SELECT_MIN_WC` — 7.0 when this was written, raised to 9.9 in 2.0.0 by
+D-018 — via a `Requires Plugins: woocommerce` header (WordPress 6.5+) and an
 activation-hook guard that deactivates and `wp_die()`s on WordPress 6.0–6.4. If
 WooCommerce disappears *after* activation, the plugin loads nothing and shows an
 admin notice — it does not deactivate itself.
@@ -434,3 +435,33 @@ share a parent's stock pool compete with each other, so choosing one can make
 another unavailable; the per-option reasons are what make that legible rather
 than puzzling. The discount in D-016 composes without change, applying to the
 chosen variation's own price.
+
+---
+
+## D-018 — The WooCommerce minimum is raised to 9.9
+
+**Date:** 2026-07-31 · **Status:** Accepted
+
+**Decision.** `WC requires at least` and `BOGO_SELECT_MIN_WC` move from 7.0 to
+9.9, and the plugin's major version moves with them (`BRIEF.md` §8.1 counts a
+raised minimum as a breaking change).
+
+**Why.** The 7.0 claim was never tested. The integration matrix has only ever run
+9.9.5 and current, and the unit stubs model this plugin's own callbacks rather
+than WooCommerce's, so nothing established that 7.0 through 9.8 preserve the
+Store API, block rendering, hydration, quantity-bound, and price-display
+contracts the plugin depends on (`CODEX-REVIEW.md` M-02). A declared minimum is a
+promise about versions someone might install on, and this one was unbacked. The
+choice was to test four years of releases or to narrow the promise to what is
+actually exercised; narrowing is the honest and affordable half.
+
+**Consequence.** Stores on WooCommerce 7.0–9.8 can no longer install the plugin,
+and any that already run it will find it inert after upgrading — the activation
+guard blocks a fresh install and the runtime check stops it loading on an
+existing one, with an admin notice either way. That is a real loss of reach,
+taken deliberately in exchange for a compatibility claim that means something.
+Those stores can stay on 1.3.0, which is unaffected and remains published.
+
+The declaration is `9.9`, while CI's oldest lane pins `9.9.5`. Four patch
+releases are therefore claimed but not exercised — a far smaller gap than the one
+this closes, and the conventional shape for a plugin header, but not nothing.

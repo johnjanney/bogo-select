@@ -24,10 +24,10 @@ How to install, configure, use, and troubleshoot the plugin.
 | | Minimum |
 |---|---|
 | WordPress | 6.0 |
-| WooCommerce | 7.0 |
+| WooCommerce | 9.9 |
 | PHP | 7.4 |
 
-The plugin will not activate without WooCommerce 7.0 or later — activation is
+The plugin will not activate without WooCommerce 9.9 or later — activation is
 refused with an explanation. If WooCommerce is removed or downgraded afterwards,
 the plugin stops running and shows an admin notice, but stays activated and keeps
 your settings; restoring WooCommerce brings the offer back exactly as it was. (On

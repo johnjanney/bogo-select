@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] — 2026-07-31
+
+A single change, and a breaking one: the WooCommerce floor is raised to
+match what is actually tested. No functional change to the plugin.
+
+### Changed
+
+- **BREAKING: WooCommerce 9.9 or later is now required**, up from 7.0
+  (`DECISION.md` D-018, answering `CODEX-REVIEW.md` M-02). The old floor was
+  never tested — the integration matrix has only ever run 9.9.5 and current, and
+  the unit stubs model this plugin's callbacks rather than WooCommerce's, so
+  nothing established that 7.0 through 9.8 preserve the Store API, block
+  rendering, hydration, and price-display contracts the plugin relies on. A
+  declared minimum is a promise about what someone can install on, and that one
+  was unbacked.
+
+  Stores on 7.0–9.8 can no longer install this version, and any already running
+  it will find it inert after upgrading, with an admin notice explaining why.
+  They can remain on 1.3.0, which is unaffected and stays published.
+
+  The header declares `9.9` while CI pins `9.9.5`, so 9.9.0–9.9.4 are claimed but
+  not exercised — a far smaller gap than the one this closes.
+
 ## [1.3.0] — 2026-07-31
 
 Two features that widen what the reward can be: it no longer has to be
@@ -373,7 +396,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...v2.0.0
 [1.3.0]: https://github.com/johnjanney/bogo-select/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/johnjanney/bogo-select/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/johnjanney/bogo-select/compare/v1.1.0...v1.2.0

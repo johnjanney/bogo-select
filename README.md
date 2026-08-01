@@ -5,7 +5,7 @@ a percentage off" promotion for WooCommerce where the reward is added to the car
 as a real line item at its reward price — so stock is still reduced.
 
 [![WordPress](https://img.shields.io/badge/WordPress-6.0%2B-21759b)](https://wordpress.org)
-[![WooCommerce](https://img.shields.io/badge/WooCommerce-7.0%2B-96588a)](https://woocommerce.com)
+[![WooCommerce](https://img.shields.io/badge/WooCommerce-9.9%2B-96588a)](https://woocommerce.com)
 [![PHP](https://img.shields.io/badge/PHP-7.4%2B-777bb4)](https://php.net)
 [![License](https://img.shields.io/badge/license-GPL--2.0%2B-blue)](LICENSE)
 
@@ -56,7 +56,7 @@ as a real line item at its reward price — so stock is still reduced.
 | | |
 |---|---|
 | WordPress | 6.0 or later |
-| WooCommerce | 7.0 or later |
+| WooCommerce | 9.9 or later |
 | PHP | 7.4 or later |
 | Tested with | WooCommerce 9.9.5 and 10.9.4 — classic cart and checkout, plus the Cart and Checkout blocks verified in a browser |
 
