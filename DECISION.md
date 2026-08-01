@@ -475,3 +475,29 @@ Those stores can stay on 1.3.0, which is unaffected and remains published.
 The declaration is `9.9`, while CI's oldest lane pins `9.9.5`. Four patch
 releases are therefore claimed but not exercised — a far smaller gap than the one
 this closes, and the conventional shape for a plugin header, but not nothing.
+
+---
+
+## D-019 — The offer's schedule is whole days in the site's timezone
+
+**Date:** 2026-07-31 · **Status:** Accepted
+
+**Decision.** Start and end dates are calendar dates, not timestamps. Both bounds
+are inclusive, both are optional, and both are read in the site's own timezone.
+An offer with no start date has always been running; one with no end date runs
+until it is switched off. The schedule can only narrow an offer — it never
+switches on one whose Enable box is unticked.
+
+**Why.** A shop owner writing "runs 1–7 August" means the offer is live on both
+of those days, and the half people get wrong is the end: an offer that expires at
+midnight *as the 7th begins* loses a day nobody agreed to lose. Comparing `Y-m-d`
+strings sorts chronologically with no date arithmetic, so there is no hour to
+pick for each bound and nothing to get wrong twice a year when the clocks move.
+Times of day were left out because no one asked for them and they would have
+forced exactly those questions.
+
+**Consequence.** A campaign cannot start or end partway through a day; a store
+needing that must still switch the offer manually. An invalid date — including
+one that does not exist, such as 2026-02-30 — is stored as no bound rather than
+rolled forward, because a schedule quietly shifting by a day is worse than one
+that ignores what it was given.

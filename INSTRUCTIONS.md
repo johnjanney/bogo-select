@@ -77,6 +77,8 @@ Go to **WooCommerce → BOGO Select**.
 |---|---|
 | **Enable offer** | Master switch. Leave unticked while you're still setting things up — nothing shows on the front end until this is on. |
 | **Offer title** | Heading shown above the gift chooser, e.g. *"Choose your free gift"*. |
+| **Start date** | The first day the offer runs. Leave empty to start immediately. |
+| **End date** | The last day the offer runs — it runs all of that day. Leave empty to run until you switch it off. |
 
 ### Quantities
 

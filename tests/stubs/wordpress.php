@@ -27,6 +27,16 @@ class BOGO_Test_Env {
 	public static $product_loads = 0;
 
 	/**
+	 * The site-local date the schedule should believe it is, as `Y-m-d`.
+	 *
+	 * Empty means "really now". A schedule that can only be tested by waiting
+	 * for a date to arrive is a schedule that never gets tested.
+	 *
+	 * @var string
+	 */
+	public static $now = '';
+
+	/**
 	 * Stored options.
 	 *
 	 * @var array
@@ -109,6 +119,7 @@ class BOGO_Test_Env {
 	 */
 	public static function reset() {
 		self::$product_loads      = 0;
+		self::$now                = '';
 		self::$options            = array();
 		self::$hooks              = array();
 		self::$products           = array();
@@ -250,6 +261,32 @@ function disabled( $disabled, $current = true, $echo = true ) {
  */
 function checked( $checked, $current = true, $echo = true ) {
 	return __checked_selected_helper( $checked, $current, $echo, 'checked' );
+}
+
+/**
+ * The current time, in the site's timezone.
+ *
+ * Only the `Y-m-d` shape the schedule asks for is modelled. Tests set
+ * BOGO_Test_Env::$now to fix the date.
+ *
+ * @param string $type  Format, or 'timestamp'/'mysql'.
+ * @param int    $gmt   Unused.
+ * @return string|int
+ */
+function current_time( $type, $gmt = 0 ) {
+	if ( '' !== BOGO_Test_Env::$now ) {
+		if ( 'timestamp' === $type || 'U' === $type ) {
+			return strtotime( BOGO_Test_Env::$now . ' 00:00:00' );
+		}
+
+		return gmdate( 'Y-m-d' === $type ? 'Y-m-d' : $type, strtotime( BOGO_Test_Env::$now . ' 00:00:00' ) );
+	}
+
+	if ( 'timestamp' === $type || 'U' === $type ) {
+		return time();
+	}
+
+	return gmdate( $type );
 }
 
 /**

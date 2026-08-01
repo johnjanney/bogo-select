@@ -39,6 +39,9 @@ as a real line item at its reward price — so stock is still reduced.
   all behave.
 - **Free, or a percentage off.** The reward is given away by default, and can
   instead be sold at any percentage discount — "Buy 2, get 1 at 50% off".
+- **Optional start and end dates.** Run a campaign for a week without having to
+  remember to switch it off. Whole days in your store's timezone, both ends
+  inclusive, and both optional.
 - **Customer picks, and can change their mind.** Swapping the gift adds the new
   line before dropping the old one, so a refused swap never leaves them empty-handed.
 - **Self-healing cart.** If the cart drops below the Buy quantity — or the gift

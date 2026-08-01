@@ -8,19 +8,6 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
-### Q-005 — Should the offer have a schedule?
-
-**Raised:** 2026-07-30
-
-There is no start/end date; the offer runs until manually disabled.
-
-**Working assumption:** manual on/off is sufficient for v1.0.0.
-
-**Needed:** whether campaign scheduling is wanted. It is a contained addition —
-two date fields and a check in the engine.
-
----
-
 ### Q-006 — Behaviour when the gift is also in the cart as a paid item
 
 **Raised:** 2026-07-30
@@ -212,3 +199,35 @@ over: "2 of any *single* product, chosen from several" — a Buy list of A and B
 that accepts 2 × A or 2 × B but refuses 1 × A + 1 × B. That needs a counting mode
 the plugin does not have. It is a new setting rather than a correction, nobody
 has asked for it, and it can be added without disturbing D-003 if anyone does.
+
+---
+
+### Q-005 — Should the offer have a schedule? — **Answered 2026-07-31**
+
+**Answer:** yes, and it is built. The settings screen has a **Start date** and an
+**End date**, both optional. See `DECISION.md` D-019.
+
+Both bounds are inclusive whole days in the store's own timezone. An offer set to
+run 1–7 August is live on both of those days and stops on the 8th — the half that
+is easy to get wrong is the end, where expiring at midnight *as* the last day
+begins quietly loses a day nobody agreed to lose. Leaving a field empty leaves
+that side unbounded: no start date means the offer has always been running, no
+end date means it runs until switched off, and neither means it behaves exactly
+as it did before scheduling existed. Every install that upgrades is unscheduled,
+and there is no migration.
+
+The schedule only ever narrows an offer. It cannot switch on one whose Enable box
+is unticked, which is a deliberate ordering: the checkbox stays the master
+switch, and a store can stop a campaign early without editing dates.
+
+**Dates rather than date-times**, because nobody asked for times and admitting
+them would force a choice of hour for each bound and then be wrong about it twice
+a year when the clocks change. Comparing `Y-m-d` strings sorts chronologically
+with no date arithmetic at all. A campaign that must start or end partway through
+a day still needs the switch. That limit is recorded in D-019 rather than left to
+be discovered.
+
+The settings screen refuses a window that ends before it begins, and says so when
+an enabled offer has already ended or has not started yet — in both of those
+cases the storefront looks identical to the offer simply being off, which is
+exactly the confusion worth heading off.

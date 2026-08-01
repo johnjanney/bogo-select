@@ -44,6 +44,10 @@ class BOGO_Select_Engine {
 			return false;
 		}
 
+		if ( ! self::is_scheduled_now() ) {
+			return false;
+		}
+
 		// A "select" scope with an empty list can never match anything.
 		if ( 'select' === BOGO_Select_Settings::get( 'buy_scope' ) && ! BOGO_Select_Settings::get( 'buy_products' ) ) {
 			return false;
@@ -54,6 +58,54 @@ class BOGO_Select_Engine {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Whether today falls inside the offer's scheduled window.
+	 *
+	 * Both bounds are inclusive and both are optional: an offer with no start
+	 * date has always been running, one with no end date runs until it is
+	 * switched off, and one with neither is unscheduled. That is how a shop owner
+	 * reads "runs 1–7 August" — the offer is live on both of those days.
+	 *
+	 * Compared as `Y-m-d` strings in the site's own timezone, which sorts
+	 * chronologically without any date arithmetic. Doing the comparison on
+	 * timestamps instead would mean picking an hour for each bound and then
+	 * being wrong about it twice a year, when the clocks move.
+	 *
+	 * The schedule only ever narrows the offer. It cannot switch on an offer
+	 * whose Enable box is unticked.
+	 *
+	 * @return bool
+	 */
+	public static function is_scheduled_now() {
+		$start = (string) BOGO_Select_Settings::get( 'start_date' );
+		$end   = (string) BOGO_Select_Settings::get( 'end_date' );
+
+		if ( '' === $start && '' === $end ) {
+			return true;
+		}
+
+		$today = self::today();
+
+		if ( '' !== $start && $today < $start ) {
+			return false;
+		}
+
+		if ( '' !== $end && $today > $end ) {
+			return false;
+		}
+
+		return true;
+	}
+
+	/**
+	 * Today's date in the site's timezone, as `Y-m-d`.
+	 *
+	 * @return string
+	 */
+	public static function today() {
+		return function_exists( 'current_time' ) ? (string) current_time( 'Y-m-d' ) : gmdate( 'Y-m-d' );
 	}
 
 	/**

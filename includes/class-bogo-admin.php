@@ -62,6 +62,36 @@ class BOGO_Select_Admin {
 	}
 
 	/**
+	 * How the offer's schedule reads in one sentence.
+	 *
+	 * @param string $start Start date, or an empty string.
+	 * @param string $end   End date, or an empty string.
+	 * @return string Empty when the offer is unscheduled.
+	 */
+	protected static function window_sentence( $start, $end ) {
+		if ( '' === $start && '' === $end ) {
+			return '';
+		}
+
+		if ( '' !== $start && '' !== $end ) {
+			return sprintf(
+				/* translators: 1: start date, 2: end date. */
+				__( 'Runs from %1$s to %2$s inclusive.', 'bogo-select' ),
+				$start,
+				$end
+			);
+		}
+
+		if ( '' !== $start ) {
+			/* translators: %s: start date. */
+			return sprintf( __( 'Runs from %s until switched off.', 'bogo-select' ), $start );
+		}
+
+		/* translators: %s: end date. */
+		return sprintf( __( 'Runs until the end of %s.', 'bogo-select' ), $end );
+	}
+
+	/**
 	 * Sanitize submitted settings and warn about unusable choices.
 	 *
 	 * @param mixed $raw Raw form input.
@@ -129,6 +159,46 @@ class BOGO_Select_Admin {
 					'bogo_select_no_get',
 					__( 'The offer is enabled but the gift list is empty, so there is nothing to choose. Add products or switch Get to All Products.', 'bogo-select' ),
 					'error'
+				);
+			}
+
+			// A window that ends before it begins can never run, and the fields
+			// give no other sign of it.
+			if ( '' !== $clean['start_date'] && '' !== $clean['end_date'] && $clean['end_date'] < $clean['start_date'] ) {
+				add_settings_error(
+					BOGO_Select_Settings::OPTION,
+					'bogo_select_backwards_window',
+					sprintf(
+						/* translators: 1: end date, 2: start date. */
+						__( 'The offer ends on %1$s, before it starts on %2$s, so it will never run. Swap the dates or clear one of them.', 'bogo-select' ),
+						$clean['end_date'],
+						$clean['start_date']
+					),
+					'error'
+				);
+			} elseif ( '' !== $clean['end_date'] && $clean['end_date'] < BOGO_Select_Engine::today() ) {
+				// Enabled, but the window has already closed. Worth saying plainly:
+				// the storefront will look exactly as though the offer were off.
+				add_settings_error(
+					BOGO_Select_Settings::OPTION,
+					'bogo_select_window_past',
+					sprintf(
+						/* translators: %s: the end date. */
+						__( 'The offer is enabled but ended on %s, so nothing is shown on the storefront. Change the end date or clear it.', 'bogo-select' ),
+						$clean['end_date']
+					),
+					'warning'
+				);
+			} elseif ( '' !== $clean['start_date'] && $clean['start_date'] > BOGO_Select_Engine::today() ) {
+				add_settings_error(
+					BOGO_Select_Settings::OPTION,
+					'bogo_select_window_future',
+					sprintf(
+						/* translators: %s: the start date. */
+						__( 'The offer is enabled and scheduled to start on %s. Nothing is shown on the storefront until then.', 'bogo-select' ),
+						$clean['start_date']
+					),
+					'info'
 				);
 			}
 
@@ -255,6 +325,36 @@ class BOGO_Select_Admin {
 								name="<?php echo esc_attr( $o ); ?>[offer_title]"
 								value="<?php echo esc_attr( $s['offer_title'] ); ?>" />
 							<p class="description"><?php esc_html_e( 'Heading shown above the gift chooser on the cart page.', 'bogo-select' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="bogo-start-date"><?php esc_html_e( 'Start date', 'bogo-select' ); ?></label>
+						</th>
+						<td>
+							<input type="date" id="bogo-start-date"
+								name="<?php echo esc_attr( $o ); ?>[start_date]"
+								value="<?php echo esc_attr( $s['start_date'] ); ?>" />
+							<p class="description"><?php esc_html_e( 'The first day the offer runs. Leave empty to start immediately.', 'bogo-select' ); ?></p>
+						</td>
+					</tr>
+					<tr>
+						<th scope="row">
+							<label for="bogo-end-date"><?php esc_html_e( 'End date', 'bogo-select' ); ?></label>
+						</th>
+						<td>
+							<input type="date" id="bogo-end-date"
+								name="<?php echo esc_attr( $o ); ?>[end_date]"
+								value="<?php echo esc_attr( $s['end_date'] ); ?>" />
+							<p class="description">
+								<?php
+								printf(
+									/* translators: %s: today's date in the site's timezone. */
+									esc_html__( 'The last day the offer runs, and it runs all of that day. Leave empty to run until you switch it off. Today is %s in your store\'s timezone.', 'bogo-select' ),
+									esc_html( BOGO_Select_Engine::today() )
+								);
+								?>
+							</p>
 						</td>
 					</tr>
 				</table>
@@ -497,6 +597,8 @@ class BOGO_Select_Admin {
 			$summary .= ' ' . __( 'Repeats for every multiple of the Buy quantity.', 'bogo-select' );
 		}
 
-		return $summary;
+		$summary .= ' ' . self::window_sentence( $s['start_date'], $s['end_date'] );
+
+		return trim( $summary );
 	}
 }

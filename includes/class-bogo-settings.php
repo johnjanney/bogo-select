@@ -35,6 +35,8 @@ class BOGO_Select_Settings {
 			'offer_title'        => __( 'Choose your free gift', 'bogo-select' ),
 			'buy_qty'            => 1,
 			'get_qty'            => 1,
+			'start_date'         => '',
+			'end_date'           => '',
 			'get_discount_type'  => 'free',
 			'get_discount_value' => 0.0,
 			'buy_scope'          => 'all',
@@ -66,6 +68,8 @@ class BOGO_Select_Settings {
 		$values['offer_title']        = (string) $values['offer_title'];
 		$values['buy_qty']            = max( 1, absint( $values['buy_qty'] ) );
 		$values['get_qty']            = max( 1, absint( $values['get_qty'] ) );
+		$values['start_date']         = self::to_date( $values['start_date'] );
+		$values['end_date']           = self::to_date( $values['end_date'] );
 		$values['get_discount_type']  = self::to_discount_type( $values['get_discount_type'] );
 		$values['get_discount_value'] = self::to_percent( $values['get_discount_value'] );
 		$values['buy_scope']          = self::to_scope( $values['buy_scope'] );
@@ -136,6 +140,9 @@ class BOGO_Select_Settings {
 		$clean['buy_qty'] = isset( $raw['buy_qty'] ) ? max( 1, absint( $raw['buy_qty'] ) ) : 1;
 		$clean['get_qty'] = isset( $raw['get_qty'] ) ? max( 1, absint( $raw['get_qty'] ) ) : 1;
 
+		$clean['start_date'] = isset( $raw['start_date'] ) ? self::to_date( $raw['start_date'] ) : '';
+		$clean['end_date']   = isset( $raw['end_date'] ) ? self::to_date( $raw['end_date'] ) : '';
+
 		$clean['get_discount_type']  = isset( $raw['get_discount_type'] ) ? self::to_discount_type( $raw['get_discount_type'] ) : 'free';
 		$clean['get_discount_value'] = isset( $raw['get_discount_value'] ) ? self::to_percent( $raw['get_discount_value'] ) : 0.0;
 
@@ -158,6 +165,34 @@ class BOGO_Select_Settings {
 	 */
 	protected static function to_scope( $value ) {
 		return 'select' === $value ? 'select' : 'all';
+	}
+
+	/**
+	 * Normalise a calendar date to `Y-m-d`, or to nothing.
+	 *
+	 * Anything that is not a real date becomes an empty string, which the
+	 * schedule reads as "no bound on this side" — the same as leaving the field
+	 * blank. A date that does not exist, such as 2026-02-30, is rejected rather
+	 * than rolled forward into March, because a schedule silently shifting by a
+	 * day is worse than one that refuses the input.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	protected static function to_date( $value ) {
+		$value = is_scalar( $value ) ? trim( (string) $value ) : '';
+
+		if ( '' === $value ) {
+			return '';
+		}
+
+		$parts = array_map( 'intval', explode( '-', $value ) );
+
+		if ( 3 !== count( $parts ) || ! checkdate( $parts[1], $parts[2], $parts[0] ) ) {
+			return '';
+		}
+
+		return sprintf( '%04d-%02d-%02d', $parts[0], $parts[1], $parts[2] );
 	}
 
 	/**

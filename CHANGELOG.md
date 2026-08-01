@@ -29,6 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The offer can be given a start date and an end date** (`OPEN-QUESTIONS.md`
+  Q-005, `DECISION.md` D-019). Both are optional and both are inclusive whole
+  days in the store's timezone: an offer running "1–7 August" is live on both of
+  those days and stops on the 8th. Leaving a field empty leaves that side
+  unbounded, and an offer with neither behaves exactly as it did before — every
+  existing install is unscheduled, with no migration.
+
+  The settings screen refuses a window that ends before it begins, and says so
+  when an enabled offer has already ended or has not started yet, since in both
+  cases the storefront looks identical to the offer being switched off.
+
 - **Two tests fix how the Buy quantity counts** (`OPEN-QUESTIONS.md` Q-002,
   confirming `DECISION.md` D-003). Quantities are summed across everything on the
   Buy list, so one each of two listed products satisfies a Buy 2 offer. A store

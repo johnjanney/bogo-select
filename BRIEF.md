@@ -33,6 +33,7 @@ These are the requirements as given by the client, restated for implementation.
 | R5 | Buy scope and Get scope are set **independently** to either **All Products** or **Select Products** (with an explicit product list). |
 | R6 | *(v1.3.0)* The Get product may be given away or sold at an admin-set percentage off. A 100% discount and the free mode are equivalent in price and differ only in what the order records. |
 | R7 | *(v1.3.0)* A variable product may be offered as the Get product, with the customer choosing the variation; or a single variation may be listed, pinning the reward to it. |
+| R8 | *(unreleased)* The offer may be given a start date, an end date, or both. Both bounds are inclusive whole days in the store's timezone, and both are optional. |
 
 ### Worked examples
 
@@ -68,7 +69,7 @@ These are the requirements as given by the client, restated for implementation.
 - Category-, tag-, or attribute-based scoping (product IDs only).
 - Variable-product variation-level targeting (parent product IDs only; see Open Questions).
 - Per-customer / per-role / per-coupon eligibility rules.
-- Scheduling (start and end dates for the offer).
+- ~~Scheduling (start and end dates for the offer).~~ Added after v2.0.0 — see §3.1.
 - Subscriptions, bundles, composite products, and other third-party product types.
 - Multi-currency and multi-language (WPML/Polylang) integration testing.
 
@@ -97,6 +98,10 @@ These are the requirements as given by the client, restated for implementation.
   supersedes the v1.0.0 exclusion of variation-level targeting above. Grouped and
   external products remain ineligible, as do variations that leave an attribute
   set to "Any" — they would still need a choice. See `DECISION.md` D-017.
+- **Unreleased — Campaign scheduling.** The offer takes an optional start date
+  and end date, answering `OPEN-QUESTIONS.md` Q-005. Whole days in the store's
+  timezone, both bounds inclusive. This was listed as out of scope for v1.0.0
+  above; the client asked for it. See `DECISION.md` D-019.
 - **v2.0.0 — WooCommerce 9.9 required.** The declared minimum rose from 7.0 to
   the oldest version CI actually tests. This is a breaking change and is why the
   major version moved. See `DECISION.md` D-018.
@@ -117,6 +122,8 @@ These are the requirements as given by the client, restated for implementation.
 | Buy products | `buy_products` | int[] | `[]` | Required when `buy_scope = select`. |
 | Get scope | `get_scope` | `all` \| `select` | `select` | |
 | Get products | `get_products` | int[] | `[]` | Required when `get_scope = select`. May hold simple products, variable parents, and individual variations. |
+| Start date | `start_date` | `Y-m-d` \| `''` | `''` | First day the offer runs. Empty means no start bound. |
+| End date | `end_date` | `Y-m-d` \| `''` | `''` | Last day the offer runs, inclusive. Empty means no end bound. |
 | Reward price | `get_discount_type` | `free` \| `percent` | `free` | *(v1.3.0)* Whether the reward is given away or sold at a discount. |
 | Discount | `get_discount_value` | float 0–100 | `0` | *(v1.3.0)* Percentage off, used only when the type is `percent`. |
 | Repeat offer | `repeat` | bool | `no` | Off: max one reward set. On: `floor(buy_count / buy_qty)` sets. |
@@ -254,7 +261,10 @@ requires `manage_woocommerce`.
 16. *(v1.3.0)* Two variations of one parent, each listed individually, are
     separate cards; choosing one marks only that card and leaves the other
     selectable.
-17. Choosing a gift on a checkout page does not clear anything already typed into
+17. *(unreleased)* An offer with an end date is live for the whole of that day
+    and stops the day after; one with a start date shows nothing before it. An
+    offer with neither behaves exactly as it did before scheduling existed.
+18. Choosing a gift on a checkout page does not clear anything already typed into
     the checkout form.
 
 ---
