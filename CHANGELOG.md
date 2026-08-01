@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.0] — 2026-08-01
+
+A mobile layout for the gift chooser, and Q-006 closed as a decision.
+
 ### Changed
 
 - **The gift chooser is compact on phones.** Below 600px the card grid fell to
@@ -505,7 +509,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.2.0...HEAD
+[2.2.0]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...v2.0.0
 [1.3.0]: https://github.com/johnjanney/bogo-select/compare/v1.2.1...v1.3.0
