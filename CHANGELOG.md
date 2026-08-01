@@ -18,6 +18,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   line and its quantity, the discounted line total, both meta keys, the visible
   label, and stock down by the awarded quantity rather than by one.
 
+- **The classic cart and checkout are covered in a real browser.** Every browser
+  assertion until now ran against the Cart and Checkout blocks, because that is
+  what WooCommerce provisions on a fresh install — but the shortcode path is
+  different code on both sides, reaching the page through template hooks rather
+  than the `render_block` filter and choosing over admin-ajax rather than the
+  Store API. The reward is chosen by clicking the button, so the JavaScript and
+  the reload that classic mode performs are covered too, along with the badge,
+  the discounted price, the locked quantity, and the checkout slot being marked
+  so it never reloads a part-filled form.
+
 - **Coupon behaviour alongside a reward is now tested rather than reasoned.**
   The 1.3.0 notes said eligible coupons stack on the strength of where the
   pricing hook sits, since the unit stubs have no coupon support. Both halves are

@@ -271,6 +271,31 @@ jobs:
             $(( ${{ steps.order.outputs.reward_stock }} - 2 )) \
             $(( ${{ steps.order.outputs.paid_stock }} - 1 ))
 
+      # The shortcode cart and checkout. Different code from the blocks on both
+      # sides — the chooser arrives through template hooks rather than the
+      # render_block filter, and selection goes over admin-ajax. Runs last
+      # because it repoints the store's cart and checkout pages.
+      - name: Switch the store to classic shortcode pages
+        id: classic
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-classic.php | tail -1 | tr -d '\r')
+          echo "classic: $OUT"
+          for k in paid reward; do
+            echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Run the classic cart and checkout integration test
+        env:
+          PAID_ID: ${{ steps.classic.outputs.paid }}
+          REWARD_ID: ${{ steps.classic.outputs.reward }}
+          REWARD_PRICE: 24
+          DISCOUNT_PERCENT: 50
+          CART_PATH: /classic-cart/
+          CHECKOUT_PATH: /classic-checkout/
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: node tests/integration/classic.test.mjs
+
       - name: Container logs on failure
         if: failure()
         run: docker compose -f tests/integration/docker-compose.yml logs --tail=120
