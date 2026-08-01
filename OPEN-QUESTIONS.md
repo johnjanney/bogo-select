@@ -8,6 +8,51 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
+### Q-009 — Should the customer be able to pick a different product for each free unit?
+
+**Raised:** 2026-07-31
+
+With Buy 2 / Get 2, the customer picks **one** Get product and receives two of it.
+Could they instead pick two different products — one of Item A and one of Item B?
+
+**Working assumption:** one product per cart, as today. `BRIEF.md` R4 states it,
+and the code enforces it in three separate places rather than by accident.
+
+**What the plugin does now**, established by running it rather than by reading
+the requirement. With Buy 2 / Get 2 and two products on the Get list:
+
+- choosing Item A creates one reward line of quantity 2;
+- choosing Item B afterwards *replaces* it — the swap is deliberate, so a refused
+  replacement cannot strand the customer with nothing (`DECISION.md` D-012);
+- a second reward line forced into the cart by other means is removed on the next
+  validation pass, and the customer is told why.
+
+So a second reward product is not merely absent. It is actively prevented.
+
+**What it would take.** The reward is singular throughout, not only in the cart:
+
+- `selected_product_id()` and `selected_variation_id()` name one reward, and the
+  Store API publishes both as single values, so the block front end asks "which
+  one is chosen?" and would have to start asking "which ones?";
+- the chooser marks exactly one card as selected, and its "Choose this instead"
+  wording assumes replacement rather than addition;
+- `select_gift()` swaps rather than adds, and cart validation culls anything past
+  the first reward line;
+- the earned quantity is applied to a single line, so it would have to be spread
+  across several and rebalanced whenever the cart changes — a customer who earns
+  three units and picks two products has to be told what the third one is.
+
+None of that is deep, but it is wide, and it changes the shape of the offer state
+that both cart front ends read.
+
+**Needed:** whether this is wanted, and if so, the answer to the question that
+decides the interface — must the customer spend *every* earned unit before
+checkout, or may they take fewer than they earned? A chooser that tracks "2 of 3
+chosen" is a different control from today's pick-one, and the answer also decides
+what the cart does when someone removes one of several reward lines.
+
+---
+
 ### Q-007 — Multiple offers and offer stacking
 
 **Raised:** 2026-07-30
