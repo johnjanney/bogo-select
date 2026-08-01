@@ -29,6 +29,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Shipping behaviour is covered, answering `OPEN-QUESTIONS.md` Q-004.** That
+  question had stated from the beginning that a free reward adds weight to the
+  parcel but nothing to order value, and nothing had ever checked it — every
+  other fixture uses virtual products so that shipping stays out of the way.
+  Measured now, in both modes: a free reward leaves the order value untouched and
+  cannot carry a customer over a free-shipping threshold, a discounted one adds
+  its own reduced price and can, and either joins the parcel.
+
 - **A real order is now placed in CI, and its metadata and stock asserted**
   (`CODEX-REVIEW.md` M-03). The plugin writes reward metadata on
   `woocommerce_checkout_create_order_line_item`, a hook nothing in CI had ever

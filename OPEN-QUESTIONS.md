@@ -23,40 +23,6 @@ needs a per-product counting mode; it is a small change but changes who qualifie
 
 ---
 
-### Q-004 — Tax and shipping treatment of the free item
-
-**Raised:** 2026-07-30
-
-The gift is priced at $0.00, so tax on it is $0.00 and it contributes nothing to
-order value — but it *does* have weight and dimensions, so it affects
-weight-based shipping and free-shipping-threshold calculations only through
-weight, not through subtotal.
-
-All of that holds only while the reward is free. Q-008 has since shipped, so a
-store can price the reward at a percentage off instead of giving it away, and
-such a line carries real tax and a real subtotal. It counts toward free-shipping
-thresholds through value as well as weight, which is the opposite of the
-behaviour the working assumption below endorses. The question is therefore live
-again for any store that configures a discount, and unanswered for that case.
-
-**What is now known.** The tax half of this has been measured rather than
-assumed. A discounted reward is taxed on what the customer actually pays: a
-20.00 reward at half price is taxed on 10.00, in a store whose prices exclude tax
-and in one whose prices include it. That is covered by the integration job
-(`tests/integration/tax.test.mjs`). What remains open is not the arithmetic but
-the policy — whether a promotional item *should* be taxed on its reduced value in
-the jurisdictions this store sells into, and how it should count toward
-free-shipping thresholds.
-
-**Working assumption:** correct as-is — free items should not raise a customer
-toward a free-shipping threshold.
-
-**Needed:** confirmation from whoever handles the store's tax/shipping setup,
-particularly if the store operates in a jurisdiction that treats promotional
-goods as taxable at their normal value.
-
----
-
 ### Q-005 — Should the offer have a schedule?
 
 **Raised:** 2026-07-30
@@ -183,3 +149,43 @@ is not offerable, because it would still need a choice — the ambiguity D-006
 objected to, surviving in that one case. And variations that share a parent's
 stock pool compete with each other, so choosing one can make another unavailable;
 the reason is shown against the option rather than left to be guessed at.
+
+---
+
+### Q-004 — Tax and shipping treatment of the reward — **Answered 2026-07-31**
+
+**Answer:** the working assumption is adopted, and it is no longer an assumption.
+Both halves of the original question have been measured against a real store, and
+the behaviour is what the entry predicted from the beginning.
+
+**A free reward adds weight but not value.** With a free-shipping method set to
+unlock above 50.00, a cart holding a 45.00 item and a free reward stays at 45.00
+and free shipping is not offered. The reward is still in the parcel: a per-item
+flat rate doubles when it is added. So a free reward reaches a weight-based
+method and cannot carry a customer over a value threshold, which is exactly the
+behaviour this entry endorsed.
+
+**A discounted reward adds both.** The same cart with the reward at 50% off
+reaches 55.00, and free shipping is then offered. That is not a defect. A
+discounted line is a line the customer is paying for, and excluding it from the
+order value it contributes to would misreport the order.
+
+**Tax follows what the customer actually pays**, in both display modes: a 20.00
+reward at half price is taxed on 10.00 whether the store's prices include tax or
+exclude it, and a free reward is taxed on nothing.
+
+All of this is now covered by the integration job — `shipping.test.mjs` in both
+modes, and `tax.test.mjs` in both display modes — so it is regression-guarded
+rather than recorded.
+
+**What was not answered here, and why.** The original entry also asked for
+confirmation from whoever handles the store's tax setup, "particularly if the
+store operates in a jurisdiction that treats promotional goods as taxable at
+their normal value." That is a question about tax law rather than about this
+plugin, and it is not one this log can settle: the answer varies by jurisdiction
+and by how the business is registered. It is recorded as an operator note in
+`INSTRUCTIONS.md` §6 instead, where the person configuring the store will meet
+it. The plugin's own behaviour — tax on the amount charged — is the conventional
+treatment and is what WooCommerce does for any reduced price; a store told
+otherwise by its accountant needs a tax plugin or a manual adjustment, not a
+change here.

@@ -300,6 +300,28 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/classic.test.mjs
 
+      # Q-004's shipping claim, which had never been checked because every other
+      # fixture is virtual. Runs its own store setup twice, once per mode.
+      - name: Shipping, free reward
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-shipping.php free | tail -1 | tr -d '\r')
+          echo "shipping free: $OUT"
+          PAID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')
+          REWARD=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reward"])')
+          MODE=free PAID_ID="$PAID" REWARD_ID="$REWARD" PAID_PRICE=45 REWARD_VALUE=20 \
+            THRESHOLD=50 DISCOUNT_PERCENT=50 node tests/integration/shipping.test.mjs
+
+      - name: Shipping, discounted reward
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-shipping.php percent | tail -1 | tr -d '\r')
+          echo "shipping percent: $OUT"
+          PAID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')
+          REWARD=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reward"])')
+          MODE=percent PAID_ID="$PAID" REWARD_ID="$REWARD" PAID_PRICE=45 REWARD_VALUE=20 \
+            THRESHOLD=50 DISCOUNT_PERCENT=50 node tests/integration/shipping.test.mjs
+
       # D-016 discounts the effective selling price, so a reward already reduced
       # is reduced again from its sale figure. Decided on paper; checked here.
       - name: A reward already on sale, discounted again

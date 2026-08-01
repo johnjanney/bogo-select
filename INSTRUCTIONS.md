@@ -235,6 +235,24 @@ default, or the discounted figure — and not a coupon discount. That means:
 - **Refunds** behave as for any other line: restocking through the order screen
   returns the units to inventory.
 
+**A note for whoever handles your tax setup.** The plugin taxes the reward on the
+amount the customer is charged — nothing for a free gift, the reduced figure for
+a discounted one. That is what WooCommerce does for any reduced price, and it is
+the conventional treatment. Some jurisdictions instead treat a promotional good
+as taxable at its normal value, and a few treat a free gift above a threshold as
+a taxable supply in its own right. If your accountant tells you either applies,
+that is not something to change here: it needs a tax plugin or a manual
+adjustment at filing time. Verified behaviour, in both display modes: a 20.00
+reward at half price is taxed on 10.00 whether your prices include tax or exclude
+it.
+
+**Free shipping thresholds.** A free reward adds nothing to the order value, so
+it cannot carry a customer over a "free shipping over X" threshold — but it is
+still in the parcel, so its weight reaches a weight-based shipping method. A
+discounted reward *does* add its own reduced price to the order value and can
+therefore cross the threshold, because the customer is paying for it. Both are
+covered by the automated tests.
+
 ---
 
 ## 7. Testing your offer
