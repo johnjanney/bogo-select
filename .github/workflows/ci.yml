@@ -221,6 +221,32 @@ jobs:
             echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
           done
 
+      # Settles the coupon-stacking claim the documentation had been making on
+      # the strength of hook ordering alone. Runs before the order lane, which
+      # is left last because it consumes the fixture's stock.
+      - name: Seed the coupons
+        id: coupons
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-coupon.php ${{ steps.order.outputs.reward }} | tail -1 | tr -d '\r')
+          echo "coupons: $OUT"
+          for k in stacking excluding; do
+            echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Run the coupon integration test
+        env:
+          BASE: http://localhost:8910
+          PAID_ID: ${{ steps.order.outputs.paid }}
+          REWARD_ID: ${{ steps.order.outputs.reward }}
+          REWARD_PRICE: 20
+          GET_QTY: 2
+          DISCOUNT_PERCENT: 50
+          COUPON_PERCENT: 20
+          STACKING_CODE: ${{ steps.coupons.outputs.stacking }}
+          EXCLUDING_CODE: ${{ steps.coupons.outputs.excluding }}
+        run: node tests/integration/coupon.test.mjs
+
       - name: Place a real order
         id: placed
         env:

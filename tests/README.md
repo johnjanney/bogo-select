@@ -43,6 +43,7 @@ they run in order.
 | `blocks.test.mjs` | Store API cart state and gift label, quantity limits, and the Cart and Checkout **blocks** rendering on a real page — that the chooser slot never takes the block root's `data-block-name`, and that each block leaves `is-loading`. |
 | `discount.test.mjs` | A percentage reward through the Store API: the discounted figure WooCommerce actually charges, that repeated recalculation does not compound it, and the discounted wording in the Cart block. |
 | `variable.test.mjs` | A variable reward: that the parent alone is refused, that the line is priced from the chosen variation rather than the parent's range, and that the cart renders one selector listing every variation. |
+| `coupon.test.mjs` | Coupons alongside a discounted reward: that an eligible coupon compounds on the already-reduced price, and that one excluding the reward leaves it alone while still discounting the rest of the cart. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
 
 ## What neither suite covers
@@ -54,8 +55,6 @@ they run in order.
 - The Checkout block for the discounted and variable rewards specifically — the
   free scenario covers checkout, the other two stop at the cart.
 - Tax on a reward line, in either tax-display mode.
-- Coupons applied alongside a reward. The documentation says eligible coupons
-  stack, which follows from where the pricing hook sits rather than from a test.
 - Sale-price interaction: a reward already on sale being discounted again.
 - `WP_DEBUG` output.
 

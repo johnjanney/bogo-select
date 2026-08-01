@@ -109,9 +109,9 @@ Three consequences worth knowing before switching an offer to a percentage:
 - **Eligible coupons stack.** A 20% site-wide coupon over a 50% reward leaves
   the customer paying 40% of list, as it would on any reduced price — subject to
   that coupon's own product, category, and sale-exclusion rules, which still
-  apply. This follows from where the pricing hook sits rather than from a test —
-  the unit stubs have no coupon support — so treat it as expected rather than
-  verified.
+  apply. Both halves are covered by the integration job against a real store:
+  that an eligible coupon compounds, and that one excluding the reward leaves it
+  alone while still discounting the rest of the cart.
 - **A discounted reward has taxable value.** Unlike a free one it contributes to
   the order subtotal, so it counts toward free-shipping thresholds by value as
   well as by weight.

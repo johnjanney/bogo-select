@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A real order is now placed in CI, and its metadata and stock asserted**
+  (`CODEX-REVIEW.md` M-03). The plugin writes reward metadata on
+  `woocommerce_checkout_create_order_line_item`, a hook nothing in CI had ever
+  fired — `BRIEF.md` §8.6 listed order placement, order metadata, and stock
+  reduction as verified by hand. A new lane builds a qualifying cart over the
+  Store API, checks out through it, and then inspects what landed: the reward
+  line and its quantity, the discounted line total, both meta keys, the visible
+  label, and stock down by the awarded quantity rather than by one.
+
+- **Coupon behaviour alongside a reward is now tested rather than reasoned.**
+  The 1.3.0 notes said eligible coupons stack on the strength of where the
+  pricing hook sits, since the unit stubs have no coupon support. Both halves are
+  now covered against a real store: an eligible 20% coupon over a 50% reward
+  leaves the customer paying 40% of list, and a coupon excluding the reward
+  leaves it untouched while still discounting the rest of the cart.
+
+- **`tests/README.md` describes what is actually run.** It had gone stale in the
+  opposite direction, still saying there was no database, HTTP, WordPress
+  install, JavaScript runner, or real block rendering — all of which the
+  integration job has done since 1.2.1. It now covers both suites and is
+  explicit about what neither reaches.
+
 ## [2.0.0] — 2026-07-31
 
 A single change, and a breaking one: the WooCommerce floor is raised to

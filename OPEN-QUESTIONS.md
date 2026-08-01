@@ -127,9 +127,9 @@ overwritten rather than discounted. Rounding happens once, on the unit price.
 Three of the surrounding decisions are worth restating. The discount comes off
 the effective selling price, so a reward already on sale is discounted from its
 sale price. Eligible coupons stack, leaving a 20% coupon over a 50%
-reward at 40% of list wherever that coupon's own rules permit it — that follows
-from where the pricing hook sits rather than from a test, since the unit stubs
-have no coupon support, and it is expected behaviour rather than verified. And `free` stayed a discount type of its own rather than
+reward at 40% of list wherever that coupon's own rules permit it — reasoned from
+the hook ordering at the time, and since covered by the integration job in both
+directions. And `free` stayed a discount type of its own rather than
 becoming a percentage of 100, so the interface can say "Free" without
 special-casing a magic number.
 

@@ -394,6 +394,12 @@ with a 50% reward discount and the customer pays 40% of list, wherever that
 coupon's own product, category, and sale-exclusion rules permit it; this is
 WooCommerce's normal treatment of a reduced price, and is left alone.
 
+**Verified 2026-07-31.** This was reasoned from the hook ordering when the
+decision was taken, and is now covered by the integration job
+(`tests/integration/coupon.test.mjs`) against a real store, in both directions —
+an eligible coupon compounds to 40% of list, and one excluding the reward leaves
+it untouched while still discounting the rest of the cart.
+
 A discounted reward also carries real tax and real subtotal, unlike a free one, so
 it counts toward free-shipping thresholds through value as well as weight. See
 `OPEN-QUESTIONS.md` Q-004, which assumed the reward was always free.
