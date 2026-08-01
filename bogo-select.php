@@ -2,8 +2,8 @@
 /**
  * Plugin Name:       BOGO Select for WooCommerce
  * Plugin URI:        https://github.com/johnjanney/bogo-select
- * Description:       Buy X, Get Y free — the customer chooses their free gift from a list you control, and the gift is added to the cart at $0.00 so inventory is still reduced.
- * Version:           1.2.1
+ * Description:       Buy X, Get Y — the customer chooses their reward from a list you control, free or at a percentage off. Variable products let them pick the size or colour. The reward is a real cart line, so inventory is still reduced.
+ * Version:           1.3.0
  * Author:            John Janney
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -20,7 +20,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BOGO_SELECT_VERSION', '1.2.1' );
+define( 'BOGO_SELECT_VERSION', '1.3.0' );
 define( 'BOGO_SELECT_MIN_WC', '7.0' );
 define( 'BOGO_SELECT_FILE', __FILE__ );
 define( 'BOGO_SELECT_PATH', plugin_dir_path( __FILE__ ) );

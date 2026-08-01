@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] — 2026-07-31
+
+Two features that widen what the reward can be: it no longer has to be
+free, and it no longer has to be a simple product.
+
 ### Added
 
 - **Variable products can be rewards, with the customer choosing the variation**
@@ -368,6 +373,9 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/johnjanney/bogo-select/compare/v1.2.1...v1.3.0
+[1.2.1]: https://github.com/johnjanney/bogo-select/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/johnjanney/bogo-select/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/johnjanney/bogo-select/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/johnjanney/bogo-select/releases/tag/v1.0.0

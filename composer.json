@@ -1,6 +1,6 @@
 {
 	"name": "johnjanney/bogo-select",
-	"description": "Buy X, Get Y free for WooCommerce, with the customer choosing their gift.",
+	"description": "Buy X, Get Y for WooCommerce — free or discounted, with the customer choosing their reward.",
 	"type": "wordpress-plugin",
 	"license": "GPL-2.0-or-later",
 	"require": {
