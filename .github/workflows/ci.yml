@@ -208,6 +208,43 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/variable.test.mjs
 
+      # Order placement, order metadata, and stock reduction — the surfaces
+      # BRIEF.md §8.6 listed as manual and CODEX-REVIEW.md M-03 called out. Runs
+      # last because placing an order consumes the cart and the fixture's stock.
+      - name: Seed the order fixture
+        id: order
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-order.php | tail -1 | tr -d '\r')
+          echo "order fixture: $OUT"
+          for k in paid reward paid_stock reward_stock; do
+            echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
+          done
+
+      - name: Place a real order
+        id: placed
+        env:
+          BASE: http://localhost:8910
+          PAID_ID: ${{ steps.order.outputs.paid }}
+          REWARD_ID: ${{ steps.order.outputs.reward }}
+          REWARD_PRICE: 20
+          GET_QTY: 2
+          DISCOUNT_PERCENT: 50
+        run: |
+          OUT=$(node tests/integration/order.test.mjs | tee /dev/stderr | tail -1)
+          echo "order_id=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["order_id"])')" >> "$GITHUB_OUTPUT"
+
+      - name: Assert the order, its metadata, and stock
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          $C wp eval-file /integration/assert-order.php \
+            ${{ steps.placed.outputs.order_id }} \
+            ${{ steps.order.outputs.reward }} \
+            ${{ steps.order.outputs.paid }} \
+            2 20 \
+            $(( ${{ steps.order.outputs.reward_stock }} - 2 )) \
+            $(( ${{ steps.order.outputs.paid_stock }} - 1 ))
+
       - name: Container logs on failure
         if: failure()
         run: docker compose -f tests/integration/docker-compose.yml logs --tail=120

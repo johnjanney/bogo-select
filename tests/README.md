@@ -5,11 +5,20 @@ composer install
 composer test          # or: ./vendor/bin/phpunit
 ```
 
-## What this suite covers
+## What is covered
 
-Unit tests for the parts of the plugin that are pure decisions, run against
-small stand-ins for the WordPress and WooCommerce functions they call
+Two suites, covering different things.
+
+**The unit suite** tests the parts of the plugin that are pure decisions,
+against small stand-ins for the WordPress and WooCommerce functions they call
 (`tests/stubs/`). No database, no HTTP, no WordPress install.
+
+**The integration job** (`.github/workflows/ci.yml` → `integration`) installs the
+built zip into a real WordPress with WooCommerce — the compatibility floor and
+whatever is current — and drives it over HTTP and in headless Chromium. It needs
+Docker, so it runs in CI rather than from `composer test`.
+
+### Unit suite
 
 | File | Covers |
 |---|---|
@@ -24,32 +33,30 @@ small stand-ins for the WordPress and WooCommerce functions they call
 | `BlocksTest.php` | Cart/Checkout Blocks: chooser injection, Store API state, update callback, item labelling, quantity limits. |
 | `CartValidationTest.php` | Self-healing cart: stock revalidation (F-01), duplicate reward lines (F-04), suspension (F-03), quantity lock, $0 pricing, subtotal display (F-07). |
 
-## What this suite does **not** cover
+## What the integration job covers
 
-The stubs cannot exercise WooCommerce's own runtime, so these remain verified by
-hand on a staging site:
+Each scenario reconfigures the same seeded store rather than rebuilding it, and
+they run in order.
 
-- Hook timing and ordering against real WooCommerce (`woocommerce_before_calculate_totals`
-  priority 20 versus third-party pricing plugins).
-- Cart session serialisation and restoration between requests.
-- `WC_Cart::add_to_cart()` validation — including the rejected-replacement path
-  that F-03 hardened, which depends on core and third-party
-  `woocommerce_add_to_cart_validation` callbacks.
-- Order line-item creation, order meta, checkout, tax on a $0.00 line, and stock
-  reduction on order completion.
-- AJAX and Store API transport: nonce verification, `check_ajax_referer()`,
-  `wp_send_json_*`, and the Store API routes themselves. The handlers' logic is
-  covered; the request layer under them is not.
-- The browser half of block support: `wc.blocksCheckout.extensionCartUpdate()`,
-  the `wc/store/cart` subscription, and the block re-render that follows. There
-  is no JavaScript test runner in this project.
-- Real block rendering. `BlocksTest` calls the `render_block` filter directly
-  with a parsed-block array; it does not prove WooCommerce renders the blocks in
-  that order or that the markup lands where intended on a real page.
+| Script | Covers |
+|---|---|
+| `blocks.test.mjs` | Store API cart state and gift label, quantity limits, and the Cart and Checkout **blocks** rendering on a real page — that the chooser slot never takes the block root's `data-block-name`, and that each block leaves `is-loading`. |
+| `discount.test.mjs` | A percentage reward through the Store API: the discounted figure WooCommerce actually charges, that repeated recalculation does not compound it, and the discounted wording in the Cart block. |
+| `variable.test.mjs` | A variable reward: that the parent alone is refused, that the line is priced from the chosen variation rather than the parent's range, and that the cart renders one selector listing every variation. |
+| `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
+
+## What neither suite covers
+
+- Hook timing against third-party plugins (`woocommerce_before_calculate_totals`
+  priority 20 versus other pricing plugins).
+- The **classic** cart and checkout templates. Every browser assertion so far is
+  against the blocks; the shortcode path is still verified by hand.
+- The Checkout block for the discounted and variable rewards specifically — the
+  free scenario covers checkout, the other two stop at the cart.
+- Tax on a reward line, in either tax-display mode.
+- Coupons applied alongside a reward. The documentation says eligible coupons
+  stack, which follows from where the pricing hook sits rather than from a test.
+- Sale-price interaction: a reward already on sale being discounted again.
 - `WP_DEBUG` output.
 
-Closing that gap needs a WooCommerce integration harness
-(`wp-env` or `wp scaffold plugin-tests` plus the WooCommerce test bootstrap)
-running against the declared minimum and current WooCommerce releases, plus a
-browser-level pass over the four cart/checkout combinations (classic and block).
-That is tracked as remaining work in `CODEX-REVIEW-RESPONSE.md` (F-06, C-02).
+The first four are tracked as `CODEX-REVIEW.md` M-03.
