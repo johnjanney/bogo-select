@@ -10,9 +10,11 @@ Format: **D-nnn — Title** · *Date* · *Status*
 
 ## D-001 — Single global offer rather than multiple offers
 
-**Date:** 2026-07-30 · **Status:** Accepted
+**Date:** 2026-07-30 · **Status:** Accepted · **Reviewed:** 2026-08-01, holds at
+2.2.1
 
-**Decision.** v1.0.0 supports exactly one offer, stored in one option row.
+**Decision.** v1.0.0 supports exactly one offer, stored in one option row. Still
+true at 2.2.1, and now a standing decision rather than a v1.0.0 one.
 
 **Why.** Requirement R4 states Buy and Get are each limited to one product item for
 now, and the brief describes a single sale. Multiple offers would require an offer
@@ -22,6 +24,19 @@ what was asked.
 **Consequence.** Moving to multiple offers later means migrating the option into a
 custom post type. The settings are already namespaced under one array key, so the
 migration is mechanical.
+
+**What the review found.** The option row has grown a good deal since — a
+schedule (D-019), a discount type and value (D-016), repeat mode, a notice
+toggle — and every one of those keys sits flat inside the same
+`bogo_select_settings` array, reached through one `get_option()` call in
+`class-bogo-settings.php`. So the consequence above is unchanged rather than
+merely still written down: there is one row to migrate, and no second storage
+shape has grown up beside it. None of the feature work since has needed a second
+offer, and nobody has asked for one.
+
+`OPEN-QUESTIONS.md` Q-007 remains the place where that could change. It was put
+up for decision on 2026-08-01 and deliberately left open, which is what makes
+this a decision that holds rather than one that has merely gone unexamined.
 
 ---
 

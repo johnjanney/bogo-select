@@ -145,9 +145,42 @@ this may expand.
 
 **Working assumption:** one global offer for v1.0.0 (`DECISION.md` D-001).
 
-**Needed:** the likely shape of the next iteration — multiple concurrent offers,
-per-category offers, or tiered thresholds — so the data model can be planned
-rather than retrofitted.
+**Deferred:** 2026-08-01. The four shapes below were put up for decision and the
+answer was to leave the question open and revisit it later. That is a deliberate
+deferral rather than an oversight, and it changes nothing: the working assumption
+continues to hold, and no part of the plugin waits on it. The shapes were written
+for that conversation and are kept here so the next pass starts from them rather
+than from the beginning.
+
+**The shapes it could take.** Four, recorded so the question can be picked up
+cold. None of them is implied by the code; the answer is a plan rather than a
+fact about the plugin.
+
+- **One offer, unchanged.** D-001 becomes the permanent answer rather than a
+  provisional one. Costs nothing and forecloses nothing — the settings already
+  sit under a single namespaced key, so a later move stays mechanical — and it
+  frees Q-010 to build on the flat option row without fear of the work being
+  discarded.
+- **Multiple concurrent offers.** One record per offer, which means the option
+  row becomes a custom post type. The structure is the easy half; the rules are
+  the hard one. Which offer wins when two match the same cart, whether a cart may
+  earn from more than one at a time, and what the chooser shows when it must
+  present several. This is the expensive shape, and it is the one that puts Q-010
+  on hold, since keys bolted onto the flat row would be thrown away.
+- **Per-category offers.** Folds Q-007 and Q-010 into one piece of work. Still
+  needs multiple records, and still owes the taxonomy work Q-010 costs out:
+  resolving a variation to its parent's terms, a `tax_query` path through
+  `query_search()`, and cache invalidation for membership changes that fire none
+  of the hooked events.
+- **Tiered thresholds.** Buy 2 get 1, buy 4 get 3, in one offer holding a list of
+  steps. `buy_qty` and `get_qty` become a list of pairs instead of two integers,
+  so one record and one settings screen still suffice — the cheapest of the three
+  expansions on the data model. It is not free elsewhere: it has to agree with
+  repeat mode about what happens above the top tier, and it meets Q-009's
+  question about whether every earned unit must be spent.
+
+**Needed:** the likely shape of the next iteration, so the data model can be
+planned rather than retrofitted.
 
 ---
 
