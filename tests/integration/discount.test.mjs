@@ -91,26 +91,40 @@ check('Store API: reward label reads as discounted, not free',
 	&& /50% off/.test(String(meta.value)) && /50% off/.test(String(meta.display)),
 	JSON.stringify(meta));
 
-// --- The rendered cart ------------------------------------------------------
+// --- The rendered blocks ----------------------------------------------------
+//
+// Both surfaces, not just the cart: the Checkout block renders the reward
+// through a different template and marks its slot differently, so a discount
+// that reads correctly in one says nothing about the other.
 
-await page.goto(BASE + '/cart/', { waitUntil: 'networkidle', timeout: 90000 });
-await page.waitForTimeout(4000);
+for (const surface of [
+	{ name: 'Cart', path: '/cart/', mode: 'block' },
+	{ name: 'Checkout', path: '/checkout/', mode: 'block' },
+]) {
+	await page.goto(BASE + surface.path, { waitUntil: 'networkidle', timeout: 90000 });
+	await page.waitForTimeout(4000);
 
-const dom = await page.evaluate(() => {
-	const text = document.body.innerText;
-	return {
-		chooser: !!document.querySelector('#bogo-select'),
-		heading: /CHOOSER-HEADING-XYZ/.test(text),
-		discountedLabel: /Discounted item/i.test(text) && /50% off/i.test(text),
-		saysFreeGift: /Free gift/i.test(text),
-	};
-});
+	const dom = await page.evaluate(() => {
+		const text = document.body.innerText;
+		return {
+			chooser: !!document.querySelector('#bogo-select'),
+			heading: /CHOOSER-HEADING-XYZ/.test(text),
+			discountedLabel: /Discounted item/i.test(text) && /50% off/i.test(text),
+			saysFreeGift: /Free gift/i.test(text),
+			mode: document.querySelector('[data-bogo-mode]')?.getAttribute('data-bogo-mode') ?? null,
+		};
+	});
 
-check('Cart: chooser UI rendered', dom.chooser && dom.heading);
-check('Cart: "Discounted item" and "50% off" visible', dom.discountedLabel);
-check('Cart: no longer claims a free gift', dom.saysFreeGift === false);
+	check(`${surface.name}: chooser UI rendered`, dom.chooser && dom.heading);
+	check(`${surface.name}: "Discounted item" and "50% off" visible`, dom.discountedLabel);
+	check(`${surface.name}: no longer claims a free gift`, dom.saysFreeGift === false);
+	check(`${surface.name}: the slot is in block mode`, dom.mode === surface.mode, `mode ${dom.mode}`);
 
-await page.screenshot({ path: `integration-${WC_VERSION}-discount.png`, fullPage: true });
+	await page.screenshot({
+		path: `integration-${WC_VERSION}-discount-${surface.name.toLowerCase()}.png`,
+		fullPage: true,
+	});
+}
 
 check('No uncaught JavaScript errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
 

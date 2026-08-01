@@ -44,6 +44,7 @@ they run in order.
 | `discount.test.mjs` | A percentage reward through the Store API: the discounted figure WooCommerce actually charges, that repeated recalculation does not compound it, and the discounted wording in the Cart block. |
 | `variable.test.mjs` | A variable reward: that the parent alone is refused, that the line is priced from the chosen variation rather than the parent's range, and that the cart renders one selector listing every variation. |
 | `classic.test.mjs` | The shortcode cart and checkout: that the chooser arrives through the template hooks rather than the `render_block` filter, that choosing over admin-ajax works by clicking the button, that the reloaded cart shows the badge, discounted price, and locked quantity, and that the checkout slot is marked `checkout` rather than `classic` so it never reloads a part-filled form. |
+| `sale.test.mjs` | A reward already on sale, discounted again: that the reduction comes off the sale price rather than the regular one, with fixture prices chosen so the wrong answer cannot be mistaken for the right one. |
 | `tax.test.mjs` | Tax on a discounted reward, run once per display mode: that the line is taxed on what the customer pays rather than on the price it was discounted from, and that a tax-inclusive store still charges exactly half the shelf price. |
 | `coupon.test.mjs` | Coupons alongside a discounted reward: that an eligible coupon compounds on the already-reduced price, and that one excluding the reward leaves it alone while still discounting the rest of the cart. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
@@ -51,10 +52,13 @@ they run in order.
 ## What neither suite covers
 
 - Hook timing against third-party plugins (`woocommerce_before_calculate_totals`
-  priority 20 versus other pricing plugins).
-- The Checkout block for the discounted and variable rewards specifically — the
-  free scenario covers checkout, the other two stop at the cart.
-- Sale-price interaction: a reward already on sale being discounted again.
+  priority 20 versus other pricing plugins). This is the trade `DECISION.md`
+  D-016 took deliberately, not an oversight.
+- Shipping. Every fixture product is virtual, so no shipping method is needed to
+  reach checkout; a reward's weight against a weight-based method is untested.
+- Multi-currency, and currencies whose minor unit is not two digits. The
+  assertions read `currency_minor_unit` rather than assuming, but only one
+  currency is ever configured.
 - `WP_DEBUG` output.
 
-The first four are tracked as `CODEX-REVIEW.md` M-03.
+`CODEX-REVIEW.md` M-03 is otherwise covered.

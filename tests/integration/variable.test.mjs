@@ -103,30 +103,39 @@ check('Store API: offer state reports both halves of the reward',
 	!!state && state.selected_product_id === PARENT_ID && state.selected_variation_id === LARGE_ID,
 	JSON.stringify(state));
 
-// --- The rendered cart ------------------------------------------------------
+// --- The rendered blocks ----------------------------------------------------
+//
+// Both surfaces. The variation selector is the only new UI this feature added,
+// and a customer who reaches the checkout without visiting the cart must still
+// be able to see and change what they chose.
 
-await page.goto(BASE + '/cart/', { waitUntil: 'networkidle', timeout: 90000 });
-await page.waitForTimeout(4000);
+for (const surface of ['Cart', 'Checkout']) {
+	await page.goto(BASE + '/' + surface.toLowerCase() + '/', { waitUntil: 'networkidle', timeout: 90000 });
+	await page.waitForTimeout(4000);
 
-const dom = await page.evaluate(() => {
-	const text = document.body.innerText;
-	return {
-		chooser: !!document.querySelector('#bogo-select'),
-		heading: /CHOOSER-HEADING-XYZ/.test(text),
-		selector: document.querySelectorAll('[data-bogo-variation]').length,
-		options: document.querySelectorAll('[data-bogo-variation] option').length,
-		selectedCard: !!document.querySelector('.bogo-select__item.is-selected'),
-		changeButton: /Change option/i.test(text),
-	};
-});
+	const dom = await page.evaluate(() => {
+		const text = document.body.innerText;
+		return {
+			chooser: !!document.querySelector('#bogo-select'),
+			heading: /CHOOSER-HEADING-XYZ/.test(text),
+			selector: document.querySelectorAll('[data-bogo-variation]').length,
+			options: document.querySelectorAll('[data-bogo-variation] option').length,
+			selectedCard: !!document.querySelector('.bogo-select__item.is-selected'),
+			changeButton: /Change option/i.test(text),
+		};
+	});
 
-check('Cart: chooser rendered', dom.chooser && dom.heading);
-check('Cart: the variable card carries one selector', dom.selector === 1, `saw ${dom.selector}`);
-check('Cart: the selector lists both variations', dom.options === 2, `saw ${dom.options}`);
-check('Cart: the chosen card is marked selected', dom.selectedCard);
-check('Cart: a selected variable card can still be changed', dom.changeButton);
+	check(`${surface}: chooser rendered`, dom.chooser && dom.heading);
+	check(`${surface}: the variable card carries one selector`, dom.selector === 1, `saw ${dom.selector}`);
+	check(`${surface}: the selector lists both variations`, dom.options === 2, `saw ${dom.options}`);
+	check(`${surface}: the chosen card is marked selected`, dom.selectedCard);
+	check(`${surface}: a selected variable card can still be changed`, dom.changeButton);
 
-await page.screenshot({ path: `integration-${WC_VERSION}-variable.png`, fullPage: true });
+	await page.screenshot({
+		path: `integration-${WC_VERSION}-variable-${surface.toLowerCase()}.png`,
+		fullPage: true,
+	});
+}
 
 check('No uncaught JavaScript errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
 

@@ -296,6 +296,18 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/classic.test.mjs
 
+      # D-016 discounts the effective selling price, so a reward already reduced
+      # is reduced again from its sale figure. Decided on paper; checked here.
+      - name: A reward already on sale, discounted again
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-sale.php | tail -1 | tr -d '\r')
+          echo "sale: $OUT"
+          PAID=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')
+          REWARD=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reward"])')
+          PAID_ID="$PAID" REWARD_ID="$REWARD" REGULAR_PRICE=40 SALE_PRICE=20 \
+            DISCOUNT_PERCENT=50 node tests/integration/sale.test.mjs
+
       # Tax is where a wrong answer costs a store money, so both display modes
       # are exercised. Runs last: it leaves taxes enabled.
       - name: Tax, prices excluding tax
