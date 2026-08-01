@@ -44,6 +44,7 @@ they run in order.
 | `discount.test.mjs` | A percentage reward through the Store API: the discounted figure WooCommerce actually charges, that repeated recalculation does not compound it, and the discounted wording in the Cart block. |
 | `variable.test.mjs` | A variable reward: that the parent alone is refused, that the line is priced from the chosen variation rather than the parent's range, and that the cart renders one selector listing every variation. |
 | `classic.test.mjs` | The shortcode cart and checkout: that the chooser arrives through the template hooks rather than the `render_block` filter, that choosing over admin-ajax works by clicking the button, that the reloaded cart shows the badge, discounted price, and locked quantity, and that the checkout slot is marked `checkout` rather than `classic` so it never reloads a part-filled form. |
+| `tax.test.mjs` | Tax on a discounted reward, run once per display mode: that the line is taxed on what the customer pays rather than on the price it was discounted from, and that a tax-inclusive store still charges exactly half the shelf price. |
 | `coupon.test.mjs` | Coupons alongside a discounted reward: that an eligible coupon compounds on the already-reduced price, and that one excluding the reward leaves it alone while still discounting the rest of the cart. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
 
@@ -53,7 +54,6 @@ they run in order.
   priority 20 versus other pricing plugins).
 - The Checkout block for the discounted and variable rewards specifically — the
   free scenario covers checkout, the other two stop at the cart.
-- Tax on a reward line, in either tax-display mode.
 - Sale-price interaction: a reward already on sale being discounted again.
 - `WP_DEBUG` output.
 

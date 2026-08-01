@@ -39,6 +39,15 @@ thresholds through value as well as weight, which is the opposite of the
 behaviour the working assumption below endorses. The question is therefore live
 again for any store that configures a discount, and unanswered for that case.
 
+**What is now known.** The tax half of this has been measured rather than
+assumed. A discounted reward is taxed on what the customer actually pays: a
+20.00 reward at half price is taxed on 10.00, in a store whose prices exclude tax
+and in one whose prices include it. That is covered by the integration job
+(`tests/integration/tax.test.mjs`). What remains open is not the arithmetic but
+the policy — whether a promotional item *should* be taxed on its reduced value in
+the jurisdictions this store sells into, and how it should count toward
+free-shipping thresholds.
+
 **Working assumption:** correct as-is — free items should not raise a customer
 toward a free-shipping threshold.
 

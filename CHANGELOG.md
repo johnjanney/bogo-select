@@ -28,6 +28,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the discounted price, the locked quantity, and the checkout slot being marked
   so it never reloads a part-filled form.
 
+- **Tax on a discounted reward is covered, in both display modes.** The plugin
+  sets the line's price before totals run, so tax should follow the discounted
+  figure rather than the price it was discounted from — the difference a store
+  would feel, and never checked until now. A store whose prices exclude tax
+  charges 10.00 plus tax on a 20.00 reward at half price; one whose prices
+  include tax charges exactly 10.00, tax included. Both are asserted, along with
+  the rate being applied to the discounted line rather than the original.
+
 - **Coupon behaviour alongside a reward is now tested rather than reasoned.**
   The 1.3.0 notes said eligible coupons stack on the strength of where the
   pricing hook sits, since the unit stubs have no coupon support. Both halves are
