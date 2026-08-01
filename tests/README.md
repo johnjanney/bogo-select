@@ -37,7 +37,7 @@ Docker, so it runs in CI rather than from `composer test`.
 | `VariableSelectionTest.php` | Awarding a variation: the reward pair, sibling swaps, the state signature, and validation. |
 | `VariableChooserTest.php` | The variable card: its selector, per-option availability, aggregate card state, and which card owns the selection. |
 | `VariableRenderCostTest.php` | How many product loads a page of variable cards costs, and that the variation memo is per request. |
-| `CartValidationTest.php` | Self-healing cart: stock revalidation (F-01), duplicate reward lines (F-04), suspension (F-03), quantity lock, $0 pricing, subtotal display (F-07). |
+| `CartValidationTest.php` | Self-healing cart, and a reward of an already-purchased product keeping its own line (D-020): stock revalidation (F-01), duplicate reward lines (F-04), suspension (F-03), quantity lock, $0 pricing, subtotal display (F-07). |
 
 ## What the integration job covers
 

@@ -501,3 +501,26 @@ needing that must still switch the offer manually. An invalid date — including
 one that does not exist, such as 2026-02-30 — is stored as no bound rather than
 rolled forward, because a schedule quietly shifting by a day is worse than one
 that ignores what it was given.
+
+---
+
+## D-020 — A reward keeps its own cart line, even when the same product was bought
+
+**Date:** 2026-07-31 · **Status:** Accepted · **Confirms** `OPEN-QUESTIONS.md` Q-006
+
+**Decision.** When a customer already has a product in the cart and then chooses
+that same product as the reward, the cart shows two lines: the one they are
+paying for, and the reward. The two are never merged.
+
+**Why.** The two lines carry different prices, so one line cannot state both. A
+merged line would read "2 × Item B" at a single price, and the customer could not
+see which unit was free or discounted. Keeping them apart is also what WooCommerce
+itself does whenever two lines of the same product differ — the reward line
+carries cart-item data the paid line does not, which is what makes it a separate
+line in the first place.
+
+**Consequence.** A customer who buys one and is given one sees the product twice
+in the cart and twice on the order. Stock is reduced by the total of both lines,
+and both lines compete for the same stock record, so the reward can be refused
+for lack of stock that the paid line is holding. That is correct, and the chooser
+already explains it against the option.

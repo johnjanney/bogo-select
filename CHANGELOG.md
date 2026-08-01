@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A reward of a product already in the cart keeps its own line**
+  (`OPEN-QUESTIONS.md` Q-006, now `DECISION.md` D-020). This is what the plugin
+  has always done and it is now a decision rather than an assumption, with tests
+  behind it: the two lines carry different prices, so one merged line could not
+  show the customer which unit was free or discounted.
+
 ## [2.1.0] — 2026-07-31
 
 Campaign scheduling, a chooser defect found by review, and the integration

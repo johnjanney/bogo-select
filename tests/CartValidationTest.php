@@ -59,6 +59,78 @@ class CartValidationTest extends TestCase {
 		return array_key_exists( $key, $this->cart()->get_cart() );
 	}
 
+	public function test_a_reward_of_an_already_purchased_product_stays_a_separate_line() {
+		// Q-006, answered 2026-07-31: two lines, not one merged line. The customer
+		// sees what they bought and what they were given, and the two carry
+		// different prices, so a single line could not show both.
+		// Buy 1 / Get 1 here, rather than the class default of Buy 2 / Get 2, so
+		// one paid unit is enough to earn the reward.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 1,
+				'get_qty'      => 1,
+				'buy_scope'    => 'all',
+				'get_scope'    => 'select',
+				'get_products' => array( 20 ),
+			)
+		);
+
+		$this->product( 20, array( 'price' => 30.0 ) );
+		$this->add_paid_item( 'paid', 20, 1 );
+
+		$this->assertSame( 1, \BOGO_Select_Ajax::select_gift( $this->cart(), 20 ) );
+
+		$lines = $this->cart()->get_cart();
+
+		$this->assertCount( 2, $lines, 'the reward must not merge into the paid line' );
+
+		$reward = 0;
+		$paid   = 0;
+
+		foreach ( $lines as $line ) {
+			if ( BOGO_Select_Engine::is_reward_item( $line ) ) {
+				++$reward;
+				continue;
+			}
+
+			++$paid;
+			$this->assertSame( 1, (int) $line['quantity'], 'the paid line keeps its own quantity' );
+		}
+
+		$this->assertSame( 1, $paid );
+		$this->assertSame( 1, $reward );
+
+		// Both lines draw on the same stock record, so the store owes two units.
+		$this->assertSame( 2, BOGO_Select_Engine::stock_demand( $this->cart(), wc_get_product( 20 ) ) );
+	}
+
+	public function test_the_two_lines_carry_their_own_prices() {
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 1,
+				'get_qty'      => 1,
+				'buy_scope'    => 'all',
+				'get_scope'    => 'select',
+				'get_products' => array( 20 ),
+			)
+		);
+
+		$this->product( 20, array( 'price' => 30.0 ) );
+		$this->add_paid_item( 'paid', 20, 1 );
+
+		\BOGO_Select_Ajax::select_gift( $this->cart(), 20 );
+		$this->subject->set_reward_price( $this->cart() );
+
+		foreach ( $this->cart()->get_cart() as $line ) {
+			$this->assertSame(
+				BOGO_Select_Engine::is_reward_item( $line ) ? 0.0 : 30.0,
+				(float) $line['data']->get_price()
+			);
+		}
+	}
+
 	public function test_a_healthy_gift_survives_validation() {
 		$this->product( 10 );
 		$this->product( 20 );

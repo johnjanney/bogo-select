@@ -8,21 +8,6 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
-### Q-006 — Behaviour when the gift is also in the cart as a paid item
-
-**Raised:** 2026-07-30
-
-If a customer already has 1 × Item B in the cart as a paid purchase and then
-selects Item B as their gift, the cart shows two Item B lines: one paid, one free.
-
-**Working assumption:** two separate lines is correct and clearest — the customer
-can see what they paid for and what was free, and stock is reduced by the total.
-
-**Needed:** confirmation that a split display is acceptable rather than a single
-merged line.
-
----
-
 ### Q-007 — Multiple offers and offer stacking
 
 **Raised:** 2026-07-30
@@ -231,3 +216,27 @@ The settings screen refuses a window that ends before it begins, and says so whe
 an enabled offer has already ended or has not started yet — in both of those
 cases the storefront looks identical to the offer simply being off, which is
 exactly the confusion worth heading off.
+
+---
+
+### Q-006 — Behaviour when the gift is also in the cart as a paid item — **Answered 2026-07-31**
+
+**Answer:** two separate lines, as assumed. The working assumption is adopted and
+recorded as `DECISION.md` D-020.
+
+A customer who buys one Item B and then chooses Item B as the reward sees two
+lines: one at the price they paid, one at the reward price. They receive two
+units and the store reduces stock by two.
+
+The reason a merged line was never really available is that the two lines carry
+different prices. One line would read "2 × Item B" at a single price, and the
+customer could not see which unit was free — or, since v1.3.0, which unit was
+discounted and by how much. The split is also what WooCommerce does of its own
+accord: the reward line carries cart-item data the paid line does not, and that
+is what makes it a distinct line rather than a quantity bump.
+
+Two tests in `CartValidationTest.php` hold it now — that the reward does not
+merge into the paid line, that each keeps its own quantity, that both draw on the
+same stock record, and that the two prices stay apart. It was a documented
+assumption for long enough; assumptions that survive this long are worth pinning
+before something quietly changes them.
