@@ -177,6 +177,26 @@ Every paid item earns another free one, all of the same chosen product.
 
 ---
 
+### Buy 2 of one particular product
+
+| Setting | Value |
+|---|---|
+| Buy quantity | `2` |
+| Get quantity | `1` |
+| Buy products | Select Products → **just that one product** |
+| Get products | Select Products → your reward list |
+
+The Buy quantity counts units across everything on the Buy list, so a list of one
+product means "two of *that* product". This is worth knowing because the reverse
+also holds: with two products on the Buy list, one of each adds up to two and
+qualifies. If you want "two of the same thing", give the offer a Buy list of one.
+
+There is currently no way to say "two of any single product, chosen from several"
+— a Buy list of A and B always accepts one of each. See `OPEN-QUESTIONS.md`
+Q-002.
+
+---
+
 ## 5. What the customer sees
 
 1. **Shop and product pages** — once the cart qualifies, a short notice appears:

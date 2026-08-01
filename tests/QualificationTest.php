@@ -85,6 +85,66 @@ class QualificationTest extends TestCase {
 		$this->assertSame( 2, BOGO_Select_Engine::count_buy_units( $this->cart() ) );
 	}
 
+	public function test_mixed_products_from_the_buy_list_qualify_together() {
+		// D-003: quantities are summed across the whole cart, so two different
+		// listed products satisfy a Buy 2 offer between them. Answering
+		// OPEN-QUESTIONS.md Q-002 fixed this as the behaviour rather than an
+		// assumption, so it is worth a test that says so.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 2,
+				'buy_scope'    => 'select',
+				'buy_products' => array( 10, 11 ),
+				'get_scope'    => 'select',
+				'get_products' => array( 20 ),
+			)
+		);
+
+		$this->product( 10 );
+		$this->product( 11 );
+		$this->product( 20 );
+
+		$this->add_paid_item( 'a', 10, 1 );
+		$this->add_paid_item( 'b', 11, 1 );
+
+		$this->assertSame( 2, BOGO_Select_Engine::count_buy_units() );
+		$this->assertTrue( BOGO_Select_Engine::qualifies() );
+	}
+
+	public function test_a_one_product_buy_list_requires_that_product() {
+		// This is how a store expresses "buy 2 of the same thing" — it needs no
+		// per-product counting mode, only a Buy list of one. Q-002 asked whether
+		// such a mode was needed; this is why the answer is no for the single
+		// product case, so it is held by a test rather than left as advice.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 2,
+				'buy_scope'    => 'select',
+				'buy_products' => array( 10 ),
+				'get_scope'    => 'select',
+				'get_products' => array( 20 ),
+			)
+		);
+
+		$this->product( 10 );
+		$this->product( 11 );
+		$this->product( 20 );
+
+		$this->add_paid_item( 'a', 10, 1 );
+		$this->add_paid_item( 'b', 11, 1 );
+
+		// The second line is not on the list, so it contributes nothing.
+		$this->assertSame( 1, BOGO_Select_Engine::count_buy_units() );
+		$this->assertFalse( BOGO_Select_Engine::qualifies() );
+
+		$this->cart()->set_quantity( 'a', 2 );
+
+		$this->assertSame( 2, BOGO_Select_Engine::count_buy_units() );
+		$this->assertTrue( BOGO_Select_Engine::qualifies() );
+	}
+
 	public function test_a_variation_qualifies_through_its_parent_id() {
 		$this->settings(
 			array(

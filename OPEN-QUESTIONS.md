@@ -8,21 +8,6 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
-### Q-002 — "Buy 2" — two units total, or two of the same product?
-
-**Raised:** 2026-07-30
-
-With Buy scope = *Select Products* containing Item A and Item B, does buying
-1 × A + 1 × B satisfy a Buy 2 offer?
-
-**Working assumption:** yes — quantities are summed across all eligible items
-(see `DECISION.md` D-003). This matches the *All Products* example in the brief.
-
-**Needed:** confirmation. If the intent is "2 of the same product", the engine
-needs a per-product counting mode; it is a small change but changes who qualifies.
-
----
-
 ### Q-005 — Should the offer have a schedule?
 
 **Raised:** 2026-07-30
@@ -189,3 +174,41 @@ it. The plugin's own behaviour — tax on the amount charged — is the conventi
 treatment and is what WooCommerce does for any reduced price; a store told
 otherwise by its accountant needs a tax plugin or a manual adjustment, not a
 change here.
+
+---
+
+### Q-002 — "Buy 2" — two units total, or two of the same product? — **Answered 2026-07-31**
+
+**Answer:** two units total, summed across everything on the Buy list. The
+working assumption stands, and `DECISION.md` D-003 is confirmed rather than
+revisited.
+
+Two things settle it. The brief's own *All Products* example in R5 only reads
+coherently under cart-wide counting — per-line counting would mean a customer
+holding one of each of two products fails a "Buy 2" offer, which is not how
+anyone reads "buy 2 products". And having Buy = *All Products* count cart-wide
+while Buy = *Select Products* counted per line would be an inconsistency the
+admin screen gives no way to predict.
+
+**The question's premise was half wrong, which is what makes it closable.** It
+assumed that wanting "2 of the same product" would require a per-product counting
+mode. It does not: a Buy list of one product already means exactly that, because
+nothing else on the cart is eligible to count. Verified —
+
+| Buy list | Cart | Qualifies for Buy 2 |
+|---|---|---|
+| A and B | 1 × A + 1 × B | yes |
+| A and B | 2 × A | yes |
+| A only | 1 × A + 1 × B | no |
+| A only | 2 × A | yes |
+
+Both rows of the second block are held by tests in `QualificationTest.php`, since
+the one-product list is now the documented way to express per-product intent and
+advice that is not tested is advice that rots. The recipe is in `INSTRUCTIONS.md`
+§4.
+
+**What genuinely is not expressible**, and is recorded here rather than closed
+over: "2 of any *single* product, chosen from several" — a Buy list of A and B
+that accepts 2 × A or 2 × B but refuses 1 × A + 1 × B. That needs a counting mode
+the plugin does not have. It is a new setting rather than a correction, nobody
+has asked for it, and it can be added without disturbing D-003 if anyone does.

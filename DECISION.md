@@ -63,8 +63,12 @@ contradicts the plain reading of "buy 2 products". Cart-wide counting matches ho
 customers read the promotion.
 
 **Consequence.** With Buy scope = *Select Products* and two products listed, buying
-1 of each still qualifies for a Buy 2 offer. If the intent was "2 of the *same*
-product", this needs to change — see `OPEN-QUESTIONS.md` Q-002.
+1 of each still qualifies for a Buy 2 offer.
+
+**Confirmed 2026-07-31 (Q-002).** This stands. A store that wants "2 of the same
+product" expresses it with a Buy list of one product, which needs no engine
+change; what is not expressible is "2 of any single product drawn from a list of
+several", and that is a new setting rather than a correction to this decision.
 
 ---
 

@@ -29,6 +29,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Two tests fix how the Buy quantity counts** (`OPEN-QUESTIONS.md` Q-002,
+  confirming `DECISION.md` D-003). Quantities are summed across everything on the
+  Buy list, so one each of two listed products satisfies a Buy 2 offer. A store
+  wanting "two of the same product" gives the offer a Buy list of one product,
+  which needs no new setting — a recipe now in `INSTRUCTIONS.md` §4 and held by a
+  test, since untested advice rots.
+
 - **Shipping behaviour is covered, answering `OPEN-QUESTIONS.md` Q-004.** That
   question had stated from the beginning that a free reward adds weight to the
   parcel but nothing to order value, and nothing had ever checked it — every
