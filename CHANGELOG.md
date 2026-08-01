@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two variations of one product, each listed individually, are no longer both
+  shown as chosen** (`CODEX-REVIEW.md` M-01). Such cards share a parent, and the
+  selected-state comparison looked only at the parent — so picking one marked
+  both, and because a chosen card shows only "Selected" and "Remove", the
+  customer was left with no control anywhere on the page for switching to the
+  other. Which card owns the selection is now decided once, where the whole list
+  is visible, with a variation listed in its own right taking precedence over the
+  parent card that could also offer it.
+
+### Changed
+
+- **A page of variable rewards costs far fewer product loads**
+  (`CODEX-REVIEW.md` M-02). Rendering asked for the same variation through four
+  separate paths: judging the parent a card, enumerating its selector, pricing
+  each option, and quoting the card. On a page of 24 variable products with 20
+  variations each that was 2,016 product loads against 504 distinct products;
+  it is now 552. A test holds the ratio so it cannot drift back.
+
 ### Added
 
 - **A real order is now placed in CI, and its metadata and stock asserted**

@@ -567,6 +567,11 @@ function WC() { // phpcs:ignore
 function wc_get_product( $product_id ) {
 	$product_id = (int) $product_id;
 
+	// Counted so a test can assert how many product loads a render costs. In a
+	// real store each of these is a data-store lookup, cached or otherwise, and
+	// the chooser can render 24 cards at once (CODEX-REVIEW.md M-02).
+	++BOGO_Test_Env::$product_loads;
+
 	return isset( BOGO_Test_Env::$products[ $product_id ] ) ? BOGO_Test_Env::$products[ $product_id ] : false;
 }
 

@@ -14,7 +14,7 @@
  * that classic mode performs and that block mode deliberately does not.
  *
  * Env: BASE, PAID_ID, REWARD_ID, REWARD_PRICE, DISCOUNT_PERCENT, CART_PATH,
- * CHECKOUT_PATH, WC_VERSION.
+ * CHECKOUT_PATH, VARIABLE_ID, SMALL_ID, LARGE_ID, LARGE_PRICE, WC_VERSION.
  */
 
 import { chromium } from 'playwright';
@@ -26,6 +26,10 @@ const REWARD_PRICE = Number(process.env.REWARD_PRICE || 24);
 const DISCOUNT = Number(process.env.DISCOUNT_PERCENT || 50);
 const CART_PATH = process.env.CART_PATH || '/classic-cart/';
 const CHECKOUT_PATH = process.env.CHECKOUT_PATH || '/classic-checkout/';
+const VARIABLE_ID = Number(process.env.VARIABLE_ID);
+const SMALL_ID = Number(process.env.SMALL_ID);
+const LARGE_ID = Number(process.env.LARGE_ID);
+const LARGE_PRICE = Number(process.env.LARGE_PRICE || 50);
 const WC_VERSION = process.env.WC_VERSION || 'unknown';
 
 const failures = [];
@@ -112,6 +116,91 @@ if (before.choose > 0) {
 
 await page.screenshot({ path: `integration-${WC_VERSION}-classic-cart.png`, fullPage: true });
 
+// --- A variation, chosen over admin-ajax ------------------------------------
+//
+// The chooser markup is shared with the blocks, but the transport is not. Until
+// now nothing had driven a variation through admin-ajax, so the pair the
+// selector builds had only ever reached the server over the Store API
+// (`CODEX-REVIEW.md` L-02).
+
+const variableCard = `.bogo-select__item[data-bogo-card="${VARIABLE_ID}"]`;
+
+const hasVariableCard = await page.locator(variableCard).count() > 0;
+check('Classic cart: the variable reward is offered too', hasVariableCard);
+
+if (hasVariableCard) {
+	await page.selectOption(`${variableCard} [data-bogo-variation]`, String(LARGE_ID));
+
+	await Promise.all([
+		page.waitForLoadState('networkidle', { timeout: 90000 }),
+		page.click(`${variableCard} .bogo-select__choose`),
+	]);
+	await page.waitForTimeout(4000);
+
+	const chosen = await page.evaluate(() => document.body.innerText);
+	const half = (LARGE_PRICE * (1 - DISCOUNT / 100)).toFixed(2);
+
+	check('Classic cart: the chosen variation is named on the line',
+		/Large/i.test(chosen), 'no "Large" in the cart');
+	check(`Classic cart: the line is priced from that variation (${half})`,
+		chosen.includes(half), `looking for ${half}`);
+	check('Classic cart: the sibling variation was not added',
+		!/Classic Variable Thing - Small/i.test(chosen));
+}
+
+// --- Switching between two pinned siblings ----------------------------------
+//
+// The layout M-01 broke. Both variations are listed individually as well as
+// through their parent, so two cards carry the same parent ID. Comparing parents
+// marked both selected and left neither able to reach the other; the customer
+// could see the sibling and had no control to choose it.
+
+// Addressed by the ID the card was built from, because a selected card shows
+// "Selected" and "Remove" and carries no choose button to match on.
+const pinned = (id) => `.bogo-select__item[data-bogo-card="${id}"]`;
+
+const pinnedCards = await page.locator(`${pinned(SMALL_ID)}, ${pinned(LARGE_ID)}`).count();
+check('Classic cart: both pinned siblings are cards of their own', pinnedCards === 2,
+	`saw ${pinnedCards}`);
+
+if (pinnedCards === 2) {
+	// Choose the Small one, from its own card.
+	await Promise.all([
+		page.waitForLoadState('networkidle', { timeout: 90000 }),
+		page.click(`${pinned(SMALL_ID)} .bogo-select__choose`),
+	]);
+	await page.waitForTimeout(4000);
+
+	const afterSmall = await page.evaluate(() => document.querySelectorAll('.bogo-select__item.is-selected').length);
+	check('Classic cart: choosing one pinned sibling marks exactly one card',
+		afterSmall === 1, `${afterSmall} cards marked selected`);
+
+	const canSwitch = await page.locator(`${pinned(LARGE_ID)} .bogo-select__choose`).count();
+	check('Classic cart: the other pinned sibling still offers a control',
+		canSwitch === 1, `${canSwitch} controls on the sibling card`);
+
+	if (canSwitch === 1) {
+		await Promise.all([
+			page.waitForLoadState('networkidle', { timeout: 90000 }),
+			page.click(`${pinned(LARGE_ID)} .bogo-select__choose`),
+		]);
+		await page.waitForTimeout(4000);
+
+		const swapped = await page.evaluate((id) => ({
+			selected: document.querySelectorAll('.bogo-select__item.is-selected').length,
+			largeIsSelected: !!document.querySelector(
+				`.bogo-select__item.is-selected button[data-bogo-remove], .bogo-select__item.is-selected`
+			) && !!document.querySelector(`.bogo-select__item.is-selected`),
+			text: document.body.innerText,
+		}), LARGE_ID);
+
+		check('Classic cart: switching to the sibling still marks exactly one card',
+			swapped.selected === 1, `${swapped.selected} cards marked selected`);
+		check('Classic cart: the cart now holds the sibling',
+			/Large/i.test(swapped.text) && !/Classic Variable Thing - Small/i.test(swapped.text));
+	}
+}
+
 // --- The classic checkout ---------------------------------------------------
 
 await page.goto(BASE + CHECKOUT_PATH, { waitUntil: 'networkidle', timeout: 90000 });
@@ -138,6 +227,35 @@ check('Classic checkout: the chooser is present', checkout.slot && checkout.choo
 check('Classic checkout: the slot is in checkout mode, not classic',
 	checkout.mode === 'checkout', `mode ${checkout.mode}`);
 check('Classic checkout: the order review shows the discount badge', checkout.badge);
+
+// Changing the reward at the checkout must never reload: a reload would empty a
+// part-filled form. Typing first is what makes that assertable rather than
+// assumed.
+const TYPED = 'Ada-Do-Not-Lose-This';
+const nameField = page.locator('#billing_first_name').first();
+
+if (await nameField.count() > 0 && await page.locator(`${variableCard} [data-bogo-variation]`).count() > 0) {
+	await nameField.fill(TYPED);
+	await page.selectOption(`${variableCard} [data-bogo-variation]`, String(SMALL_ID));
+	await page.click(`${variableCard} .bogo-select__choose`);
+	await page.waitForTimeout(6000);
+
+	const after = await page.evaluate((id) => ({
+		typed: document.querySelector('#billing_first_name')?.value ?? null,
+		text: document.body.innerText,
+		stillSelected: document.querySelector(
+			`.bogo-select__item:has(button[data-product-id="${id}"]) [data-bogo-variation]`
+		)?.value ?? null,
+	}), VARIABLE_ID);
+
+	check('Classic checkout: the variation was changed over admin-ajax',
+		/Small/i.test(after.text), 'no "Small" in the order review');
+	check('Classic checkout: changing it did not reload and lose typed data',
+		after.typed === TYPED, `billing_first_name is ${JSON.stringify(after.typed)}`);
+} else {
+	check('Classic checkout: the variable card and billing field were both present',
+		false, 'could not reach the selector or the billing field');
+}
 
 await page.screenshot({ path: `integration-${WC_VERSION}-classic-checkout.png`, fullPage: true });
 

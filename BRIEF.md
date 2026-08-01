@@ -1,7 +1,7 @@
 # Project Brief — BOGO Select for WooCommerce
 
-**Status:** v1.0.0 specification, amended through v1.2.0 (see §3.1)
-**Last updated:** 2026-07-30
+**Status:** v1.0.0 specification, amended through v2.0.0 (see §3.1)
+**Last updated:** 2026-07-31
 
 > Release rules that apply to every future update — versioning, zip builds, and
 > archive retention — are in [§8 Release process](#8-release-process-standing-requirements).
@@ -13,8 +13,10 @@
 Give WooCommerce store owners a "Buy X, Get Y free" promotion where the customer
 **chooses** which free product they receive from a list the admin controls.
 
-The free product is added to the cart as a real line item priced at **$0.00**, so
-that WooCommerce decrements stock for it exactly as it would for a paid item.
+The reward is added to the cart as a real line item rather than a coupon
+discount, so that WooCommerce decrements stock for it exactly as it would for a
+paid item. It is priced at **$0.00** by default; since v1.3.0 it may instead be
+sold at a percentage off (§3.1).
 
 ---
 
@@ -29,6 +31,8 @@ These are the requirements as given by the client, restated for implementation.
 | R3 | The Buy quantity and Get quantity are both admin-configurable to any positive integer (Buy 2 Get 2, Buy 4 Get 8, etc.). |
 | R4 | Buy and Get are each limited to **one product item** per offer. A customer who buys a qualifying quantity chooses **one** Get product and receives the full Get quantity of it. |
 | R5 | Buy scope and Get scope are set **independently** to either **All Products** or **Select Products** (with an explicit product list). |
+| R6 | *(v1.3.0)* The Get product may be given away or sold at an admin-set percentage off. A 100% discount and the free mode are equivalent in price and differ only in what the order records. |
+| R7 | *(v1.3.0)* A variable product may be offered as the Get product, with the customer choosing the variation; or a single variation may be listed, pinning the reward to it. |
 
 ### Worked examples
 
@@ -79,6 +83,23 @@ These are the requirements as given by the client, restated for implementation.
   without opening the cart previously had nowhere to pick a gift. The chooser now
   renders above the checkout form (classic) and the Checkout block, and changing
   a gift there never reloads the page.
+- **v1.3.0 — The reward may be discounted rather than only given away.** Two
+  settings carry it, both defaulting to the free behaviour, so an install that
+  never configures a discount is unchanged. The reward's price is read from a
+  product loaded fresh on every pricing pass rather than from the cart line's own
+  object, which is what keeps a percentage from compounding when WooCommerce
+  recalculates totals more than once. **The trade-off is deliberate:** a price set
+  on the cart item by a third-party dynamic-pricing plugin is overwritten rather
+  than discounted. See `DECISION.md` D-016.
+- **v1.3.0 — Variable products as rewards.** The Get list may hold a variable
+  product, in which case the chooser offers its variations and the customer picks
+  one, or a single variation, which pins the reward with no choice shown. This
+  supersedes the v1.0.0 exclusion of variation-level targeting above. Grouped and
+  external products remain ineligible, as do variations that leave an attribute
+  set to "Any" — they would still need a choice. See `DECISION.md` D-017.
+- **v2.0.0 — WooCommerce 9.9 required.** The declared minimum rose from 7.0 to
+  the oldest version CI actually tests. This is a breaking change and is why the
+  major version moved. See `DECISION.md` D-018.
 
 ---
 
@@ -95,7 +116,9 @@ These are the requirements as given by the client, restated for implementation.
 | Buy scope | `buy_scope` | `all` \| `select` | `all` | |
 | Buy products | `buy_products` | int[] | `[]` | Required when `buy_scope = select`. |
 | Get scope | `get_scope` | `all` \| `select` | `select` | |
-| Get products | `get_products` | int[] | `[]` | Required when `get_scope = select`. |
+| Get products | `get_products` | int[] | `[]` | Required when `get_scope = select`. May hold simple products, variable parents, and individual variations. |
+| Reward price | `get_discount_type` | `free` \| `percent` | `free` | *(v1.3.0)* Whether the reward is given away or sold at a discount. |
+| Discount | `get_discount_value` | float 0–100 | `0` | *(v1.3.0)* Percentage off, used only when the type is `percent`. |
 | Repeat offer | `repeat` | bool | `no` | Off: max one reward set. On: `floor(buy_count / buy_qty)` sets. |
 | Show on product pages | `show_notice` | bool | `yes` | Site-wide "you qualify" notice. |
 
@@ -222,7 +245,16 @@ requires `manage_woocommerce`.
     the correct amount (unit price, and unit price × quantity respectively).
 13. The chooser appears, and a gift can be chosen and swapped, on all four
     combinations of classic/block cart and classic/block checkout.
-14. Choosing a gift on a checkout page does not clear anything already typed into
+14. *(v1.3.0)* With the reward set to 50% off, a 20.00 reward line is charged
+    10.00, and repeated total recalculation does not reduce it further. The order
+    records the offer that produced it.
+15. *(v1.3.0)* A variable product in the Get list renders one card carrying a
+    selector of its variations; the reward is priced from the chosen variation
+    rather than the parent's price range, and the parent alone cannot be awarded.
+16. *(v1.3.0)* Two variations of one parent, each listed individually, are
+    separate cards; choosing one marks only that card and leaves the other
+    selectable.
+17. Choosing a gift on a checkout page does not clear anything already typed into
     the checkout form.
 
 ---
@@ -356,7 +388,7 @@ bash bin/verify-zip.sh
 The check is mechanical and covers packaging only — it says nothing about whether
 the packaged plugin works.
 
-### 8.6 The block matrix runs in CI; the classic matrix does not
+### 8.6 The cart, checkout, and order matrix runs in CI
 
 Block cart and block checkout defects twice survived a green unit suite
 (`CODEX-REVIEW.md` M-02), so those surfaces are now covered by an automated job:
@@ -372,7 +404,16 @@ Block cart and block checkout defects twice survived a green unit suite
 - Because the matrix includes `latest`, a future WooCommerce that breaks the
   blocks turns CI red here rather than in a customer's store.
 
-**Still manual before a release**, because CI does not cover them: classic cart
-and classic checkout, stock reduction, and placing a real order (the CI store has
-no payment gateway). The hydration path is also unexercised — WooCommerce did not
-preload a cart response in the tested configuration.
+Since v1.3.0 the same job also covers the classic shortcode cart and checkout,
+the discounted and variable rewards on both block surfaces, coupons applied
+alongside a reward, tax in both display modes, a reward already on sale, and
+placing a real order through the Store API checkout — after which it asserts the
+order's line metadata and the stock WooCommerce reduced. Cash on delivery is
+enabled in the fixture, which is what made order placement possible.
+
+**Still manual before a release**, because CI does not cover them: third-party
+pricing plugins against the priority-20 hook (a deliberate trade, see D-016),
+shipping — every fixture product is virtual, so no shipping method is needed to
+reach checkout — and currencies whose minor unit is not two digits. The hydration
+path is also unexercised: WooCommerce did not preload a cart response in the
+tested configuration.

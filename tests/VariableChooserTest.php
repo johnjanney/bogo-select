@@ -226,6 +226,90 @@ class VariableChooserTest extends TestCase {
 		$this->assertStringNotContainsString( 'Change option', $html );
 	}
 
+	/**
+	 * Two variations of one parent, each pinned as its own card.
+	 *
+	 * @param int $chosen Variation the customer picks.
+	 * @param int $other  Its sibling.
+	 */
+	protected function two_pinned_siblings( $chosen, $other ) {
+		$this->offering(
+			array(
+				101 => array( 'name' => 'Tee - Small', 'price' => 20.0 ),
+				102 => array( 'name' => 'Tee - Large', 'price' => 25.0 ),
+			),
+			array( 'get_products' => array( 101, 102 ) )
+		);
+
+		BOGO_Select_Ajax::select_gift( $this->cart(), 100, $chosen );
+
+		return $this->grid();
+	}
+
+	public function test_only_the_chosen_one_of_two_pinned_siblings_is_selected() {
+		// Both cards share a parent, so a selected-state comparison that looks
+		// only at the parent ID marks both — and the customer is then told they
+		// have chosen two things (`CODEX-REVIEW.md` M-01).
+		$html = $this->two_pinned_siblings( 101, 102 );
+
+		$this->assertSame( 2, substr_count( $html, '<li class=' ) );
+		$this->assertSame( 1, substr_count( $html, 'is-selected' ), 'exactly one card may be selected' );
+	}
+
+	public function test_the_unchosen_pinned_sibling_can_still_be_chosen() {
+		// The impact of M-01 was not only a wrong label: a selected pinned card
+		// shows "Selected" and "Remove gift" and nothing else, so marking both
+		// left no control anywhere on the page for switching between them.
+		$html = $this->two_pinned_siblings( 101, 102 );
+
+		$this->assertStringContainsString( 'Choose this instead', $html );
+		$this->assertSame( 1, substr_count( $html, 'bogo-select__choose' ) );
+		$this->assertStringContainsString( 'data-variation-id="102"', $html );
+	}
+
+	public function test_a_pinned_child_owns_the_selection_over_its_parent_card() {
+		// The Get list may hold a parent and one of its own variations. Both
+		// cards can claim the same reward; the more specific one wins, so the
+		// count stays at one either way.
+		$this->offering(
+			array(
+				101 => array( 'name' => 'Tee - Small' ),
+				102 => array( 'name' => 'Tee - Large' ),
+			),
+			array( 'get_products' => array( 100, 101 ) )
+		);
+
+		BOGO_Select_Ajax::select_gift( $this->cart(), 100, 101 );
+
+		$html = $this->grid();
+
+		$this->assertSame( 2, substr_count( $html, '<li class=' ) );
+		$this->assertSame( 1, substr_count( $html, 'is-selected' ) );
+
+		// The parent card is the unselected one, so it still offers its dropdown.
+		$this->assertSame( 1, substr_count( $html, 'data-bogo-variation' ) );
+		$this->assertStringContainsString( 'Choose this instead', $html );
+	}
+
+	public function test_a_variable_parent_is_selected_when_its_variation_is_not_pinned() {
+		// Nothing else in the list claims variation 102, so the parent card owns
+		// the selection and keeps its Change option control.
+		$this->offering(
+			array(
+				101 => array( 'name' => 'Tee - Small' ),
+				102 => array( 'name' => 'Tee - Large' ),
+			),
+			array( 'get_products' => array( 100 ) )
+		);
+
+		BOGO_Select_Ajax::select_gift( $this->cart(), 100, 102 );
+
+		$html = $this->grid();
+
+		$this->assertSame( 1, substr_count( $html, 'is-selected' ) );
+		$this->assertStringContainsString( 'Change option', $html );
+	}
+
 	public function test_variations_leaving_an_attribute_open_are_not_offered() {
 		$this->offering(
 			array(

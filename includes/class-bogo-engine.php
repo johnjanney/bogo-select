@@ -28,6 +28,13 @@ class BOGO_Select_Engine {
 	protected static $eligibility = null;
 
 	/**
+	 * Per-request memo of each variable parent's offerable variations.
+	 *
+	 * @var array<int,int[]>
+	 */
+	protected static $variations = array();
+
+	/**
 	 * Whether the offer can run at all.
 	 *
 	 * @return bool
@@ -665,22 +672,54 @@ class BOGO_Select_Engine {
 	 * calls this once each (PLAN-VARIABLE.md §5).
 	 *
 	 * @param WC_Product $parent Variable parent.
-	 * @return int[]
+	 * @return WC_Product[]
 	 */
-	public static function offerable_variation_ids( $parent ) {
+	public static function offerable_variations( $parent ) {
 		if ( ! $parent instanceof WC_Product ) {
 			return array();
 		}
 
-		$ids = array();
+		$key = (int) $parent->get_id();
+
+		/*
+		 * Memoised for the request, and holding the loaded products rather than
+		 * their IDs. One render asks this twice per card — once to decide the
+		 * parent may be a card at all, and again to build its selector — and the
+		 * selector then needs the objects anyway. Returning IDs meant loading
+		 * every child three times over (CODEX-REVIEW.md M-02).
+		 */
+		if ( isset( self::$variations[ $key ] ) ) {
+			return self::$variations[ $key ];
+		}
+
+		$found = array();
 
 		foreach ( $parent->get_children() as $child_id ) {
-			if ( self::is_offerable_variation( wc_get_product( $child_id ) ) ) {
-				$ids[] = (int) $child_id;
+			$variation = wc_get_product( $child_id );
+
+			if ( self::is_offerable_variation( $variation ) ) {
+				$found[] = $variation;
 			}
 		}
 
-		return $ids;
+		self::$variations[ $key ] = $found;
+
+		return $found;
+	}
+
+	/**
+	 * The IDs of the variations a parent can offer.
+	 *
+	 * @param WC_Product $parent Variable parent.
+	 * @return int[]
+	 */
+	public static function offerable_variation_ids( $parent ) {
+		return array_map(
+			function ( $variation ) {
+				return (int) $variation->get_id();
+			},
+			self::offerable_variations( $parent )
+		);
 	}
 
 	/**
@@ -1305,6 +1344,8 @@ class BOGO_Select_Engine {
 	 * without waiting for the cache to expire.
 	 */
 	public static function flush_choice_cache() {
+		self::$variations = array();
+
 		self::$eligibility = null;
 
 		if ( ! function_exists( 'delete_transient' ) ) {

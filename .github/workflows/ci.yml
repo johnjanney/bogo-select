@@ -281,7 +281,7 @@ jobs:
           C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
           OUT=$($C wp eval-file /integration/setup-classic.php | tail -1 | tr -d '\r')
           echo "classic: $OUT"
-          for k in paid reward; do
+          for k in paid reward variable small large; do
             echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
           done
 
@@ -290,6 +290,10 @@ jobs:
           PAID_ID: ${{ steps.classic.outputs.paid }}
           REWARD_ID: ${{ steps.classic.outputs.reward }}
           REWARD_PRICE: 24
+          VARIABLE_ID: ${{ steps.classic.outputs.variable }}
+          SMALL_ID: ${{ steps.classic.outputs.small }}
+          LARGE_ID: ${{ steps.classic.outputs.large }}
+          LARGE_PRICE: 50
           DISCOUNT_PERCENT: 50
           CART_PATH: /classic-cart/
           CHECKOUT_PATH: /classic-checkout/

@@ -17,6 +17,16 @@
 class BOGO_Test_Env {
 
 	/**
+	 * How many times wc_get_product() has been called.
+	 *
+	 * A stand-in for the data-store lookups a real store would make, so a test
+	 * can hold the cost of rendering a page of variable cards.
+	 *
+	 * @var int
+	 */
+	public static $product_loads = 0;
+
+	/**
 	 * Stored options.
 	 *
 	 * @var array
@@ -98,6 +108,7 @@ class BOGO_Test_Env {
 	 * Reset everything between tests.
 	 */
 	public static function reset() {
+		self::$product_loads      = 0;
 		self::$options            = array();
 		self::$hooks              = array();
 		self::$products           = array();

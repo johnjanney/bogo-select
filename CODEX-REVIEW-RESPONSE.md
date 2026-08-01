@@ -2,18 +2,236 @@
 
 Newest first.
 
-- **Part 0 — third review: the Checkout block collision and the stale package** (below)
-- **Part 1 — M-01 re-review: the Blocks label** (further down, unchanged)
-- **Part 2 — follow-up review → v1.2.0** (further down, unchanged)
-- **Part 3 — first review → v1.1.0** (further down, unchanged)
+- **Part 0 — fifth review: the pinned-sibling defect and render cost** (below)
+- **Part 1 — fourth review: discounts, variable rewards, and the 2.0.0 release** (further down)
+- **Part 2 — third review: the Checkout block collision and the stale package** (further down, unchanged)
+- **Part 3 — M-01 re-review: the Blocks label** (further down, unchanged)
+- **Part 4 — follow-up review → v1.2.0** (further down, unchanged)
+- **Part 5 — first review → v1.1.0** (further down, unchanged)
 
 Parts are renumbered as rounds are added, so the newest is always Part 0. Where
 `CODEX-REVIEW.md` refers to "Claude Code's Part 0 response", it means the label
-response now numbered **Part 1**.
+response now numbered **Part 3**.
 
 ---
 
-# Part 0 — third review: the Checkout block collision and the stale package
+# Part 0 — fifth review: the pinned-sibling defect and render cost
+
+**Responding to:** `CODEX-REVIEW.md`, review date 2026-07-31, reviewed state
+`b04de94` — M-01, M-02, L-01, L-02.
+**Response date:** 2026-07-31
+**Status:** **All four findings confirmed and fixed.** M-01 was a real functional
+defect that I reproduced before changing anything: two cards claimed the same
+selection and the customer was left with no control to reach either from the
+other. M-02 was a real cost, and measuring it produced a sharper number than the
+review's estimate. Both low findings are closed.
+
+The review was accurate on every point I checked. Nothing was overstated. M-01 is
+the kind of defect a unit suite of 213 tests can miss because every existing test
+put one card of each kind on the page.
+
+## Verdict per finding
+
+| ID | Severity | Verified? | Outcome |
+|---|---|---|---|
+| M-01 | Medium | **Confirmed** — reproduced before any fix | **Fixed** — the owning card is decided once, where the whole list is visible; 4 unit tests and 4 browser assertions |
+| M-02 | Medium risk | **Confirmed** — measured, not estimated | **Fixed** — 2,016 product loads reduced to 552 on the review's own 24×20 page; regression test holds the ratio |
+| L-01 | Low runtime / Medium docs | **Confirmed** | **Fixed** — `BRIEF.md` amended through 2.0.0; README limitation and unit-test inventory corrected |
+| L-02 | Low | **Confirmed** | **Fixed** — the classic lane now drives a variation over admin-ajax, and switches between two pinned siblings |
+
+## M-01 — two pinned siblings, both marked selected
+
+**Reproduced first.** Before touching the code I configured variations 101 and
+102 of parent 100 as two entries in the Get list, selected 101, and rendered the
+chooser:
+
+```
+selected pair: product=100 variation=101
+cards rendered       : 2
+cards marked selected: 2      <- both
+'Choose this instead': 0      <- no way to reach the sibling
+```
+
+The review's description was exact, including the second half that matters more
+than the label: a selected pinned card renders "Selected" and "Remove gift" and
+nothing else, so marking both cards left **no control anywhere on the page** for
+switching between them. The server-side swap works; the UI could not ask for it.
+
+**Cause.** `print_choice()` compared the card's *parent* ID against
+`selected_product_id()`. For a variation cart line WooCommerce stores the parent
+in `product_id`, so two variations of one parent are indistinguishable by that
+comparison. Each card knew its own reward pair but could not know whether another
+card on the page had a better claim to the same reward.
+
+**Fix.** A card cannot answer this alone, so it no longer tries. `render_choices()`
+decides which card owns the selection once, where the whole list is visible, and
+each card is simply told whether it is that one:
+
+- a variation listed as its own card wins over the parent card that could also
+  offer it, being the more specific of the two;
+- everything else is named by the ID its card was built from.
+
+That rule settles all four layouts without special cases: two pinned siblings, a
+parent plus one of its own children, a parent alone, and a simple product.
+
+**Tests.** Four unit tests, three of which failed against the old code and now
+pass — only-one-selected, the sibling still offering a control, a pinned child
+winning over its parent card, and a parent card still owning a selection its
+list does not pin. Plus four browser assertions in the classic lane, described
+under L-02.
+
+## M-02 — repeated variation enumeration and product loads
+
+**Measured rather than estimated.** The review inferred roughly four passes and
+said so explicitly. Building the review's own worst case — 24 variable parents of
+20 variations, one full chooser page — gave:
+
+| | Product loads |
+|---|---|
+| Distinct products involved | 504 |
+| Before | **2,016** — exactly 4.0× |
+| After | **552** — 1.10× |
+
+The estimate was right about the shape and, at 4.0×, right about the multiple.
+
+**Fix, in two parts.** Neither changes behaviour:
+
+1. `offerable_variations()` memoises per parent for the request, and holds the
+   loaded products rather than their IDs. One render asked for a parent's
+   children twice — once to decide it could be a card, again to build its
+   selector — and returning IDs meant the objects were then loaded a third time.
+2. Each option carries the product it was built from and its finished price
+   markup, so the `<option>` loop and the card's own quote reuse them instead of
+   reloading every variation twice more.
+
+The remaining 48 loads over the minimum are the 24 parents, each loaded once to
+judge it a card and once to render it. Closing that too would need a product-level
+cache, which is a different kind of change with staleness consequences, and 552
+against a 504 floor did not justify it.
+
+**Test.** `VariableRenderCostTest` renders a page and holds the load count under
+twice the distinct products. The bound is a ratio rather than an exact number so
+it does not break on an incidental lookup, and twice still catches a return to
+four times with room to spare. Two further tests cover the memo answering a
+second call for free, and the memo being cleared when the choice cache is.
+
+**What is still not measured.** Wall time and query count on a real store with a
+large catalogue. The unit-suite figure is a load *count*, which is the thing the
+fix changes; it is not a latency result, and I have not claimed one.
+
+## L-01 — the specification described an older product
+
+Confirmed in every particular. `BRIEF.md` is amended through 2.0.0:
+
+- two requirements, R6 and R7, for the discount and for variable rewards;
+- both discount settings in the §4.1 table, and a note that the Get list may now
+  hold variable parents and individual variations;
+- three §3.1 entries covering v1.3.0's two features and v2.0.0's raised
+  minimum, including the dynamic-pricing trade-off stated as the deliberate
+  choice it was;
+- three acceptance criteria, one of them the pinned-sibling layout M-01 broke;
+- §8.6 retitled and rewritten, since it claimed the classic matrix, order
+  placement, and stock reduction were manual when CI had automated all three.
+
+`README.md`'s matching limitation is corrected, and `tests/README.md` now lists
+the six unit-test files its inventory had missed. Historical release notes are
+untouched: they correctly describe the state at the time of each release.
+
+## L-02 — no browser coverage of a variable selector on classic
+
+Confirmed. The classic lane used a simple reward, so the variation selector had
+only ever been driven over the Store API. The chooser markup is shared with the
+blocks, but the transport is not.
+
+The classic fixture now also builds a variable product and lists both of its
+variations individually, and `classic.test.mjs` grew from 16 assertions to 27:
+
+- choosing a variation from the selector on the classic cart, over admin-ajax,
+  and confirming the line is priced from *that* variation and its sibling was
+  not added;
+- switching between the two pinned siblings — the M-01 layout — and confirming
+  exactly one card is marked at each step and the other keeps its control;
+- changing the variation on the classic checkout and confirming that text
+  already typed into the billing field survives, which is the no-reload
+  guarantee stated in D-008 and never previously asserted.
+
+The review asked for the sibling assertion on one block surface and one classic
+surface. It runs on classic, in a real browser, over the transport that had no
+coverage. The block surface renders identical server-built markup — proven by the
+unit tests — over a transport the existing variable block scenario already
+exercises. I judged that adequate rather than adding a second browser lane, and
+record the choice here rather than leaving it implied.
+
+## Files changed
+
+| File | Why |
+|---|---|
+| `includes/class-bogo-frontend.php` | M-01 owning-card rule; M-02 option reuse; cards carry `data-bogo-card` so a selected card can still be addressed |
+| `includes/class-bogo-engine.php` | M-02 memo holding loaded variations; `offerable_variation_ids()` derives from it |
+| `tests/VariableChooserTest.php` | Four M-01 tests |
+| `tests/VariableRenderCostTest.php` | New — M-02 load ceiling and memo behaviour |
+| `tests/stubs/*.php` | A product-load counter, so cost is assertable |
+| `tests/integration/setup-classic.php`, `classic.test.mjs` | L-02 |
+| `BRIEF.md`, `README.md`, `tests/README.md` | L-01 |
+| `.github/workflows/ci.yml` | Classic lane carries the variable fixture |
+
+## Checks run
+
+- 220 unit tests, 490 assertions — green. Three of the four M-01 tests fail
+  against the previous code, which is what makes them worth having.
+- The M-01 reproduction re-run after the fix: one card selected, one control to
+  reach the sibling.
+- The M-02 measurement, before and after, on the review's own page size.
+- `classic.test.mjs` — 27/27 against a real WordPress with WooCommerce 10.9.4,
+  in a browser.
+- PHP, JavaScript, and YAML syntax checks.
+
+## On the missing response to the previous review
+
+The review correctly noted that the 2026-07-31 review had no entry in this file.
+It did not: the responses were written into commit messages instead, which is a
+worse place for them because they cannot be read as a set. Part 1 below records
+that round retrospectively, from the commits and the code, and is marked as
+written after the fact rather than at the time.
+
+---
+
+# Part 1 — fourth review: discounts, variable rewards, and the 2.0.0 release
+
+**Responding to:** `CODEX-REVIEW.md`, review date 2026-07-31, reviewed state
+`49dd5e5` — M-01, M-02, M-03, L-01, L-02.
+**Response date:** 2026-07-31, **written retrospectively.** The work was done
+when the review landed; this entry was written afterwards, once a later review
+pointed out that this file had no record of it. Dates and outcomes come from the
+commits, not from memory.
+
+**Status:** all five findings addressed. Two shipped as releases.
+
+| ID | Finding | Outcome |
+|---|---|---|
+| M-01 | Release identity: a new feature under the already-published 1.2.1 | **Fixed** — released as 1.3.0; changelog section dated, comparison links repaired, package descriptions updated, archive built and parity-checked |
+| M-02 | `WC requires at least: 7.0` untested; CI floors at 9.9.5 | **Fixed as a breaking change** — minimum raised to 9.9 and released as 2.0.0, per `BRIEF.md` §8.1, recorded as D-018 |
+| M-03 | Percentage integration coverage stopped at the cart | **Fixed** — lanes added for orders and their metadata, stock reduction, coupons, classic templates, sale prices, and tax in both display modes |
+| L-01 | `percent:100` recorded as `free` | **Fixed** — the order snapshot reads the configured type, so a 100% campaign records `percent:100` while still reading as "Free" |
+| L-02 | Store API text and specification still price-specific | **Partly fixed then** — the schema text was made price-neutral; `BRIEF.md` was not amended until the next round, where it is L-01 |
+
+Two things from that round are worth keeping visible.
+
+**The fixture key.** M-03 noted that `setup-store.php` wrote a `repeating` key
+the plugin never reads; the setting is `repeat`. It was inert only because the
+default already matched, so the fixture was not configuring what its author
+intended. Fixed in the same pass.
+
+**The coupon claim.** The 1.3.0 notes said eligible coupons stack on the strength
+of where the pricing hook sits, with no test behind it, because the unit stubs
+have no coupon support. That is now covered against a real store in both
+directions — an eligible coupon compounding, and one excluding the reward leaving
+it alone. The 1.3.0 changelog section still carries the original caveat, because
+it was true when 1.3.0 shipped.
+
+---
+
+# Part 2 — third review: the Checkout block collision and the stale package
 
 **Responding to:** `CODEX-REVIEW.md`, review date 2026-07-30 — H-01, M-01,
 M-02, M-03, L-01, L-02, L-03.
@@ -544,7 +762,7 @@ since v1.2.0 is tagged and immutable.
 
 ---
 
-# Part 1 — M-01 re-review: the Blocks gift label
+# Part 3 — M-01 re-review: the Blocks gift label
 
 **Responding to:** `CODEX-REVIEW.md` M-01, re-checked against
 `CODEX-REVIEW-RESPONSE.md` and still reproducing.
@@ -645,7 +863,7 @@ M-01 should be re-checked in a live block cart before it is called closed.
 
 ---
 
-# Part 2 — Follow-up review → v1.2.0
+# Part 4 — Follow-up review → v1.2.0
 
 **Responding to:** `CODEX-REVIEW.md` (follow-up review, 2026-07-30, at
 `4029f64` / v1.1.0)
@@ -1036,7 +1254,7 @@ and the runtime verification it asked for is still owed.
 
 ---
 
-# Part 3 — First review → v1.1.0
+# Part 5 — First review → v1.1.0
 
 **Responding to:** the original `CODEX-REVIEW.md` (reviewed 2026-07-30 at `8e1b7fe`)
 **Response date:** 2026-07-30

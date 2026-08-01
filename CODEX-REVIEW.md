@@ -2,200 +2,269 @@
 
 **Review date:** 2026-07-31
 
-**Reviewed state:** commit `49dd5e5` (`main`, clean worktree before this report)
+**Reviewed state:** commit `b04de94` (`main`, same as `origin/main`; clean
+worktree before this report)
 
-**Overall assessment:** the percentage-reward implementation is well designed and
-works on the current WooCommerce release in both classic and block cart/checkout
-flows. No critical or high-severity quality, performance, or security defect was
-found. The code is not release-ready under the repository's own rules, however:
-the feature still identifies itself as 1.2.1, the existing 1.2.1 archive contains
-the already-published pre-feature code, and several documents simultaneously call
-the feature "Unreleased" and "shipped." Integration coverage also does not test
-the declared WooCommerce 7.0 minimum and covers only part of the new discounted
-path.
+**Review scope:** all repository documents and runtime code, with special review
+of the changes after commit `49dd5e5`. The new work includes variable rewards,
+the 1.3.0 and 2.0.0 releases, and more integration tests for orders, coupons,
+classic templates, sale prices, and tax.
 
-## Executive summary
+## Overall assessment
 
-Claude Code's earlier fixes remain correctly implemented:
+The plugin has good code quality and a strong security model. It now has useful
+integration tests against real WordPress and WooCommerce installations. The
+former release, compatibility, order, tax, coupon, sale-price, and classic-mode
+review findings are adequately fixed.
 
-- block chooser injection runs after WooCommerce's block decoration at
-  `render_block` priority 20;
-- the Store API/hydration scoping and four-member item-data label are intact;
-- the cart-validation and gift-swap guards use `finally`;
-- ZIP parity has a mechanical verifier and CI job;
-- the accepted catalogue browse-count, bounded-search, and cold-cache trade-offs
-  are documented.
+No Critical or High severity defect was found. One Medium functional defect was
+reproduced in the new variable-reward chooser. Two pinned sibling variations are
+both shown as selected. The customer then has no button to change from one to the
+other. There is also a Medium performance risk because one render can load each
+variation through four code paths. No catalogue benchmark was found.
 
-The new percentage feature is also fundamentally sound:
+The plugin meets its main purpose for simple rewards and for a variable parent
+with a variation dropdown. It works on current classic cart and checkout pages,
+and on Cart and Checkout blocks, in the tested scenarios. The pinned-sibling
+defect prevents an unqualified statement that all supported variable-product
+configurations work.
 
-- old settings rows default to a free reward;
-- discount type and percentage are normalized and clamped server-side;
-- the reward is repriced from the current catalogue selling price on every totals
-  pass, avoiding self-compounding;
-- free, 0%, fractional, and 100% cases are handled deliberately;
-- sale prices, currency precision, tax-aware display helpers, classic labels,
-  Store API metadata, and order-line metadata are routed through shared pricing
-  and vocabulary helpers;
-- the reward remains a real inventory-bearing cart/order line;
-- client requests cannot choose an ineligible reward or supply their own price.
+## Sources and review method
 
-Live testing from a temporary ZIP built from `49dd5e5` confirmed on WordPress
-7.0.2, PHP 8.2, MariaDB 10.11, and WooCommerce 10.9.4:
+Verified facts in this report come from:
 
-- free and 50%-off rewards in the classic cart;
-- free and 50%-off rewards in classic checkout;
-- free and 50%-off rewards in the Cart block;
-- free and 50%-off rewards in the Checkout block;
-- correct $10 -> $0 and $10 -> $5 line prices, $25/$30 totals, fixed reward
-  quantity, promotion labels, chooser wording, and a fully mounted checkout;
-- the real block root retained `data-block-name="woocommerce/checkout"`, while
-  the BOGO slot did not receive it.
+- the repository at commit `b04de94`;
+- the 213-test PHPUnit suite;
+- a temporary regression test for two pinned sibling variations;
+- PHP, JavaScript, and shell syntax checks;
+- Composer validation and advisory data;
+- the package parity check; and
+- the [GitHub Actions run for `b04de94`](https://github.com/johnjanney/bogo-select/actions/runs/30680432207),
+  which passed on WooCommerce 9.9.5 and the current WooCommerce release.
 
-WooCommerce 7.0.0 was also exercised. Its fresh installation provisions classic
-cart/checkout pages; those classic pages and the free reward worked. The Store
-API extension functions existed and block-mode gift selection succeeded after a
-Cart block was introduced, but I did not obtain a canonical full WooCommerce 7
-Cart/Checkout block layout in that temporary fixture. Full block compatibility
-at the declared minimum therefore remains unproved, which is precisely the gap
-in M-02.
+Inferences are marked as such. If evidence was not present, this report says
+“Not found in documents.”
 
-## Findings
+## Status of the previous review
 
-### M-01 — The unreleased feature still has the immutable 1.2.1 identity
+| Previous finding | Current status | Verification |
+|---|---|---|
+| M-01: release identity and stale package | **Fixed** | Versions 1.3.0 and 2.0.0 are tagged. The current header and constant both use 2.0.0. `dist/bogo-select-2.0.0.zip` matches all 14 runtime files. See [`bogo-select.php:3-24`](bogo-select.php#L3-L24). |
+| M-02: unsupported WooCommerce 7.0 claim | **Fixed by an explicit breaking change** | Version 2.0.0 requires WooCommerce 9.9. CI tests 9.9.5 and current. See [`CHANGELOG.md:52-73`](CHANGELOG.md#L52-L73) and [the two passing integration jobs](https://github.com/johnjanney/bogo-select/actions/runs/30680432207). |
+| M-03: incomplete percentage integration tests | **Fixed** | CI now tests discounted Cart and Checkout blocks, classic cart and checkout, coupons, tax, sale prices, order metadata, and stock reduction. See [`.github/workflows/ci.yml:165-331`](.github/workflows/ci.yml#L165-L331). |
+| L-01: `percent:100` stored as `free` | **Fixed** | `discount_snapshot()` now uses the configured type. A test covers the distinction. See [`includes/class-bogo-engine.php:308-325`](includes/class-bogo-engine.php#L308-L325). |
+| L-02: price-specific API and specification text | **Partly fixed** | The Store API text is price-neutral. The project brief is still not updated for the 1.3.0 features. See L-01 in this report. |
 
-**Severity:** Medium; release blocker
+`CODEX-REVIEW-RESPONSE.md` has no response for the prior 2026-07-31 review. Its
+newest recorded response is dated 2026-07-30
+([`CODEX-REVIEW-RESPONSE.md:1-20`](CODEX-REVIEW-RESPONSE.md#L1-L20)). A written
+Claude response to the prior review was **Not found in documents**. The commits
+and code changes were reviewed directly instead.
+
+## Current findings
+
+### M-01 — Pinned sibling variations are all shown as selected
+
+**Severity:** Medium
+
+**Area:** Quality and purpose
+
+**Status:** Open; reproduced
+
+#### Verified facts
+
+The admin can put a variable parent in the Get list, or it can put one specific
+variation in the list. This is an explicit feature requirement
+([`PLAN-VARIABLE.md:26-45`](PLAN-VARIABLE.md#L26-L45)). It is also possible to
+put two specific variations from the same parent in the list.
+
+Each pinned-variation card has a reward pair: parent product ID and variation ID.
+However, the selected-state comparison uses only the parent product ID:
+
+- `render_choices()` gets only `selected_product_id`
+  ([`includes/class-bogo-frontend.php:303-320`](includes/class-bogo-frontend.php#L303-L320));
+- `print_choice()` resolves the full card pair but compares only
+  `$card_product_id === $selected`
+  ([`includes/class-bogo-frontend.php:339-348`](includes/class-bogo-frontend.php#L339-L348)); and
+- a selected pinned-variation card is not a variable-parent card. It therefore
+  shows “Selected” and “Remove gift,” but it does not show “Change option” or
+  “Choose this instead”
+  ([`includes/class-bogo-frontend.php:408-428`](includes/class-bogo-frontend.php#L408-L428)).
+
+A temporary regression test configured variation 101 and variation 102 from
+parent 100. It selected variation 101 and rendered the chooser. The test expected
+one `is-selected` card. It failed because two cards had `is-selected`.
+
+This defect also occurs if the Get list contains a variable parent and a pinned
+variation from that same parent. Both cards use the same parent ID for selected
+state.
+
+The current unit tests do not cover this card layout. They cover one pinned
+variation, one variable-parent dropdown, and server-side sibling swaps
+([`tests/VariableChooserTest.php:103-111`](tests/VariableChooserTest.php#L103-L111),
+[`tests/VariableChooserTest.php:182-204`](tests/VariableChooserTest.php#L182-L204),
+and [`tests/VariableSelectionTest.php:102-112`](tests/VariableSelectionTest.php#L102-L112)).
+
+#### Impact
+
+The chooser gives false status information. More importantly, it removes the
+control that the customer needs to select the sibling card. The server-side swap
+code works, but the UI cannot send the request.
+
+The same chooser markup is used for classic and block pages. The defect therefore
+affects classic cart, classic checkout, Cart block, and Checkout block when this
+configuration is used.
+
+#### Recommendation
+
+Use the complete reward pair for selected state.
+
+- For a pinned variation card, compare both the parent product ID and the exact
+  variation ID.
+- For a simple product card, compare the product ID and require variation ID 0.
+- For a variable-parent card, mark the card selected only when the selected
+  variation belongs to that parent and is represented by that card.
+- Add tests for two pinned sibling variations and for a parent plus a pinned
+  child from the same parent.
+- Add one browser assertion that changes between pinned siblings. Run it in at
+  least one block surface and one classic surface.
+
+### M-02 — Variable-card rendering repeats variation enumeration and product loads
+
+**Severity:** Medium on a catalogue with many large variable products; Low on a
+small catalogue
+
+**Area:** Performance
+
+**Status:** Open risk; code path verified, runtime cost not measured
+
+#### Verified facts
+
+The design document correctly calls variation enumeration the main performance
+risk and says to test it on a real catalogue
+([`PLAN-VARIABLE.md:149-153`](PLAN-VARIABLE.md#L149-L153) and
+[`PLAN-VARIABLE.md:293-296`](PLAN-VARIABLE.md#L293-L296)). The default chooser
+page can contain 24 cards
+([`includes/class-bogo-engine.php:782-794`](includes/class-bogo-engine.php#L782-L794)).
+
+For each variable card on an uncached render, the current path can call
+`wc_get_product()` for each child through these separate stages:
+
+1. `is_choice()` calls `offerable_variation_ids()` to decide if the parent can be
+   a card ([`includes/class-bogo-engine.php:367-383`](includes/class-bogo-engine.php#L367-L383)).
+2. `variation_options()` calls `offerable_variation_ids()` again
+   ([`includes/class-bogo-frontend.php:473-477`](includes/class-bogo-frontend.php#L473-L477)).
+3. `variation_options()` loads every accepted variation again to calculate stock,
+   labels, and availability
+   ([`includes/class-bogo-frontend.php:476-497`](includes/class-bogo-frontend.php#L476-L497)).
+4. The `<option>` loop loads every variation again to make its price markup
+   ([`includes/class-bogo-frontend.php:393-399`](includes/class-bogo-frontend.php#L393-L399)).
+
+WooCommerce object caching can reduce database work after the first load. It does
+not remove the repeated function calls, product checks, stock checks, price
+formatting, or the size of a selector with many options.
+
+#### Inference
+
+A page of 24 variable products with 100 variations each can cause about 9,600
+child-product retrieval calls from the four stages above, before other product
+lookups. This number is a code-path estimate. It is not a measured query count or
+latency result.
+
+A large-catalogue benchmark result was **Not found in documents**.
+
+#### Recommendation
+
+- Cache `offerable_variation_ids()` for the current request. Key it by parent ID.
+- Build each option once. Keep the variation object or its completed price markup
+  in the option data so later loops do not reload it.
+- Do not call `offerable_variation_ids()` once for eligibility and again for the
+  same card render when one result can be passed through.
+- Add a benchmark fixture with 24 variable parents and a realistic number of
+  variations. Record wall time, peak memory, query count, and product-load count.
+- If large selectors remain slow, add lazy option loading or a lower, documented
+  limit for variation options.
+
+### L-01 — Source-of-truth documents still describe the older product
+
+**Severity:** Low runtime risk; Medium documentation risk
+
+**Area:** Quality and stated purpose
 
 **Status:** Open
 
-The percentage setting is a new customer-facing feature and new settings schema.
-`BRIEF.md` section 8.1 explicitly requires a MINOR bump for that kind of change,
-but the plugin header and `BOGO_SELECT_VERSION` still say 1.2.1
-(`bogo-select.php:5-6`, `:23`). The local `dist/bogo-select-1.2.1.zip` is the
-published pre-feature build. Running `bash bin/verify-zip.sh` correctly reports
-eight stale runtime files, including the engine, cart, settings, admin, frontend,
-Blocks, AJAX, and admin JavaScript.
+#### Verified facts
 
-This produces two bad states:
+`BRIEF.md` says that it is amended only through 1.2.0
+([`BRIEF.md:1-4`](BRIEF.md#L1-L4)). Its purpose, requirements, settings table,
+customer flow, and acceptance criteria still describe only free rewards. It does
+not specify `get_discount_type`, `get_discount_value`, or the new variable-reward
+rules ([`BRIEF.md:11-17`](BRIEF.md#L11-L17),
+[`BRIEF.md:21-32`](BRIEF.md#L21-L32), and
+[`BRIEF.md:85-102`](BRIEF.md#L85-L102)). Section 3.1 stops at the 1.2.0 block
+work ([`BRIEF.md:71-81`](BRIEF.md#L71-L81)).
 
-1. In this working directory the append-only build script cannot create the new
-   archive without overwriting/removing the genuine 1.2.1 artifact.
-2. On a clean CI checkout, `dist/` is absent, so CI builds the new feature under
-   the already-released filename and internal version `1.2.1`. Package parity
-   passes, but release identity does not.
+The release-process text is also stale. It says the classic matrix, order
+placement, and stock reduction are still manual
+([`BRIEF.md:359-378`](BRIEF.md#L359-L378)). CI now automates all three.
 
-The documentation reflects the same contradiction. `CHANGELOG.md:8` correctly
-places the feature under **Unreleased**, while `OPEN-QUESTIONS.md:155` says it
-"has shipped." The changelog's `[Unreleased]` comparison still starts at v1.1.0
-and has no v1.2.0/v1.2.1 link definitions (`CHANGELOG.md:339-341`). The main
-plugin and Composer descriptions still advertise only a free $0 reward
-(`bogo-select.php:5`, `composer.json:3`).
+`README.md` has the same stale limitation. It says classic cart, classic
+checkout, stock reduction, and order placement are manual
+([`README.md:202-206`](README.md#L202-L206)). The current CI workflow and test
+scripts show that this is false.
 
-**Recommendation:** before publication, bump both version locations to 1.3.0,
-move the changelog entry into a dated 1.3.0 section, repair all comparison links,
-change "has shipped" to "implemented/unreleased" until the release exists,
-update package descriptions, build `dist/bogo-select-1.3.0.zip`, run the parity
-gate, and tag/publish that exact commit. Do not replace the real 1.2.1 archive.
+`tests/README.md` now explains the integration suite well, but its unit-test table
+does not list `DiscountPricingTest.php` or any of the four variable-product test
+files ([`tests/README.md:21-35`](tests/README.md#L21-L35)).
 
-### M-02 — CI's claimed compatibility floor is 2.9 major versions above the declared floor
+#### Impact
 
-**Severity:** Medium; compatibility risk
+The code and the release notes state a wider purpose than the main specification.
+This makes efficacy reviews and future changes less reliable. It can also cause
+a maintainer to repeat work that CI already performs.
 
-**Status:** Open
+#### Recommendation
 
-The plugin declares `WC requires at least: 7.0` (`bogo-select.php:15`), but the
-integration matrix starts at 9.9.5 (`.github/workflows/ci.yml:84-88`). Both the CI
-comment and `BRIEF.md:364-367` call 9.9.5 "the compatibility floor." It is not.
-Unit stubs cannot establish that WooCommerce 7.x through 9.8 preserve the Store
-API, hydration, block rendering, quantity-bound, price-display, and checkout
-contracts the plugin uses.
+- Amend `BRIEF.md` through 2.0.0.
+- Add free/percentage settings, variable parent and pinned-variation behavior,
+  variable acceptance criteria, and the dynamic-pricing trade-off.
+- Rewrite section 8.6 to match the current real-store matrix.
+- Update the README limitation and the unit-test inventory.
+- Keep historical release notes unchanged. They correctly describe the state at
+  the time of each release.
 
-The limited WooCommerce 7.0 live pass is encouraging: classic cart/checkout
-worked and the Store API accepted a block-mode reward selection. It does not
-replace a canonical Cart and Checkout block run, nor cover the intervening major
-versions.
+### L-02 — Real-browser classic coverage does not exercise a variable selector
 
-**Recommendation:** either add 7.0.x to the real integration matrix with the
-cart and checkout pages explicitly seeded as canonical blocks, or raise
-`WC requires at least` to the oldest version the project is prepared to test and
-support. Keep a current/latest lane, but pin a current version in release
-evidence so a result remains reproducible.
+**Severity:** Low
 
-### M-03 — The percentage integration scenario stops at the Cart block
+**Area:** Test completeness
 
-**Severity:** Medium; regression risk
+**Status:** Open coverage gap
 
-**Status:** Open
+#### Verified facts
 
-The free integration scenario exercises Cart and Checkout blocks. After changing
-the offer to 50%, however, `tests/integration/discount.test.mjs:94-115` visits
-only `/cart/`. It proves the Store API price, idempotency, Cart block label, and
-Cart block wording, but not:
+The variable integration script chooses a variation through the Store API and
+checks its selector on the Cart and Checkout blocks
+([`tests/integration/variable.test.mjs:49-138`](tests/integration/variable.test.mjs#L49-L138)).
+The classic integration script uses a simple reward. It checks the admin-AJAX
+path, classic cart, and classic checkout, but it does not change a variation
+selector ([`tests/integration/classic.test.mjs:46-142`](tests/integration/classic.test.mjs#L46-L142)).
 
-- the discounted Checkout block;
-- discounted classic cart or checkout;
-- order creation and the real `_bogo_select_discount` metadata hook;
-- tax-inclusive/tax-exclusive totals;
-- coupon eligibility and stacking;
-- sale-price behavior in real WooCommerce;
-- stock reduction after a discounted order.
+The server selection function is shared between the classic and Store API paths
+([`includes/class-bogo-ajax.php:58-72`](includes/class-bogo-ajax.php#L58-L72)).
+The same chooser JavaScript reads the variation and sends it through the active
+transport ([`assets/js/bogo-select.js:510-519`](assets/js/bogo-select.js#L510-L519)).
+Unit tests cover the variable-parent selector and the selection pair. This is
+good structural evidence.
 
-The repository itself acknowledges several of these gaps, but `tests/README.md`
-is now stale in the opposite direction: it says there is no database, HTTP,
-WordPress install, JavaScript runner, Store API transport, or real block
-rendering (`tests/README.md:10-12`, `:27-55`), despite the new Docker/Playwright
-job. The fixture also saves an unused `repeating` key instead of the real
-`repeat` key (`tests/integration/setup-store.php:64`); default `repeat = no`
-makes the present test pass, but the fixture does not set what its author
-intended.
+A real-browser test of a variable reward on classic cart and classic checkout
+was **Not found in documents**.
 
-The claims about coupons should also be qualified. The changelog correctly says
-the 40%-of-list result follows from hook ordering rather than a test
-(`CHANGELOG.md:28-32`). In practice, only a coupon for which that product and cart
-are eligible will stack; product/category exclusions, sale exclusions, and other
-coupon rules still apply.
+#### Recommendation
 
-**Recommendation:** extend the discounted browser test through checkout, add a
-classic-mode lane, and place at least one real order in an integration fixture to
-assert totals, metadata, and stock. Add representative taxable and coupon cases,
-fix the fixture key, update `tests/README.md`, and phrase the documentation as
-"eligible coupons apply on top."
-
-### L-01 — A 100% percentage offer loses its configured type in order metadata
-
-**Severity:** Low; reporting accuracy
-
-**Status:** Open
-
-`is_free_reward()` deliberately treats `percent:100` as free for display
-(`includes/class-bogo-engine.php:197-206`). `discount_snapshot()` then uses that
-display-oriented predicate and writes `free` (`:305-319`). This is harmless to
-price and customer wording, but the feature documentation says the hidden field
-records the type and value as applied. Reports cannot distinguish an explicit
-100%-off percentage campaign from the separate Free mode.
-
-**Recommendation:** base the snapshot on `get_discount_type`, storing
-`percent:100` for an explicit percentage while continuing to render it as
-"Free." Add a regression test for the snapshot, not only for its zero price.
-
-### L-02 — A few public descriptions still assert that every reward is free
-
-**Severity:** Low; API/documentation quality
-
-**Status:** Open
-
-The Store API schema describes `qualifies` as earning a "free gift" and
-`reward_quantity` as "free units" (`includes/class-bogo-blocks.php:200-207`).
-`BRIEF.md` has not added the new discount setting or feature to post-v1.0 scope;
-its current requirements and settings table still specify only a 100% discount
-and free units (`BRIEF.md:21-38`, `:71-100`). `INSTRUCTIONS.md`'s manual test
-checklist likewise tests only the free case.
-
-These do not change runtime values, but they undermine the documents as the
-source of truth used for assessing efficacy.
-
-**Recommendation:** use price-neutral API descriptions ("reward" and "reward
-units"), add the percentage feature/settings and intentional dynamic-pricing
-trade-off to `BRIEF.md`, and add a discounted case to the manual checklist.
+Extend `classic.test.mjs` with a variable-parent fixture. Select one option on
+the classic cart. Confirm that the exact variation is in the cart, then change it
+on classic checkout without reloading or clearing entered checkout data.
 
 ## Verification results
 
@@ -203,113 +272,118 @@ trade-off to `BRIEF.md`, and add a discounted case to the manual checklist.
 |---|---|
 | Clean worktree before review | **Pass** |
 | `composer validate --strict` | **Pass** |
-| PHPUnit | **Pass — 161 tests, 326 assertions** |
+| PHPUnit | **Pass — 213 tests, 471 assertions** |
+| Targeted pinned-sibling regression test | **Fail as expected — 2 selected cards, expected 1** |
 | PHP syntax outside `vendor` | **Pass** |
-| JavaScript syntax: storefront, admin, and integration scripts | **Pass** |
-| Shell syntax: build and ZIP verifier | **Pass** |
+| JavaScript syntax for storefront, admin, and integration scripts | **Pass** |
+| Shell syntax for the build and package verifier | **Pass** |
 | `composer audit --locked` | **Pass — no known advisories** |
-| `git diff --check` | **Pass** |
-| Existing 1.2.1 ZIP versus feature worktree | **Expected fail / release blocker — 8 stale runtime files** |
-| Temporary ZIP built from reviewed commit | **Pass — installed successfully** |
-| WooCommerce 10.9.4 live browser pass | **Pass — classic/block cart/checkout, free and 50%** |
-| WooCommerce 7.0.0 live classic pass | **Pass — cart/checkout and free reward** |
-| WooCommerce 7.0.0 full canonical block pass | **Not established** |
+| `git diff --check` before this report | **Pass** |
+| `bash bin/verify-zip.sh` | **Pass — 2.0.0 ZIP matches 14 runtime files** |
+| Current GitHub Actions run | **Pass — all jobs passed** |
+| WooCommerce 9.9.5 real-store lane | **Pass** |
+| Current WooCommerce real-store lane | **Pass** |
 
-The disposable containers, database volumes, browser tab, and temporary build
-were removed after testing. Only this report was changed in the repository.
+The temporary regression test was removed after it reproduced M-01. Only this
+report is changed in the worktree.
 
 ## Cart and checkout compatibility
 
-| WooCommerce | Surface | Result |
+| Reward and surface | Result | Evidence and limit |
 |---|---|---|
-| 10.9.4 | Classic cart | **Works** — free and 50%-off chooser, labels, fixed quantity, prices, and totals verified |
-| 10.9.4 | Classic checkout | **Works** — free and 50%-off chooser, order review, checkout form, prices, and totals verified |
-| 10.9.4 | Cart block | **Works** — free and 50%-off selection/display, metadata, price, total, and mounted block verified |
-| 10.9.4 | Checkout block | **Works** — free and 50%-off summary, correct root identity, checkout form, price, and total verified |
-| 7.0.0 | Classic cart | **Works in the exercised free scenario** |
-| 7.0.0 | Classic checkout | **Works in the exercised free scenario** |
-| 7.0.0 | Cart block | **Partial evidence only** — Store API selection worked; canonical full block layout not exercised |
-| 7.0.0 | Checkout block | **Not established** |
+| Simple/free reward, Cart block | **Works in CI** | Store API, line price, quantity limit, label, chooser, and mounted block are checked. |
+| Simple/free reward, Checkout block | **Works in CI** | Chooser, order review, checkout form, label, and mounted block are checked. |
+| Discounted reward, Cart block | **Works in CI** | Discounted total, idempotence, label, and chooser are checked. |
+| Discounted reward, Checkout block | **Works in CI** | Discount label and chooser are checked on the rendered block. |
+| Variable-parent reward, Cart block | **Works in CI** | Exact variation pair, variation price, selector, and change control are checked. |
+| Variable-parent reward, Checkout block | **Works in CI** | Selector and selected state are checked. |
+| Discounted simple reward, classic cart | **Works in CI** | Real browser click uses admin-AJAX; price, label, row, and locked quantity are checked. |
+| Discounted simple reward, classic checkout | **Works in CI** | Checkout form, chooser, mode, and line label are checked. |
+| Variable-parent reward, classic cart/checkout | **Likely works, but not fully verified in a real browser** | Shared PHP and JavaScript paths plus unit tests support this inference. A classic browser run was not found. |
+| Two pinned sibling variations, any of the four surfaces | **Does not work correctly** | M-01 was reproduced in the shared chooser renderer. |
 
-Direct answer: **yes, the plugin works on current WooCommerce cart and checkout
-pages in both block and classic mode**, for both free and percentage rewards in
-the scenarios tested. The broad declaration down to WooCommerce 7.0 needs the
-additional matrix coverage described in M-02.
+Direct answer: the plugin works on WooCommerce cart and checkout pages in block
+and classic mode for the main tested configurations. A variable parent works in
+both block pages. Classic variable selection has strong code and unit-test
+evidence but lacks a real-browser test. Two pinned variations of the same parent
+do not work correctly on any surface.
 
 ## Quality assessment
 
 ### Code quality
 
-The implementation has strong separation between settings, qualification,
-pricing, cart mutation, transport, rendering, and Blocks integration. The shared
-reward vocabulary avoids the original promotion-label drift, and the pricing
-path is readable and idempotent. Tests cover difficult arithmetic and cart-line
-object identity cases. The main weaknesses are release/document drift and the
-remaining framework-boundary gaps, not the internal design.
+The code has clear class boundaries for settings, promotion rules, cart changes,
+rendering, classic AJAX, Blocks, and admin work. The product-and-variation pair
+is carried through cart selection, Store API state, state signatures, validation,
+and pricing. Server-side sibling swaps use the full pair correctly. Release
+packaging is deterministic and has a parity gate.
 
-**Assessment:** good implementation quality; release metadata and integration
-documentation need correction.
+The main quality defect is local to chooser selected-state logic. That code
+changes a two-part identity back into one product ID. The documentation also has
+several old statements that reduce its value as a specification.
+
+**Assessment:** good, with one Medium UI logic defect and documentation drift.
 
 ### Performance
 
-The discount adds one fresh `wc_get_product()` lookup per reward line per totals
-pass. Because the engine enforces one reward line and WooCommerce caches product
-data, this is a reasonable cost for idempotent pricing. It also deliberately
-avoids scanning the cart beyond existing validation passes. Catalogue paging,
-bounded search, and curated eligibility caching remain acceptable with their
-documented large-catalogue limitations.
+The existing catalogue paging and search bounds remain reasonable. The new
+variable-card implementation avoids WooCommerce's large
+`get_available_variations()` array, which is a good choice. However, it repeats
+child enumeration and child-product loads during one render. This is the main
+performance risk.
 
-The intentional interoperability trade-off is more important than raw speed:
-the fresh catalogue price overwrites cart-item dynamic pricing rather than
-discounting it. That is clearly documented and should remain prominent for
-stores using pricing extensions.
-
-**Assessment:** acceptable; no new performance blocker found.
+**Assessment:** acceptable for small and normal variable catalogues; not proved
+for a page with many high-variation products.
 
 ### Security
 
-The new administrator inputs are normalized server-side. WordPress's Settings
-API supplies capability and nonce enforcement; output is escaped; classic AJAX
-uses nonces; Store API mutation uses WooCommerce's cart session/nonce layer; and
-both paths re-check activation, qualification, product eligibility,
-purchasability, stock, and earned quantity. The client never supplies the reward
-price or discount. Existing self-healing cart validation remains in place.
+The variable-product work preserves the existing security model:
 
-No injection, authorization bypass, arbitrary-discount, arbitrary-product, or
-sensitive-data exposure was found. The locked development dependencies have no
-known Composer advisories at review time.
+- classic public AJAX requests use a nonce and sanitize IDs
+  ([`includes/class-bogo-ajax.php:35-47`](includes/class-bogo-ajax.php#L35-L47));
+- Store API data is sanitized
+  ([`includes/class-bogo-blocks.php:241-266`](includes/class-bogo-blocks.php#L241-L266));
+- the server verifies that a submitted variation belongs to the submitted parent
+  ([`includes/class-bogo-engine.php:399-419`](includes/class-bogo-engine.php#L399-L419));
+- the server independently verifies qualification, scope, product type,
+  purchasability, stock, and quantity before it adds the reward
+  ([`includes/class-bogo-ajax.php:69-108`](includes/class-bogo-ajax.php#L69-L108));
+- the client does not provide the discount or reward price; and
+- settings use WordPress admin controls and server-side sanitization.
 
-**Assessment:** strong for the plugin's scope.
+No authorization bypass, arbitrary-product award, arbitrary-discount input,
+injection path, or sensitive-data exposure was found. Composer reported no known
+advisories in the locked development dependencies at review time.
+
+**Assessment:** strong for the stated scope.
 
 ### Efficacy against stated objectives
 
-The plugin meets the original BOGO objectives and the newer percentage-reward
-plan in the tested current environment: independent Buy/Get scopes, configurable
-quantities and repeat behavior, customer choice, a real stock-bearing reward
-line, removal/revalidation, classic and block presentation, and free or
-percentage pricing all operate coherently. The sale-price and coupon behavior is
-credible from hook placement but needs the real integration cases in M-03 before
-being presented as fully verified.
+The plugin implements one global Buy X/Get Y promotion with independent product
+scopes, configurable quantities, repeat mode, free or percentage pricing,
+customer choice, stock-bearing reward lines, cart revalidation, classic pages,
+and Blocks. Real integration tests now prove taxes, eligible and excluded
+coupons, sale prices, order metadata, and stock reduction.
 
-**Assessment:** functionally effective on current WooCommerce; documentation and
-the declared minimum-support claim are broader than the evidence.
+The variable-parent design is effective when the customer uses one dropdown on
+one parent card. The pinned-variation feature is effective for one pinned
+variation, but not for multiple sibling variations in the same list.
 
-## Release recommendation
+**Assessment:** the main purpose is accomplished. M-01 is a real exception to
+the stated variable-product objective.
 
-Do not publish the feature under 1.2.1.
+## Recommendation
 
-Required before release:
+Do not describe every supported variable-reward configuration as complete until
+M-01 is fixed.
 
-1. Resolve M-01 with a 1.3.0 identity, accurate changelog/open-question/package
-   descriptions, and a new immutable ZIP.
-2. Decide M-02 explicitly: test WooCommerce 7.0 canonical blocks or raise the
-   minimum to a version the project will test.
-3. Extend the discounted integration path through checkout and at least one
-   classic path; update the stale test documentation and fixture key.
-4. Run the package parity gate and the live matrix against the exact 1.3.0 ZIP.
+Before the next release:
 
-Recommended follow-up:
-
-5. Add tax, eligible/ineligible coupon, order metadata, and stock-reduction cases.
-6. Preserve `percent:100` in the order snapshot and make remaining API/spec text
-   price-neutral.
+1. Fix selected-state comparison to use the full reward pair.
+2. Add sibling-card regression tests and one block/classic browser case.
+3. Remove repeated per-variation product loads or measure and document their
+   acceptable cost.
+4. Update `BRIEF.md`, `README.md`, and `tests/README.md` to match the current
+   product and CI matrix.
+5. Re-run the unit suite, the full real-store matrix, and the ZIP parity gate on
+   the exact release commit.

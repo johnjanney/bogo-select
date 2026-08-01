@@ -199,11 +199,13 @@ Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
   Grouped and external products cannot, nor can a variation that leaves an
   attribute set to "Any" — it would still need a choice. On the Buy side a
   variation has always counted, matched by its own ID or its parent's.
-- The Cart and Checkout **blocks** are covered by an automated integration job: CI
-  installs the built zip into a real WordPress with WooCommerce (the compatibility
-  floor and the current release) and drives both blocks in a headless browser.
-  **Classic** cart and checkout, stock reduction, and order placement are still
-  covered by manual staging tests rather than automation.
+- Cart and checkout are covered by an automated integration job: CI installs the
+  built zip into a real WordPress with WooCommerce (the compatibility floor and
+  the current release) and exercises the Cart and Checkout **blocks** and the
+  **classic** shortcode pages in a headless browser, along with placing a real
+  order and checking its metadata and stock reduction. Untested: third-party
+  pricing plugins, shipping (every fixture product is virtual), and currencies
+  whose minor unit is not two digits.
 - Not tested against Subscriptions, Bundles, or Composite Products.
 - **Browse counts in "All Products" mode are catalogue counts, not gift counts.**
   Browsing the whole catalogue pages the catalogue and filters each page for

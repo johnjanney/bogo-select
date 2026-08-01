@@ -310,16 +310,47 @@ class BOGO_Select_Frontend {
 			$selected = BOGO_Select_Engine::selected_product_id();
 		}
 
+		$ids        = array_map( 'intval', (array) $product_ids );
 		$reward_qty = (int) $reward_qty;
 		$selected   = (int) $selected;
 
+		// Which card owns the selection is decided once, here, because it is the
+		// only place the whole list is visible. A card cannot answer it alone:
+		// two variations of one parent, each pinned as its own card, look
+		// identical to a card that knows only its own reward pair.
+		$owner = self::selected_card_id( $ids, $selected, BOGO_Select_Engine::selected_variation_id() );
+
 		ob_start();
 
-		foreach ( (array) $product_ids as $product_id ) {
-			self::print_choice( (int) $product_id, $reward_qty, $selected );
+		foreach ( $ids as $product_id ) {
+			self::print_choice( $product_id, $reward_qty, $owner, $selected );
 		}
 
 		return (string) ob_get_clean();
+	}
+
+	/**
+	 * The card that should show as selected.
+	 *
+	 * A variation pinned as its own card wins over the parent card that could
+	 * also offer it, being the more specific of the two. Everything else is named
+	 * by the product ID the card was built from.
+	 *
+	 * @param int[] $ids       Product IDs on this page.
+	 * @param int   $product   Selected product ID; the parent, for a variation.
+	 * @param int   $variation Selected variation ID, or 0.
+	 * @return int Zero when nothing on this page is selected.
+	 */
+	protected static function selected_card_id( $ids, $product, $variation ) {
+		if ( ! $product ) {
+			return 0;
+		}
+
+		if ( $variation && in_array( $variation, $ids, true ) ) {
+			return $variation;
+		}
+
+		return $product;
 	}
 
 	/**
@@ -327,9 +358,10 @@ class BOGO_Select_Frontend {
 	 *
 	 * @param int $product_id Product to render.
 	 * @param int $reward_qty Units on offer.
+	 * @param int $owner      Product ID of the card that owns the selection, or 0.
 	 * @param int $selected   Currently chosen product ID, parent for a variation.
 	 */
-	protected static function print_choice( $product_id, $reward_qty, $selected ) {
+	protected static function print_choice( $product_id, $reward_qty, $owner, $selected ) {
 		$product = wc_get_product( $product_id );
 
 		if ( ! $product ) {
@@ -343,7 +375,11 @@ class BOGO_Select_Frontend {
 		// selector supplies the rest.
 		list( $card_product_id, $card_variation_id ) = BOGO_Select_Engine::reward_pair( $product_id );
 
-		$is_selected = ( $card_product_id === $selected );
+		// Compared against the owning card rather than against the parent ID: two
+		// pinned siblings share a parent, and comparing parents marked both
+		// selected while leaving neither able to reach the other
+		// (`CODEX-REVIEW.md` M-01).
+		$is_selected = ( $product_id === $owner );
 
 		$selected_variation = $is_selected ? BOGO_Select_Engine::selected_variation_id() : 0;
 
@@ -357,7 +393,7 @@ class BOGO_Select_Frontend {
 			// Quote the option the customer is looking at, not the parent, whose
 			// price is the low end of a range and need not be any variation's.
 			$priced = self::default_option( $options, $selected_variation );
-			$priced = $priced ? wc_get_product( $priced['id'] ) : $product;
+			$priced = $priced ? $priced['product'] : $product;
 		} else {
 			$options      = array();
 			$priced       = $product;
@@ -375,7 +411,8 @@ class BOGO_Select_Frontend {
 			$classes[] = 'is-unavailable';
 		}
 		?>
-		<li class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>">
+		<li class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>"
+			data-bogo-card="<?php echo esc_attr( $product_id ); ?>">
 			<div class="bogo-select__thumb">
 				<?php echo wp_kses_post( $product->get_image( 'woocommerce_thumbnail' ) ); ?>
 			</div>
@@ -392,7 +429,7 @@ class BOGO_Select_Frontend {
 						id="bogo-select-variation-<?php echo esc_attr( $product_id ); ?>">
 						<?php foreach ( $options as $option ) : ?>
 							<option value="<?php echo esc_attr( $option['id'] ); ?>"
-								data-price="<?php echo esc_attr( self::price_markup( wc_get_product( $option['id'] ) ) ); ?>"
+								data-price="<?php echo esc_attr( $option['price'] ); ?>"
 								<?php disabled( true, (bool) $option['reason'] ); ?>
 								<?php selected( $selected_variation, $option['id'] ); ?>>
 								<?php echo esc_html( $option['label'] ); ?>
@@ -473,20 +510,20 @@ class BOGO_Select_Frontend {
 	protected static function variation_options( $parent, $reward_qty, $exclude = '' ) {
 		$options = array();
 
-		foreach ( BOGO_Select_Engine::offerable_variation_ids( $parent ) as $variation_id ) {
-			$variation = wc_get_product( $variation_id );
-
-			if ( ! $variation ) {
-				continue;
-			}
-
-			$demand = BOGO_Select_Engine::stock_demand( null, $variation, $exclude );
+		foreach ( BOGO_Select_Engine::offerable_variations( $parent ) as $variation ) {
+			$variation_id = $variation->get_id();
+			$demand       = BOGO_Select_Engine::stock_demand( null, $variation, $exclude );
 			$reason = BOGO_Select_Engine::unavailable_reason( $variation, $reward_qty, $demand );
 
 			$options[] = array(
-				'id'     => (int) $variation_id,
-				'reason' => $reason,
-				'label'  => $reason
+				'id'      => (int) $variation_id,
+				'product' => $variation,
+				// Built here, from the object already in hand. The option loop
+				// below would otherwise reload every variation to price it, and
+				// the card would reload one more to quote it (M-02).
+				'price'   => self::price_markup( $variation ),
+				'reason'  => $reason,
+				'label'   => $reason
 					? sprintf(
 						/* translators: 1: variation name, 2: why it cannot be given. */
 						__( '%1$s — %2$s', 'bogo-select' ),
