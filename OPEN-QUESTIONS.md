@@ -8,6 +8,89 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
+### Q-010 — Should Buy and Get support product categories?
+
+**Raised:** 2026-07-31
+
+The plugin scopes both sides of the offer by product ID only. The admin picks
+individual products, or variations, through a `wc-product-search` select2 on each
+side, governed by `buy_scope` and `get_scope` — each of them today a two-value
+choice between *All Products* and *Select Products*. There is no taxonomy lookup
+anywhere in the plugin: no `has_term`, no `product_cat`. An admin who wants "any
+product in Outerwear" has to list those products individually and re-do it
+whenever the category's membership changes.
+
+**Working assumption:** product IDs only, as today. It is listed as out of scope
+in `BRIEF.md` §3 and as a known limitation in `README.md`. Nothing is blocked.
+
+**What it would take.** A third scope value, `category`, on each side, plus
+`buy_categories` and `get_categories` term-ID lists. Roughly two to three days.
+Most of the plumbing is mechanical and three parts are not.
+
+The mechanical part: `to_scope()` in `class-bogo-settings.php` is a two-value
+gate that becomes a whitelist, the settings screen gains a third radio and a
+`wc-category-search` control on each side — WooCommerce already ships that one,
+as the control behind a coupon's Product Categories field — and the empty-list
+guards and the settings summary each need a category branch. `SettingsTest.php`
+currently asserts that a `buy_scope` of `category` falls back to `all`; that test
+is the present contract and would be rewritten rather than fixed. The storefront,
+the blocks, and the Store API are very nearly free, because the chooser consumes
+IDs out of `get_choice_page()` and does not care how they were chosen, and the
+render signature is derived from the cart.
+
+The three parts that are real work:
+
+- **Variations have no categories of their own** — `product_cat` lives on the
+  parent post. `is_buy_eligible()` matches a variation on its own ID or its
+  parent's, and a category check would have to resolve to the parent first;
+  `variation_in_scope()` needs the same. Cost matters here, because
+  `count_buy_units()` runs per cart line on every recalculation, so an
+  `in_array()` becomes a term lookup. That wants measuring rather than assuming,
+  as Q-004 was.
+- **A category is a third kind of pager.** `page_selected_choices()` filters an
+  in-memory ID list; `page_all_choices()` pages the catalogue in SQL and accepts
+  inexact totals as the documented price of paging. A category is neither —
+  query-backed like *All Products*, but bounded enough that exact counts become
+  affordable, so it could report better totals than *All Products* manages.
+  Browsing is easy, since `wc_get_products()` takes a category argument. Search
+  is the sharp edge: `store_search()` delegates to
+  `WC_Data_Store::search_products()`, whose `$include` parameter constrains by ID
+  list and offers no taxonomy constraint at all. Post-filtering is trivial to
+  write but makes the 200-result `search_limit()` ceiling materially worse, since
+  it would retrieve 200 catalogue-wide matches and then discard most of them.
+  Doing it properly means a `tax_query` path in `query_search()`.
+- **Cache invalidation is where a bug would hide.** `eligibility_key()` hashes
+  the configured ID list and would need the term IDs folded in, but the sharper
+  problem is that category membership can change without any of the hooked events
+  firing. The cache is flushed on product save, create, delete, and trash, and on
+  a settings update; a bulk Quick Edit, a CSV import, or another plugin calling
+  `wp_set_object_terms()` fires none of them. Miss this and the chooser offers a
+  reward that has left the category.
+
+Tests are the unglamorous bulk of it. Around twenty test files set `buy_scope` or
+`get_scope`, and the stub layer has no taxonomy support whatever —
+`wc_get_products()` is hand-rolled in `tests/stubs/woocommerce.php` and there is
+no `has_term()` at all. Category matching has to be stubbed before the first unit
+test can run, and the integration fixtures create products with no categories.
+
+One knock-on worth recording. The settings screen validates the reward list
+product by product on save and names anything it removes. A category cannot be
+validated that way, because it is a moving set, so the filtering would lean on
+the existing render-time `filter_choice_ids()` path instead. Same mechanism, less
+warning to the admin.
+
+**Needed:** two answers. Whether a category replaces a product list or adds to
+one — a radio makes the choice exclusive, but "buy 2 from Outerwear *or* these
+three specific items" is the more useful rule, and a union changes the control
+away from radios and roughly doubles the matching logic. And whether this waits
+on Q-007, which asks the same data-model question from the other end: category
+scoping is the cheapest of the three futures listed there and forecloses none of
+them, but if multiple offers are coming then the flat single-option-row settings
+shape is rebuilt anyway, and two more keys bolted onto a structure about to be
+replaced is work thrown away.
+
+---
+
 ### Q-009 — Should the customer be able to pick a different product for each free unit?
 
 **Raised:** 2026-07-31
@@ -285,3 +368,63 @@ merge into the paid line, that each keeps its own quantity, that both draw on th
 same stock record, and that the two prices stay apart. It was a documented
 assumption for long enough; assumptions that survive this long are worth pinning
 before something quietly changes them.
+
+---
+
+### Q-011 — What happens when a reward has fewer units in stock than the offer awards? — **Answered 2026-08-01**
+
+**Answer:** the current behaviour stands, and it stands deliberately rather than
+by default. The question was raised in review, the behaviour was established by
+reading the code rather than by assuming it, and the recommendation to leave it
+alone was accepted. This entry exists because the question was asked and because
+the answer is not visible from the settings screen.
+
+**The behaviour**, with a Buy 2 / Get 2 offer and a reward down to one unit: the
+chooser keeps the card, greys it out, prints "Not enough stock for 2 free units"
+against it, and replaces the Choose button with a disabled "Unavailable" one. The
+card is not hidden, and that is the point — a customer who can see the gift and
+the reason it is out of reach is better served than one left wondering where it
+went.
+
+**It is all or nothing.** The plugin will not award one of the two earned units. A
+reward with one left is simply not offerable against a Get 2 offer.
+
+**Three conditions gate it**, and the first two mean that "one left" does not
+always block:
+
+- Stock management has to be on at the product level. `unavailable_reason()`
+  checks `managing_stock()` first, so a product carrying only an in-stock or
+  out-of-stock status has no quantity to test against and stays selectable —
+  WooCommerce does not know it is down to one.
+- Backorders have to be off; `backorders_allowed()` short-circuits the check.
+- *Sold individually* is a rule of its own, and it refuses a Get 2 reward whatever
+  the stock level, with "Limited to one per order".
+
+**The customer's own cart counts against it.** `stock_demand()` sums the other
+lines drawing on the same stock record, so one unit left alongside one already in
+the cart as a paid item tightens the threshold further, and the wording changes to
+name the units already held. Lines are matched on `get_stock_managed_by_id()`, so
+a variation inheriting its parent's stock competes against the same pool.
+
+**Variable products are judged per variation.** Individual options are disabled,
+and the card only goes fully unavailable once every variation has a reason of its
+own.
+
+**It is enforced rather than only displayed**, in three places — the chooser as it
+renders, the selection request in `class-bogo-ajax.php`, and cart validation on
+every pass in `class-bogo-cart.php`. The third matters most: stock can fall away
+underneath a cart that has not changed, and when it does the reward is removed and
+the customer is told which product and why.
+
+**Why it is right to leave.** Awarding one unit of two earned would mean deciding
+whether a customer may take fewer units than they earned, which is the question
+Q-009 turns on and has not yet answered. Partial fulfilment here would settle that
+by accident, in one corner of the plugin, without either the chooser or the cart
+being able to express the result. Refusing the reward outright is the honest
+behaviour until the wider question is decided.
+
+**What a store should know**, recorded because nothing on the settings screen says
+it: the requirement scales. In repeat mode a customer buying four needs four units
+of the reward in stock, so a low-stock gift drops out of the chooser sooner than a
+"Buy 2, Get 2" headline suggests, and it does so while its stock still reads as in
+stock.
