@@ -210,6 +210,63 @@
 	font-weight: 600;
 }
 
+/*
+ * Narrow screens.
+ *
+ * The card grid falls to a single column on a phone, which turns each gift into
+ * a full-width product image — a handful of options then costs several screens
+ * of scrolling before the customer reaches their own cart lines. Below the
+ * breakpoint each card becomes a compact row shaped like a cart line item:
+ * small thumbnail on the left, name and price beside it, the button underneath.
+ * The image is the one thing that has to give, so it is the one thing capped.
+ */
+@media screen and (max-width: 600px) {
+	.bogo-select {
+		padding: 1em;
+	}
+
+	.bogo-select__grid {
+		grid-template-columns: 1fr;
+		gap: 0.75em;
+	}
+
+	.bogo-select__item {
+		display: grid;
+		grid-template-columns: 64px minmax(0, 1fr);
+		grid-template-areas:
+			"thumb info"
+			"thumb actions";
+		align-items: start;
+		column-gap: 0.75em;
+		row-gap: 0.5em;
+		padding: 0.6em;
+		text-align: left;
+	}
+
+	.bogo-select__thumb {
+		grid-area: thumb;
+	}
+
+	.bogo-select__info {
+		grid-area: info;
+	}
+
+	.bogo-select__actions {
+		grid-area: actions;
+		flex-direction: row;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: flex-start;
+		gap: 0.5em 0.75em;
+	}
+
+	/* A full-width button is right in a column of cards and wrong in a row that
+	   already gives its width to the name and price. */
+	.bogo-select__actions .button {
+		width: auto;
+	}
+}
+
 /* Cart table markers. */
 
 .bogo-select-badge {

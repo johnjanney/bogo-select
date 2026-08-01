@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The gift chooser is compact on phones.** Below 600px the card grid fell to
+  a single column, so every option became a full-width product image and a
+  handful of gifts pushed the customer's own cart lines several screens down.
+  Each card is now a cart-line-shaped row — 64px thumbnail, name and price
+  beside it, button underneath. Six gifts now take about one screen instead of
+  four. Nothing changes at wider widths, and the change is CSS only, so the
+  classic cart, the block cart, and checkout all get it from the same rule.
+
 - **A reward of a product already in the cart keeps its own line**
   (`OPEN-QUESTIONS.md` Q-006, now `DECISION.md` D-020). This is what the plugin
   has always done and it is now a decision rather than an assumption, with tests
