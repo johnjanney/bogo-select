@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] — 2026-07-31
+
+Campaign scheduling, a chooser defect found by review, and the integration
+coverage that closes out `CODEX-REVIEW.md` M-03.
+
 ### Fixed
 
 - **Two variations of one product, each listed individually, are no longer both
@@ -484,7 +489,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...HEAD
+[2.1.0]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...v2.0.0
 [1.3.0]: https://github.com/johnjanney/bogo-select/compare/v1.2.1...v1.3.0
 [1.2.1]: https://github.com/johnjanney/bogo-select/compare/v1.2.0...v1.2.1

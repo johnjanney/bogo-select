@@ -1,6 +1,6 @@
 # Project Brief — BOGO Select for WooCommerce
 
-**Status:** v1.0.0 specification, amended through v2.0.0 (see §3.1)
+**Status:** v1.0.0 specification, amended through v2.1.0 (see §3.1)
 **Last updated:** 2026-07-31
 
 > Release rules that apply to every future update — versioning, zip builds, and
@@ -33,7 +33,7 @@ These are the requirements as given by the client, restated for implementation.
 | R5 | Buy scope and Get scope are set **independently** to either **All Products** or **Select Products** (with an explicit product list). |
 | R6 | *(v1.3.0)* The Get product may be given away or sold at an admin-set percentage off. A 100% discount and the free mode are equivalent in price and differ only in what the order records. |
 | R7 | *(v1.3.0)* A variable product may be offered as the Get product, with the customer choosing the variation; or a single variation may be listed, pinning the reward to it. |
-| R8 | *(unreleased)* The offer may be given a start date, an end date, or both. Both bounds are inclusive whole days in the store's timezone, and both are optional. |
+| R8 | *(v2.1.0)* The offer may be given a start date, an end date, or both. Both bounds are inclusive whole days in the store's timezone, and both are optional. |
 
 ### Worked examples
 
@@ -98,7 +98,7 @@ These are the requirements as given by the client, restated for implementation.
   supersedes the v1.0.0 exclusion of variation-level targeting above. Grouped and
   external products remain ineligible, as do variations that leave an attribute
   set to "Any" — they would still need a choice. See `DECISION.md` D-017.
-- **Unreleased — Campaign scheduling.** The offer takes an optional start date
+- **v2.1.0 — Campaign scheduling.** The offer takes an optional start date
   and end date, answering `OPEN-QUESTIONS.md` Q-005. Whole days in the store's
   timezone, both bounds inclusive. This was listed as out of scope for v1.0.0
   above; the client asked for it. See `DECISION.md` D-019.
@@ -261,7 +261,7 @@ requires `manage_woocommerce`.
 16. *(v1.3.0)* Two variations of one parent, each listed individually, are
     separate cards; choosing one marks only that card and leaves the other
     selectable.
-17. *(unreleased)* An offer with an end date is live for the whole of that day
+17. *(v2.1.0)* An offer with an end date is live for the whole of that day
     and stops the day after; one with a start date shows nothing before it. An
     offer with neither behaves exactly as it did before scheduling existed.
 18. Choosing a gift on a checkout page does not clear anything already typed into
