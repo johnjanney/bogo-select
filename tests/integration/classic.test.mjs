@@ -201,6 +201,58 @@ if (pinnedCards === 2) {
 	}
 }
 
+// --- The chooser after WooCommerce replaces the cart form -------------------
+//
+// Classic cart AJAX — Update cart, apply a coupon, remove a line — does not
+// re-render the cart in place: WooCommerce's own cart script replaces
+// `form.woocommerce-cart-form` with the server's fresh copy. The chooser is
+// printed inside that form, so every listener bound to it went with it, leaving
+// a chooser that looked perfectly normal and answered nothing at all — no
+// paging, no choosing, and no error to say why.
+//
+// The click is what has to be asserted, not the outcome: the defect was that
+// the click never reached the script.
+
+await page.goto(BASE + CART_PATH, { waitUntil: 'networkidle', timeout: 90000 });
+
+const qty = page.locator('.woocommerce-cart-form input.qty').first();
+const canUpdate = await qty.count() > 0 && await page.locator('.woocommerce-cart-form [name="update_cart"]').count() > 0;
+
+check('Classic cart: the cart offers a quantity to update', canUpdate);
+
+if (canUpdate) {
+	await qty.fill('2');
+	await page.click('.woocommerce-cart-form [name="update_cart"]');
+	// The AJAX response replaces the form the chooser sits in.
+	await page.waitForTimeout(5000);
+
+	const survived = await page.evaluate(() => ({
+		chooser: !!document.querySelector('#bogo-select'),
+		choose: document.querySelectorAll('.bogo-select__choose').length,
+	}));
+
+	check('Classic cart: the chooser is still rendered after Update cart', survived.chooser);
+
+	if (survived.choose > 0) {
+		const reached = await Promise.all([
+			page.waitForRequest(
+				(request) => request.url().includes('admin-ajax.php')
+					&& (request.postData() || '').includes('bogo_select_choose'),
+				{ timeout: 15000 }
+			).catch(() => null),
+			page.click('.bogo-select__choose'),
+		]).then(([request]) => !!request);
+
+		check('Classic cart: the chooser still answers clicks after the form is replaced',
+			reached, 'the click never reached the script');
+
+		await page.waitForTimeout(4000);
+	} else {
+		check('Classic cart: a reward is still offered after Update cart', false,
+			'no choose button to click');
+	}
+}
+
 // --- The classic checkout ---------------------------------------------------
 
 await page.goto(BASE + CHECKOUT_PATH, { waitUntil: 'networkidle', timeout: 90000 });

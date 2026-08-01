@@ -131,8 +131,7 @@ class BOGO_Select_Blocks {
 			return $content;
 		}
 
-		BOGO_Select_Frontend::enqueue_assets();
-
+		// The assets come with the slot; see BOGO_Select_Frontend::slot_html().
 		return BOGO_Select_Frontend::slot_html( 'block' ) . $content;
 	}
 

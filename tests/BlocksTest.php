@@ -127,6 +127,7 @@ class BlocksTest extends TestCase {
 		$this->assertStringContainsString( 'data-bogo-mode="block"', $output );
 		$this->assertStringContainsString( 'id="bogo-select"', $output );
 		$this->assertStringStartsWith( '<div class="bogo-select-slot"', $output, 'The chooser goes above the block, as it does above the cart table.' );
+		$this->assertTrue( \wp_script_is( 'bogo-select', 'enqueued' ), 'A block cart is rendered too late for wp_enqueue_scripts to have decided this.' );
 	}
 
 	public function test_the_chooser_is_injected_ahead_of_the_checkout_block() {

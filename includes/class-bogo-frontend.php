@@ -148,6 +148,16 @@ class BOGO_Select_Frontend {
 	 * - block: the Cart and Checkout blocks re-render themselves from the
 	 *   Store API response, so nothing else is needed.
 	 *
+	 * Printing the slot is also what enqueues the assets, because a chooser
+	 * without its script is a dead chooser: the buttons render, and nothing
+	 * answers them. `wp_enqueue_scripts` cannot be trusted to have decided this
+	 * on its own — it fires before anything knows where the cart template will
+	 * be rendered, and `is_cart()` misses a cart the theme or a page builder
+	 * renders somewhere WooCommerce does not recognise. The hook still runs
+	 * first on ordinary cart and checkout pages, which is what keeps the
+	 * stylesheet in the head rather than the footer; this is the safety net
+	 * under it, and enqueuing twice costs nothing.
+	 *
 	 * @param string $mode 'classic', 'checkout', or 'block'.
 	 * @return string Empty string when the offer is switched off.
 	 */
@@ -155,6 +165,8 @@ class BOGO_Select_Frontend {
 		if ( ! BOGO_Select_Engine::is_active() || self::$slot_rendered ) {
 			return '';
 		}
+
+		self::enqueue_assets();
 
 		self::$slot_rendered = true;
 

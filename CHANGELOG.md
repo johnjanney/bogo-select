@@ -7,6 +7,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.2.1] — 2026-08-01
+
+A chooser that rendered perfectly and answered nothing.
+
+### Fixed
+
+- **The gift chooser no longer goes dead after a classic cart update.** Its
+  buttons were reported as doing nothing at all — the "Next" page button on a
+  catalogue of more than 24 gifts, with no new page and no error to say why.
+  The chooser is printed inside the cart form (`woocommerce_before_cart_table`),
+  and WooCommerce's own cart script replaces that whole form with the server's
+  fresh copy after every cart AJAX update: updating a quantity, applying a
+  coupon, removing a line. The plugin held the slot inside that form from page
+  load and delegated its listeners from it, so after any such update the
+  listeners belonged to a detached element. The chooser then looked perfectly
+  normal — the right page number, the right buttons enabled — and no click
+  reached the script at all: paging, choosing, removing, and searching were all
+  silently dead. Listeners now delegate from the document and the slot is looked
+  up on every use, which is what WooCommerce's own cart script does for the same
+  reason. The page number and search term are re-read whenever the panel in the
+  document is no longer the one they described, so the first click after a cart
+  update pages from where the customer actually is. A browser test now updates
+  the cart and asserts that a chooser click still reaches the server.
+
+- **The chooser is never printed without the script that answers it.** Its CSS
+  and JavaScript were enqueued only where `is_cart()` or `is_checkout()` was
+  true during `wp_enqueue_scripts`, but the classic chooser renders on
+  `woocommerce_before_cart_table`, which fires wherever the cart template is
+  rendered — including a cart a theme or a page builder puts on a page
+  WooCommerce does not recognise as one. There the chooser rendered with nothing
+  behind it: buttons that look right, answer nothing, and say nothing about why.
+  Printing the slot now enqueues the assets itself, so the chooser and its
+  script always arrive together. The hook still runs first on ordinary cart and
+  checkout pages, which is what keeps the stylesheet in the head; the block cart
+  already enqueued this way and now shares the one path.
+
 ## [2.2.0] — 2026-08-01
 
 A mobile layout for the gift chooser, and Q-006 closed as a decision.
@@ -509,7 +545,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.2.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.2.1...HEAD
+[2.2.1]: https://github.com/johnjanney/bogo-select/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/johnjanney/bogo-select/compare/v1.3.0...v2.0.0

@@ -131,4 +131,26 @@ class FrontendTest extends TestCase {
 
 		$this->assertSame( array(), BOGO_Test_Env::$localized );
 	}
+
+	/**
+	 * The chooser must never be printed without the script that answers it.
+	 *
+	 * `wp_enqueue_scripts` decides from is_cart()/is_checkout(), which fires
+	 * before anything knows where the cart template will actually be rendered.
+	 * A theme or page builder that renders the cart somewhere WooCommerce does
+	 * not recognise still fires `woocommerce_before_cart_table`, so the chooser
+	 * would render with no script behind it: buttons that look right and answer
+	 * nothing, with no error to say why.
+	 */
+	public function test_printing_the_chooser_brings_its_script_with_it() {
+		$this->qualifying_cart();
+
+		$this->assertSame( array(), BOGO_Test_Env::$localized, 'Nothing is enqueued before the chooser is printed.' );
+
+		$output = $this->printed( 'render_chooser' );
+
+		$this->assertStringContainsString( 'data-bogo-slot', $output );
+		$this->assertTrue( \wp_script_is( 'bogo-select', 'enqueued' ), 'The chooser was printed without its script.' );
+		$this->assertArrayHasKey( 'bogoSelect', BOGO_Test_Env::$localized );
+	}
 }

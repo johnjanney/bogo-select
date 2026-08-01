@@ -30,15 +30,6 @@
 	}
 
 	var settings = window.bogoSelect;
-	var slot = document.querySelector( '[data-bogo-slot]' );
-
-	if ( ! slot ) {
-		return;
-	}
-
-	var mode = slot.getAttribute( 'data-bogo-mode' ) || 'classic';
-	var isBlockMode = 'block' === mode;
-	var isClassicCheckout = 'checkout' === mode;
 
 	var state = {
 		search: '',
@@ -51,6 +42,48 @@
 	var refreshing = false;
 	var refreshQueued = false;
 	var cartSignature = null;
+	var panel = null;
+
+	/**
+	 * The chooser slot currently in the document, if any.
+	 *
+	 * Looked up on every use rather than held, because the slot element itself
+	 * does not survive the page around it. On the classic cart the chooser is
+	 * printed inside the cart form, and WooCommerce's own cart script replaces
+	 * that entire form with the server's fresh copy after every AJAX update —
+	 * updating a quantity, applying a coupon, removing a line. A chooser held
+	 * from page load would be a detached node from then on.
+	 *
+	 * @return {Element|null} The slot element.
+	 */
+	function slot() {
+		return document.querySelector( '[data-bogo-slot]' );
+	}
+
+	/**
+	 * What the page around the chooser needs after the cart changes.
+	 *
+	 * @return {string} 'classic', 'checkout', or 'block'.
+	 */
+	function mode() {
+		var el = slot();
+
+		return ( el && el.getAttribute( 'data-bogo-mode' ) ) || 'classic';
+	}
+
+	/**
+	 * @return {boolean} Whether the chooser sits beside the Cart or Checkout blocks.
+	 */
+	function isBlockMode() {
+		return 'block' === mode();
+	}
+
+	/**
+	 * @return {boolean} Whether the chooser sits above the classic checkout form.
+	 */
+	function isClassicCheckout() {
+		return 'checkout' === mode();
+	}
 
 	/**
 	 * The chooser panel currently in the slot, if any.
@@ -58,7 +91,9 @@
 	 * @return {Element|null} The panel element.
 	 */
 	function root() {
-		return slot.querySelector( '.bogo-select' );
+		var el = slot();
+
+		return el ? el.querySelector( '.bogo-select' ) : null;
 	}
 
 	/**
@@ -68,7 +103,9 @@
 	 * @return {Element|null} The element.
 	 */
 	function part( selector ) {
-		return slot.querySelector( selector );
+		var el = slot();
+
+		return el ? el.querySelector( selector ) : null;
 	}
 
 	/**
@@ -76,6 +113,8 @@
 	 */
 	function readState() {
 		var el = root();
+
+		panel = el;
 
 		if ( ! el ) {
 			state.page = 1;
@@ -85,6 +124,24 @@
 
 		state.page = parseInt( el.getAttribute( 'data-page' ), 10 ) || 1;
 		state.pages = parseInt( el.getAttribute( 'data-pages' ), 10 ) || 1;
+	}
+
+	/**
+	 * Catch up with a chooser the page replaced underneath us.
+	 *
+	 * Everything the script knows about where the customer is — which page they
+	 * are on, what they searched for — describes one particular panel element.
+	 * When the cart form is swapped out from under it, that panel is gone and
+	 * the state it described with it. What stands in its place came from the
+	 * server, so it shows page one of the unfiltered list.
+	 */
+	function syncWithDom() {
+		if ( root() === panel ) {
+			return;
+		}
+
+		readState();
+		state.search = '';
 	}
 
 	/**
@@ -216,11 +273,17 @@
 	 * @param {string} html Chooser markup, possibly empty.
 	 */
 	function render( html ) {
+		var el = slot();
+
+		if ( ! el ) {
+			return;
+		}
+
 		var searchBox = part( '[data-bogo-search]' );
 		var hadFocus = searchBox === document.activeElement;
 		var term = state.search;
 
-		slot.innerHTML = html || '';
+		el.innerHTML = html || '';
 
 		readState();
 
@@ -264,7 +327,7 @@
 					// rendering this — a gift whose stock ran out is dropped,
 					// for instance. The blocks are holding the cart as it was,
 					// so tell them to fetch it again.
-					if ( isBlockMode && result.data.state && cartSignature && result.data.state !== cartSignature ) {
+					if ( isBlockMode() && result.data.state && cartSignature && result.data.state !== cartSignature ) {
 						cartSignature = result.data.state;
 						invalidateBlockCart();
 					}
@@ -329,7 +392,7 @@
 	function mutate( action, extraData ) {
 		setBusy( true );
 
-		if ( isBlockMode ) {
+		if ( isBlockMode() ) {
 			mutateThroughStoreApi( action, extraData );
 			return;
 		}
@@ -356,7 +419,7 @@
 	 * @param {Object} data Successful response payload.
 	 */
 	function settle( data ) {
-		if ( ! isClassicCheckout ) {
+		if ( ! isClassicCheckout() ) {
 			// The classic cart page is rendered by PHP from top to bottom;
 			// reloading is the only way its table and totals agree with the
 			// cart again.
@@ -497,18 +560,40 @@
 			} );
 	}
 
-	// Delegated, because the chooser's markup is replaced wholesale after every
-	// change and any listener bound to a card would go with it.
-	slot.addEventListener( 'change', function ( event ) {
-		var select = event.target.closest( '[data-bogo-variation]' );
+	/**
+	 * The element a delegated event came from, if it belongs to the chooser.
+	 *
+	 * @param {Event}  event    The delegated event.
+	 * @param {string} selector What to look for above the event's target.
+	 * @return {Element|null} The matching element inside a chooser slot.
+	 */
+	function trigger( event, selector ) {
+		var target = event.target;
+
+		if ( ! target || 'function' !== typeof target.closest ) {
+			return null;
+		}
+
+		var el = target.closest( selector );
+
+		return el && el.closest( '[data-bogo-slot]' ) ? el : null;
+	}
+
+	// Delegated from the document, not from the slot: the chooser's own markup
+	// is replaced wholesale after every change, and the slot around it does not
+	// survive either — the classic cart form it sits inside is swapped out by
+	// WooCommerce on every cart update. A listener bound to any of that would go
+	// with it, leaving a chooser that looks fine and answers nothing.
+	document.addEventListener( 'change', function ( event ) {
+		var select = trigger( event, '[data-bogo-variation]' );
 
 		if ( select ) {
 			syncCardPrice( select );
 		}
 	} );
 
-	slot.addEventListener( 'click', function ( event ) {
-		var chooseButton = event.target.closest( '.bogo-select__choose' );
+	document.addEventListener( 'click', function ( event ) {
+		var chooseButton = trigger( event, '.bogo-select__choose' );
 
 		if ( chooseButton ) {
 			event.preventDefault();
@@ -520,7 +605,7 @@
 			return;
 		}
 
-		var removeButton = event.target.closest( '[data-bogo-remove]' );
+		var removeButton = trigger( event, '[data-bogo-remove]' );
 
 		if ( removeButton ) {
 			event.preventDefault();
@@ -533,10 +618,11 @@
 			return;
 		}
 
-		var pageButton = event.target.closest( '[data-bogo-page]' );
+		var pageButton = trigger( event, '[data-bogo-page]' );
 
 		if ( pageButton ) {
 			event.preventDefault();
+			syncWithDom();
 
 			var target = 'prev' === pageButton.getAttribute( 'data-bogo-page' )
 				? state.page - 1
@@ -550,13 +636,14 @@
 		}
 	} );
 
-	slot.addEventListener( 'input', function ( event ) {
-		if ( ! event.target.hasAttribute( 'data-bogo-search' ) ) {
+	document.addEventListener( 'input', function ( event ) {
+		var input = trigger( event, '[data-bogo-search]' );
+
+		if ( ! input ) {
 			return;
 		}
 
-		var input = event.target;
-
+		syncWithDom();
 		window.clearTimeout( searchTimer );
 
 		searchTimer = window.setTimeout( function () {
@@ -571,15 +658,22 @@
 		}, 350 );
 	} );
 
-	slot.addEventListener( 'keydown', function ( event ) {
-		if ( 'Enter' !== event.key || ! event.target.hasAttribute( 'data-bogo-search' ) ) {
+	document.addEventListener( 'keydown', function ( event ) {
+		if ( 'Enter' !== event.key ) {
+			return;
+		}
+
+		var input = trigger( event, '[data-bogo-search]' );
+
+		if ( ! input ) {
 			return;
 		}
 
 		// Enter would otherwise submit the surrounding cart or checkout form.
 		event.preventDefault();
+		syncWithDom();
 		window.clearTimeout( searchTimer );
-		state.search = event.target.value.trim();
+		state.search = input.value.trim();
 		loadPage( 1 );
 	} );
 
@@ -670,7 +764,7 @@
 	readState();
 	updatePagination();
 
-	if ( isBlockMode && ! watchBlockCart() ) {
+	if ( isBlockMode() && ! watchBlockCart() ) {
 		// The blocks bundle may register its store after this script runs.
 		var attempts = 0;
 		var poll = window.setInterval( function () {
