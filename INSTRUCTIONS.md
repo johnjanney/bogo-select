@@ -96,7 +96,12 @@ Quantities are independent, so Buy 4 Get 8 is as valid as Buy 2 Get 2.
 | Setting | What it does |
 |---|---|
 | **All Products** | Any product in the cart counts toward the Buy quantity. |
-| **Select Products** | Only the products you list count. Start typing in the search box to find products by name or SKU. |
+| **Select Products** | Only what you list counts. Start typing in the search box to find products and variations by name or SKU. |
+
+Under *Select Products* you can list a product or one specific variation. A
+product counts every variation of it — list the T-Shirt and any size counts. A
+variation counts only itself — list *T-Shirt — Large* and the small one no longer
+qualifies. Listing both is the same as listing the product alone.
 
 Quantities are **summed across the whole cart**. With Buy quantity 2 and *All
 Products*, one Widget plus one Gadget qualifies. (If you need "2 of the same

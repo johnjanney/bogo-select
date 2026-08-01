@@ -200,8 +200,9 @@ Known constraints — see [BRIEF.md §3](BRIEF.md) for the full list:
 - Variable products can be rewards: list the product and the customer picks the
   variation in the chooser, or list one variation to pin the reward to it.
   Grouped and external products cannot, nor can a variation that leaves an
-  attribute set to "Any" — it would still need a choice. On the Buy side a
-  variation has always counted, matched by its own ID or its parent's.
+  attribute set to "Any" — it would still need a choice. On the Buy side both
+  work too: list a product to count every variation of it, or one variation to
+  count only that one.
 - Cart and checkout are covered by an automated integration job: CI installs the
   built zip into a real WordPress with WooCommerce (the compatibility floor and
   the current release) and exercises the Cart and Checkout **blocks** and the

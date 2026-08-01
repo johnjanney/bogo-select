@@ -85,6 +85,56 @@ class QualificationTest extends TestCase {
 		$this->assertSame( 2, BOGO_Select_Engine::count_buy_units( $this->cart() ) );
 	}
 
+	public function test_a_buy_list_naming_a_parent_counts_every_variation() {
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_scope'    => 'select',
+				'buy_products' => array( 10 ),
+				'get_products' => array( 20 ),
+			)
+		);
+		$this->variable_product(
+			10,
+			array(
+				101 => array( 'attributes' => array( 'size' => 'small' ) ),
+				102 => array( 'attributes' => array( 'size' => 'large' ) ),
+			)
+		);
+
+		$this->add_paid_item( 'a', 10, 2, 101 );
+		$this->add_paid_item( 'b', 10, 3, 102 );
+
+		$this->assertSame( 5, BOGO_Select_Engine::count_buy_units( $this->cart() ) );
+	}
+
+	public function test_a_buy_list_naming_one_variation_counts_only_that_variation() {
+		// The settings screen offers variations on the Buy side, so an offer can
+		// turn on one size rather than every size. The parent's ID is on every
+		// variation's cart line, so the list has to be read as naming a variation
+		// exactly and not the product behind it.
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_scope'    => 'select',
+				'buy_products' => array( 102 ),
+				'get_products' => array( 20 ),
+			)
+		);
+		$this->variable_product(
+			10,
+			array(
+				101 => array( 'attributes' => array( 'size' => 'small' ) ),
+				102 => array( 'attributes' => array( 'size' => 'large' ) ),
+			)
+		);
+
+		$this->add_paid_item( 'a', 10, 4, 101 );
+		$this->add_paid_item( 'b', 10, 3, 102 );
+
+		$this->assertSame( 3, BOGO_Select_Engine::count_buy_units( $this->cart() ) );
+	}
+
 	public function test_mixed_products_from_the_buy_list_qualify_together() {
 		// D-003: quantities are summed across the whole cart, so two different
 		// listed products satisfy a Buy 2 offer between them. Answering

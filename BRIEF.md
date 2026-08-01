@@ -119,7 +119,7 @@ These are the requirements as given by the client, restated for implementation.
 | Buy quantity | `buy_qty` | int ≥ 1 | `1` | Units required to qualify. |
 | Get quantity | `get_qty` | int ≥ 1 | `1` | Free units awarded. |
 | Buy scope | `buy_scope` | `all` \| `select` | `all` | |
-| Buy products | `buy_products` | int[] | `[]` | Required when `buy_scope = select`. |
+| Buy products | `buy_products` | int[] | `[]` | Required when `buy_scope = select`. May hold products and individual variations; a product counts every variation of it, a variation counts only itself. |
 | Get scope | `get_scope` | `all` \| `select` | `select` | |
 | Get products | `get_products` | int[] | `[]` | Required when `get_scope = select`. May hold simple products, variable parents, and individual variations. |
 | Start date | `start_date` | `Y-m-d` \| `''` | `''` | First day the offer runs. Empty means no start bound. |
@@ -136,7 +136,9 @@ Stored as a single serialized option: `bogo_select_settings`.
 ```
 buy_count = Σ quantity of every cart item where:
               item is NOT a BOGO reward item
-              AND (buy_scope = all OR product_id ∈ buy_products)
+              AND (buy_scope = all
+                   OR product_id ∈ buy_products
+                   OR variation_id ∈ buy_products)
 
 sets      = repeat ? floor(buy_count / buy_qty) : (buy_count >= buy_qty ? 1 : 0)
 reward_qty = sets × get_qty

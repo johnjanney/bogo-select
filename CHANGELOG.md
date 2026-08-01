@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.0] — 2026-08-01
+
+A Buy list that can name one size.
+
+### Changed
+
+- **The Buy list can name a single variation.** Its search box offered top-level
+  products only, so an offer could turn on every size of a T-shirt or on none of
+  them — "buy 2 of the Large" could not be expressed from the settings screen at
+  all. The Get list has searched variations since 1.3.0; the Buy list now uses
+  the same search. Nothing changed behind it: `is_buy_eligible()` has matched a
+  cart line by its variation ID or its parent's since 1.0.0, and D-006 said so on
+  day one, so the whole limit was the picker in front of it. Listing a product
+  still counts every variation of it. Listing a variation counts only that one,
+  and listing both is the same as listing the product alone. The behaviour was
+  verified by hand when variable rewards landed (`OPEN-QUESTIONS.md` Q-003) but
+  had no test, because no supported configuration could produce it; it now has
+  two.
+
 ## [2.2.1] — 2026-08-01
 
 A chooser that rendered perfectly and answered nothing.
@@ -545,7 +564,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.2.1...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.0...HEAD
+[2.3.0]: https://github.com/johnjanney/bogo-select/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/johnjanney/bogo-select/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/johnjanney/bogo-select/compare/v2.0.0...v2.1.0

@@ -268,6 +268,14 @@ objected to, surviving in that one case. And variations that share a parent's
 stock pool compete with each other, so choosing one can make another unavailable;
 the reason is shown against the option rather than left to be guessed at.
 
+**Amended 2026-08-01.** "The Buy side already handled variable products and
+needed no change" was true of the engine and false of the settings screen. The
+Buy picker searched products only, so the variation-level Buy list this entry
+verified could be reached by hand-editing the option and by no other route. The
+picker now searches variations on both sides. What was verified by running it is
+now held by two tests in `QualificationTest`, one for a list naming the parent
+and one for a list naming a single variation.
+
 ---
 
 ### Q-004 — Tax and shipping treatment of the reward — **Answered 2026-07-31**

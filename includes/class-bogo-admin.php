@@ -451,10 +451,13 @@ class BOGO_Select_Admin {
 								$o . '[buy_products][]',
 								'bogo-buy-products-field',
 								$s['buy_products'],
-								__( 'Search for products…', 'bogo-select' )
+								__( 'Search for products or variations…', 'bogo-select' ),
+								// Offers individual variations as well as products, so an
+								// offer can turn on one size rather than every size.
+								'woocommerce_json_search_products_and_variations'
 							);
 							?>
-							<p class="description"><?php esc_html_e( 'Only these products count toward qualifying. Variations count if either the variation or its parent is listed.', 'bogo-select' ); ?></p>
+							<p class="description"><?php esc_html_e( 'Only these count toward qualifying. Add a product to count every variation of it, or one specific variation to count only that one.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
 				</table>
@@ -527,6 +530,7 @@ class BOGO_Select_Admin {
 	 * @param string $id          Field id.
 	 * @param int[]  $selected    Selected product IDs.
 	 * @param string $placeholder Placeholder text.
+	 * @param string $action      WooCommerce AJAX search action backing the field.
 	 */
 	protected function product_select( $name, $id, $selected, $placeholder, $action = 'woocommerce_json_search_products' ) {
 		?>
