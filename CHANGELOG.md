@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.3] — 2026-08-02
+
+Three more levels of the analyser, and the one thing they found.
+
+Levels 6 and 7 changed documentation only. Level 8 changed runtime code, which
+is why this is a release rather than three annotation commits: `null` and
+`false` were both being used to mean "no product", and one of them has stopped.
+Behaviour is identical — every caller was testing truthiness — so this is a
+PATCH.
+
 ### Changed
 
 - **Static analysis raised to level 8**, which checks what becomes of a null.
@@ -747,7 +757,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.2...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...HEAD
+[2.3.3]: https://github.com/johnjanney/bogo-select/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/johnjanney/bogo-select/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/johnjanney/bogo-select/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/johnjanney/bogo-select/compare/v2.2.1...v2.3.0
