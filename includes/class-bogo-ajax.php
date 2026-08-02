@@ -346,7 +346,7 @@ class BOGO_Select_Ajax {
 	 * Send a failure response and stop.
 	 *
 	 * @param string $message Customer-facing message.
-	 * @return void
+	 * @return never
 	 */
 	protected function fail( $message ) {
 		wp_send_json_error( array( 'message' => $message ) );

@@ -12,10 +12,14 @@ parameters:
     # before it is used, which is where wc_get_product() returning
     # `WC_Product|false` stopped being invisible.
     #
-    # 8 and 9 are the remaining steps. 8 is about nullable access and 9 makes
-    # `mixed` explicit, and neither has been attempted; do not raise the level
-    # without reading what it reports first.
-    level: 7
+    # 8 checks what happens to a null, which is how three functions came to fold
+    # wc_get_product()'s two ways of saying "no product" into one.
+    #
+    # 9 is the remaining step. It makes `mixed` explicit, and against WordPress
+    # code `mixed` is often the honest type — a hook argument really can be
+    # anything. It has not been attempted; read what it reports before raising
+    # the level, and do not raise it by adding a baseline.
+    level: 8
 
     # The plugin still supports 7.4, so the analyser must judge it as 7.4 even
     # when it runs on a newer PHP in CI.

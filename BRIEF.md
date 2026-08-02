@@ -463,4 +463,13 @@ redeclaration.
   matches what they do. `is_offerable_variation()` carries a
   `@phpstan-assert-if-true`, so a true answer from it is proof of a product
   everywhere it is used, which is what the four remaining findings were about.
-- Levels 8 and 9 remain. Neither has been attempted.
+- **Level 8 since 2.3.3 too**, which checks what happens to a null.
+  `wc_get_product()` has two ways of saying "no product" — `false` and `null` —
+  and three functions passed both on to callers that were each checking for
+  truthiness anyway. They now fold the two into one falsy answer at the
+  boundary, so there is one absent case to handle rather than two. Two helpers
+  that end the request were also marked `never`, which is what stopped the
+  analyser believing execution continued past them.
+- Level 9 remains and has not been attempted. It makes `mixed` explicit, and
+  against WordPress code `mixed` is frequently the honest type; read what it
+  reports before deciding whether the level is worth having.

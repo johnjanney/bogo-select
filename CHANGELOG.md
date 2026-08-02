@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Static analysis raised to level 8**, which checks what becomes of a null.
+  Eighteen findings, and this level touched runtime code where 6 and 7 had not.
+
+  `wc_get_product()` has two ways of saying "there is no product": `false` and
+  `null`. Three functions passed both straight through while declaring only
+  `WC_Product|false`, and every one of their callers was doing a truthiness
+  test anyway — so the distinction had never meant anything to anyone. They now
+  fold it at the boundary and return one falsy answer. Behaviour is unchanged,
+  since `null` and `false` are both falsy and no caller ever compared strictly;
+  what changes is that a caller now has one absent case to handle instead of
+  two.
+
+  The rest were places where the analyser could not see that execution stops.
+  `BOGO_Select_Ajax::fail()` and `BOGO_Select_Blocks::error()` end the request —
+  one sends a JSON error, the other throws — and both were documented as
+  returning `void`, so everything after a call to them looked reachable and the
+  guard above it looked pointless. Both are `never` now, which resolved
+  thirteen findings between them.
+
 - **Static analysis raised to level 7.** Level 7 checks that a union type is
   narrowed before it is used, and it found seven places where
   `wc_get_product()` returning `WC_Product|false` had gone unnoticed. All seven

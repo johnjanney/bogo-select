@@ -367,7 +367,27 @@ which is how it was verified rather than assumed.
 
 That is the difference between the two levels worth recording: level 6 asked for
 documentation and found no defect, level 7 found an undocumented invariant four
-call sites were relying on. Levels 8 and 9 remain unattempted.
+call sites were relying on.
+
+**Level 8 went further still**, and is the first level to change runtime code.
+Eighteen findings. Thirteen were two functions that end the request — `fail()`
+sends a JSON error, `error()` throws — both documented as returning `void`, so
+every guard that called one looked pointless and everything after it looked
+reachable. `@return never` on each closed all thirteen.
+
+The other five come from `wc_get_product()` having two ways to say "no
+product", `false` and `null`. Three functions passed both through while
+declaring only `WC_Product|false`. Every caller was doing a truthiness test, so
+the difference had never meant anything to anyone — which is the argument for
+folding it at the boundary rather than widening three signatures and asking
+every future caller to think about it. Behaviour is unchanged; I checked each
+of the seven call sites rather than assuming, and none compares strictly.
+
+Level 9 remains, and is the first one I would not raise on sight. It makes
+`mixed` explicit, and against WordPress code `mixed` is frequently the honest
+type — a hook argument really can be anything. `phpstan.neon.dist` says to read
+what it reports before deciding whether the level is worth having, and not to
+buy it with a baseline.
 
 **Still not added: WordPress Coding Standards.** PHPStan and WPCS overlap
 hardly at all — one checks types, the other formatting and WordPress-specific

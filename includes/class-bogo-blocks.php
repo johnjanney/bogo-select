@@ -310,7 +310,7 @@ class BOGO_Select_Blocks {
 	 *
 	 * @param mixed               $response Response so far.
 	 * @param array<string,mixed> $handler  Route handler.
-	 * @param WP_REST_Request     $request  Request being served.
+	 * @param WP_REST_Request|null $request Request being served.
 	 * @return mixed
 	 */
 	public function open_rest_scope( $response, $handler = array(), $request = null ) {
@@ -326,7 +326,7 @@ class BOGO_Select_Blocks {
 	 *
 	 * @param mixed               $response Response.
 	 * @param array<string,mixed> $handler  Route handler.
-	 * @param WP_REST_Request     $request  Request being served.
+	 * @param WP_REST_Request|null $request Request being served.
 	 * @return mixed
 	 */
 	public function close_rest_scope( $response, $handler = array(), $request = null ) {
@@ -384,7 +384,7 @@ class BOGO_Select_Blocks {
 	/**
 	 * Whether a REST request is aimed at the Store API.
 	 *
-	 * @param WP_REST_Request $request Request, or anything else.
+	 * @param mixed $request Request, or anything else.
 	 * @return bool
 	 */
 	protected static function is_store_api_route( $request ) {
@@ -450,7 +450,7 @@ class BOGO_Select_Blocks {
 	 *
 	 * @param string $message Customer-facing message.
 	 * @throws Exception Always.
-	 * @return void
+	 * @return never
 	 */
 	protected static function error( $message ) {
 		$route_exception = '\Automattic\WooCommerce\StoreApi\Exceptions\RouteException';

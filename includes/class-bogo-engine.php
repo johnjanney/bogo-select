@@ -564,7 +564,11 @@ class BOGO_Select_Engine {
 	 * @return WC_Product|false
 	 */
 	public static function reward_product( $product_id, $variation_id = 0 ) {
-		return wc_get_product( $variation_id ? $variation_id : $product_id );
+		// false rather than null for a product that is not there, so callers have
+		// one absent answer to check instead of two.
+		$product = wc_get_product( $variation_id ? $variation_id : $product_id );
+
+		return $product ? $product : false;
 	}
 
 	/**
@@ -1253,7 +1257,9 @@ class BOGO_Select_Engine {
 		$product_id = (int) $product_id;
 
 		if ( ! array_key_exists( $product_id, self::$choice_products ) ) {
-			self::$choice_products[ $product_id ] = wc_get_product( $product_id );
+			$product = wc_get_product( $product_id );
+
+			self::$choice_products[ $product_id ] = $product ? $product : false;
 		}
 
 		return self::$choice_products[ $product_id ];
@@ -1568,7 +1574,10 @@ class BOGO_Select_Engine {
 		$cart = self::resolve_cart( $cart );
 		$key  = self::find_reward_key( $cart );
 
-		if ( ! $key ) {
+		// A key can only have come from a cart, so the second half of this is
+		// already true wherever the first is. Both are asked because the reader
+		// of this line should not have to know that.
+		if ( ! $cart || ! $key ) {
 			return null;
 		}
 

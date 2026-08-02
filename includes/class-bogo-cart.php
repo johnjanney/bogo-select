@@ -142,7 +142,13 @@ class BOGO_Select_Cart {
 	protected static function line_product( $cart_item ) {
 		$id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) $cart_item['product_id'];
 
-		return wc_get_product( $id );
+		// wc_get_product() answers "no product" as either false or null depending
+		// on why. Every caller here asks the same yes-or-no question, so the two
+		// are folded into one falsy answer at the boundary rather than each
+		// caller having to know there are two.
+		$product = wc_get_product( $id );
+
+		return $product ? $product : false;
 	}
 
 	/**
@@ -187,8 +193,13 @@ class BOGO_Select_Cart {
 	/**
 	 * The body of a validation pass, with re-entrancy already guarded.
 	 *
-	 * @param WC_Cart  $cart Cart being validated.
-	 * @param string[] $keys Every gift line key found in the cart.
+	 * @param WC_Cart                     $cart Cart being validated.
+	 * @param non-empty-array<int,string> $keys Every gift line key found in the
+	 *                                          cart. validate() returns before
+	 *                                          calling this when there are
+	 *                                          none, which is what makes the
+	 *                                          first key below a string rather
+	 *                                          than null.
 	 * @return void
 	 */
 	protected function run_validation( $cart, $keys ) {
