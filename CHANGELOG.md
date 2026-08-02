@@ -30,6 +30,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nothing here can reach a store: the shipped plugin has no Composer or npm
   runtime dependency, and neither manifest is in the archive.
 
+- **The first five updates Dependabot proposed, all merged.**
+  `actions/checkout` 5.1.0 → 7.0.1, `actions/setup-node` 5.0.0 → 7.0.0,
+  `actions/upload-artifact` 4.6.2 → 7.0.1, Playwright 1.56.0 → 1.62.0, and
+  MariaDB 10.11 → 12.3 in the integration containers. The pinning did not cause
+  that drift, it revealed it — three of the actions were majors behind before
+  anything was pinned.
+
+  The three action majors share one cause: each moved its own runtime to Node 24
+  at v6, which needs Actions Runner 2.327.1 or newer, and `ubuntu-latest`
+  satisfies that. `actions/checkout` v7 also refuses to check out a fork's PR
+  head under `pull_request_target` and `workflow_run`; this workflow triggers on
+  `push` and `pull_request` only.
+
+  MariaDB was the jump with the most behind it: `order.test.mjs` places a real
+  order and reads back its line metadata and stock decrements, and all eleven of
+  its checks passed on 12.3. The plugin issues no SQL of its own — every query in
+  the repository is in a test fixture — so the database is infrastructure for the
+  job rather than something the job certifies. The one cost is representativeness,
+  since CI now runs a newer database than most stores do. That is acceptable while
+  the plugin writes no SQL; if it ever does, the answer is a deliberate pin to an
+  LTS or a second lane rather than letting this drift back by accident.
+
+### Not released
+
+Everything under this heading is CI, tooling, and documentation. No file that
+ships to a store has changed since 2.3.4, so there is no version bump: `BRIEF.md`
+§8.1 gives the version to the plugin code, and the code is the same. This work
+rides along with the next change that touches it.
+
 ## [2.3.4] — 2026-08-02
 
 A second opinion, and the one thing it saw that the first could not.
