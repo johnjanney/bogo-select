@@ -141,9 +141,9 @@ abstract class TestCase extends PHPUnitTestCase {
 		return $this->cart()->add_item(
 			$key,
 			array(
-				'product_id'                    => $product_id,
-				'quantity'                      => $quantity,
-				\BOGO_Select_Engine::FLAG       => true,
+				'product_id'              => $product_id,
+				'quantity'                => $quantity,
+				\BOGO_Select_Engine::FLAG => true,
 			)
 		);
 	}

@@ -87,7 +87,12 @@ class EligibilityCacheTest extends TestCase {
 	}
 
 	public function test_the_all_products_scope_is_not_cached() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->product( 500 );
 
 		BOGO_Select_Engine::get_choice_page();

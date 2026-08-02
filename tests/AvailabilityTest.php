@@ -30,7 +30,12 @@ class AvailabilityTest extends TestCase {
 	}
 
 	public function test_all_scope_admits_any_published_purchasable_product() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->product( 20 );
 		$this->product( 21, array( 'status' => 'draft' ) );
 		$this->product( 22, array( 'purchasable' => false ) );
@@ -41,7 +46,12 @@ class AvailabilityTest extends TestCase {
 	}
 
 	public function test_unknown_products_are_never_eligible() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 
 		$this->assertFalse( BOGO_Select_Engine::is_get_eligible( 999 ) );
 		$this->assertFalse( BOGO_Select_Engine::is_get_eligible( 0 ) );

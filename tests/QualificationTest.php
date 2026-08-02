@@ -46,7 +46,12 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_buy_count_sums_quantities_across_the_whole_cart() {
-		$this->settings( array( 'enabled' => 'yes', 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'get_products' => array( 20 ),
+			)
+		);
 		$this->product( 10 );
 		$this->product( 11 );
 
@@ -57,7 +62,12 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_gift_lines_never_count_toward_qualification() {
-		$this->settings( array( 'enabled' => 'yes', 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'get_products' => array( 20 ),
+			)
+		);
 		$this->product( 10 );
 		$this->product( 20 );
 
@@ -274,7 +284,14 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_qualification_can_be_overridden_by_filter() {
-		$this->settings( array( 'enabled' => 'yes', 'buy_qty' => 5, 'get_qty' => 1, 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 5,
+				'get_qty'      => 1,
+				'get_products' => array( 20 ),
+			)
+		);
 
 		add_filter(
 			'bogo_select_qualifies',
@@ -289,7 +306,14 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_reward_quantity_can_be_overridden_by_filter() {
-		$this->settings( array( 'enabled' => 'yes', 'buy_qty' => 1, 'get_qty' => 1, 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 1,
+				'get_qty'      => 1,
+				'get_products' => array( 20 ),
+			)
+		);
 
 		add_filter(
 			'bogo_select_reward_quantity',
@@ -302,7 +326,14 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_qualifies_reflects_the_cart() {
-		$this->settings( array( 'enabled' => 'yes', 'buy_qty' => 2, 'get_qty' => 1, 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'buy_qty'      => 2,
+				'get_qty'      => 1,
+				'get_products' => array( 20 ),
+			)
+		);
 		$this->product( 10 );
 
 		$this->add_paid_item( 'a', 10, 1 );
@@ -313,7 +344,12 @@ class QualificationTest extends TestCase {
 	}
 
 	public function test_reward_keys_are_enumerated_and_the_first_is_canonical() {
-		$this->settings( array( 'enabled' => 'yes', 'get_products' => array( 20 ) ) );
+		$this->settings(
+			array(
+				'enabled'      => 'yes',
+				'get_products' => array( 20 ),
+			)
+		);
 		$this->product( 10 );
 		$this->product( 20 );
 		$this->product( 21 );

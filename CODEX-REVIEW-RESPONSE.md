@@ -46,7 +46,7 @@ the response document is the only durable half of the exchange.
 | L-01 | Low runtime / Medium docs | **Confirmed** — all four points | **Fixed** — README, BRIEF, tests/README, and the hook signature |
 | L-02 | Low | **Confirmed** — including the assertion that computes and discards | **Fixed in part** — WP_DEBUG now fails the build; the sibling assertion is exact; mobile viewport still uncovered |
 | L-03 | Low | **Confirmed** | **Fixed in part** — token permissions versioned; SHA pinning and lock files deferred |
-| L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed** — annotation corrected; PHPStan added at level 5, clean, no baseline (see the addendum) |
+| L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed and closed** — annotation corrected; PHPStan at level 8 and WPCS both clean with no baseline (see the addendum) |
 | L-05 | Low | **Confirmed** — reproduced | **Fixed** — the summary counts selections, not array entries |
 
 ## M-01 — a message is not a refusal
@@ -389,9 +389,41 @@ type — a hook argument really can be anything. `phpstan.neon.dist` says to rea
 what it reports before deciding whether the level is worth having, and not to
 buy it with a baseline.
 
-**Still not added: WordPress Coding Standards.** PHPStan and WPCS overlap
-hardly at all — one checks types, the other formatting and WordPress-specific
-escaping conventions. This closes the type half of L-04.
+**WordPress Coding Standards followed after level 8**, closing the other half of
+L-04. PHPCS with the `WordPress` standard, run by `composer sniff` and by the
+same CI job as the analyser.
+
+422 errors on the first run across 42 files. The shipped plugin accounted for 42
+of them and now passes the full standard with nothing excluded for it alone;
+the remaining ~380 were all in `tests/`.
+
+**One was a real defect**, and it is the sort only this tool finds. The shop
+notice carried two translator comments stacked on top of each other, the first
+describing a two-placeholder version of a string that has taken three since the
+reward gained a configurable name. Nothing executable was wrong, no test could
+have failed, and a translator reading the file would have been told the wrong
+thing about the string directly beneath it. Alongside it: the uninstall script
+was leaving two variables in the global scope it runs in, and two integration
+fixtures were shadowing WordPress's own `$order` and `$mode`.
+
+The rest of the shipped-code findings were conventions rather than faults, and
+each was either fixed or configured with its reason recorded in
+`.phpcs.xml.dist`. Two are worth naming because both could have been "fixed"
+into something worse. `manage_woocommerce` is WooCommerce's capability rather
+than core's, so the sniff cannot know it exists — it is declared, which keeps
+the sniff catching a mistyped one, rather than switched off. And the Store API
+exception messages are deliberately left unescaped: that response is JSON, and
+`esc_html()` would send an apostrophe to the customer as `&#039;`, which is the
+sniff's advice making the output worse rather than safer.
+
+`tests/` is held to the same standard with four exceptions, each a convention
+test code follows and shipped code does not: a stub must carry the WordPress
+name it stands in for or it cannot stand in for it, a test's name is its
+documentation and 233 generated docblocks would say nothing, the fake catalogue
+is one file describing one thing, and the integration fixtures query a
+disposable container that exists for one CI job.
+
+No baseline, in either tool. L-04 is closed.
 
 ---
 

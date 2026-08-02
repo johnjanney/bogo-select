@@ -337,7 +337,13 @@ class AdminSettingsTest extends TestCase {
 	// --- The gift list ------------------------------------------------------
 
 	public function test_a_gift_that_could_never_be_given_is_removed_and_named() {
-		$this->product( 30, array( 'type' => 'external', 'name' => 'Affiliate Tee' ) );
+		$this->product(
+			30,
+			array(
+				'type' => 'external',
+				'name' => 'Affiliate Tee',
+			)
+		);
 		$this->product( 20 );
 
 		$clean = $this->submit(

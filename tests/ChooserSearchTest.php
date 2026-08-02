@@ -54,7 +54,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_all_products_search_finds_a_product_by_sku_alone() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		$results = BOGO_Select_Engine::get_choice_page( array( 'search' => 'WIDGET-9' ) );
@@ -64,7 +69,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_all_products_search_still_finds_a_product_by_name() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		$results = BOGO_Select_Engine::get_choice_page( array( 'search' => 'Enamel' ) );
@@ -73,7 +83,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_a_term_in_both_a_name_and_another_sku_finds_both() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		$results = BOGO_Select_Engine::get_choice_page( array( 'search' => 'WIDGET' ) );
@@ -83,7 +98,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_sku_search_works_without_the_product_data_store() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		// No data store: the engine falls back to product queries, which need
@@ -96,7 +116,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_search_totals_count_only_products_that_can_be_offered() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		wc_get_product( 202 )->set( 'purchasable', false );
@@ -133,7 +158,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_search_stops_at_the_filterable_limit() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 
 		for ( $i = 1; $i <= 30; $i++ ) {
 			$this->product(
@@ -159,7 +189,12 @@ class ChooserSearchTest extends TestCase {
 	}
 
 	public function test_an_empty_search_term_matches_nothing_by_search() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue();
 
 		$this->assertSame( array(), BOGO_Select_Engine::search_product_ids( '   ', 10 ) );

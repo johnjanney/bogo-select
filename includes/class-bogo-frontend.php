@@ -538,7 +538,7 @@ class BOGO_Select_Frontend {
 		foreach ( BOGO_Select_Engine::offerable_variations( $parent ) as $variation ) {
 			$variation_id = $variation->get_id();
 			$demand       = BOGO_Select_Engine::stock_demand( null, $variation, $exclude );
-			$reason = BOGO_Select_Engine::unavailable_reason( $variation, $reward_qty, $demand );
+			$reason       = BOGO_Select_Engine::unavailable_reason( $variation, $reward_qty, $demand );
 
 			$options[] = array(
 				'id'      => (int) $variation_id,
@@ -635,7 +635,6 @@ class BOGO_Select_Frontend {
 		}
 
 		$message = sprintf(
-			/* translators: 1: opening link tag, 2: closing link tag. */
 			/* translators: 1: what the reward is called, 2: opening link tag, 3: closing link tag. */
 			esc_html__( 'You have unlocked a %1$s. %2$sChoose it in your cart%3$s.', 'bogo-select' ),
 			esc_html( BOGO_Select_Engine::reward_noun() ),

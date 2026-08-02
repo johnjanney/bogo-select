@@ -63,7 +63,7 @@ class BOGO_Select_Cart {
 	 * @return void
 	 */
 	public static function suspend() {
-		self::$suspended++;
+		++self::$suspended;
 	}
 
 	/**

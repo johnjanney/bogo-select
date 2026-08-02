@@ -41,10 +41,19 @@ class VariableSelectionTest extends TestCase {
 		$this->variable_product(
 			100,
 			array(
-				101 => array( 'name' => 'Tee - Small', 'price' => 20.0 ),
-				102 => array( 'name' => 'Tee - Large', 'price' => 25.0 ),
+				101 => array(
+					'name'  => 'Tee - Small',
+					'price' => 20.0,
+				),
+				102 => array(
+					'name'  => 'Tee - Large',
+					'price' => 25.0,
+				),
 			),
-			array( 'name' => 'Tee', 'price' => 20.0 )
+			array(
+				'name'  => 'Tee',
+				'price' => 20.0,
+			)
 		);
 
 		$this->add_paid_item( 'paid', 10, 1 );

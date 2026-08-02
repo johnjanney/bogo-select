@@ -64,7 +64,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_a_sixty_product_catalogue_is_fully_reachable() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$ids = $this->catalogue( 60 );
 
 		$first = BOGO_Select_Engine::get_choice_page();
@@ -82,7 +87,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_products_beyond_the_old_fifty_item_cap_are_reachable() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$ids = $this->catalogue( 60 );
 
 		// "Gift 55" sat past the pre-1.1.0 hard limit of 50.
@@ -92,7 +102,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_page_size_is_filterable() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue( 60 );
 
 		add_filter(
@@ -110,7 +125,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_pages_past_the_end_clamp_to_the_last_page() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue( 30 );
 
 		$results = BOGO_Select_Engine::get_choice_page( array( 'page' => 99 ) );
@@ -120,7 +140,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_search_matches_name_or_sku() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$ids = $this->catalogue( 60 );
 
 		$by_sku = BOGO_Select_Engine::get_choice_page( array( 'search' => 'SKU-007' ) );
@@ -129,7 +154,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_search_with_no_matches_returns_an_empty_page() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue( 10 );
 
 		$results = BOGO_Select_Engine::get_choice_page( array( 'search' => 'nothing here' ) );
@@ -140,7 +170,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_ineligible_products_are_dropped_from_a_page() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$ids = $this->catalogue( 5 );
 
 		wc_get_product( $ids[2] )->set( 'purchasable', false );
@@ -194,7 +229,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_get_choice_ids_returns_the_first_page() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue( 60 );
 
 		$this->assertSame( BOGO_Select_Engine::get_choice_page()['ids'], BOGO_Select_Engine::get_choice_ids() );
@@ -256,7 +296,12 @@ class ChooserPagingTest extends TestCase {
 	 * had no way to tell. The page-aware filter carries that context.
 	 */
 	public function test_the_page_aware_filter_receives_its_context() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$this->catalogue( 60 );
 
 		$seen = array();
@@ -282,7 +327,12 @@ class ChooserPagingTest extends TestCase {
 	}
 
 	public function test_the_page_aware_filter_can_drop_products_from_one_page_only() {
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 		$ids = $this->catalogue( 60 );
 
 		add_filter(
@@ -303,7 +353,12 @@ class ChooserPagingTest extends TestCase {
 	public function test_the_choice_filter_can_add_products_in_all_scope() {
 		$ids = $this->catalogue( 5 );
 
-		$this->settings( array( 'enabled' => 'yes', 'get_scope' => 'all' ) );
+		$this->settings(
+			array(
+				'enabled'   => 'yes',
+				'get_scope' => 'all',
+			)
+		);
 
 		add_filter(
 			'bogo_select_get_products',

@@ -42,7 +42,14 @@ class VariableChooserTest extends TestCase {
 		);
 
 		$this->product( 10, array( 'name' => 'Bought thing' ) );
-		$this->variable_product( 100, $variations, array( 'name' => 'Tee', 'price' => 20.0 ) );
+		$this->variable_product(
+			100,
+			$variations,
+			array(
+				'name'  => 'Tee',
+				'price' => 20.0,
+			)
+		);
 		$this->add_paid_item( 'paid', 10, 1 );
 	}
 
@@ -235,8 +242,14 @@ class VariableChooserTest extends TestCase {
 	protected function two_pinned_siblings( $chosen, $other ) {
 		$this->offering(
 			array(
-				101 => array( 'name' => 'Tee - Small', 'price' => 20.0 ),
-				102 => array( 'name' => 'Tee - Large', 'price' => 25.0 ),
+				101 => array(
+					'name'  => 'Tee - Small',
+					'price' => 20.0,
+				),
+				102 => array(
+					'name'  => 'Tee - Large',
+					'price' => 25.0,
+				),
 			),
 			array( 'get_products' => array( 101, 102 ) )
 		);

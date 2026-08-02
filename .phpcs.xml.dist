@@ -1,0 +1,175 @@
+<?xml version="1.0"?>
+<ruleset name="BOGO Select">
+	<description>WordPress Coding Standards for BOGO Select for WooCommerce.</description>
+
+	<file>bogo-select.php</file>
+	<file>uninstall.php</file>
+	<file>includes</file>
+	<file>tests</file>
+
+	<exclude-pattern>*/vendor/*</exclude-pattern>
+	<exclude-pattern>*/node_modules/*</exclude-pattern>
+	<exclude-pattern>*/dist/*</exclude-pattern>
+
+	<arg name="extensions" value="php"/>
+	<arg name="colors"/>
+	<arg value="ps"/>
+	<arg name="parallel" value="8"/>
+
+	<!--
+		The compatibility floor. Sniffs that report syntax newer than this are
+		reporting a real problem: the plugin declares support for PHP 7.4 and a
+		store running it must not see a parse error.
+	-->
+	<config name="testVersion" value="7.4-"/>
+	<config name="minimum_wp_version" value="6.0"/>
+
+	<!--
+		Everything excluded below is excluded with a reason beside it. Nothing is
+		excluded merely because it was noisy, and there is no baseline: the
+		standard is either met or configured to say what this codebase actually
+		does, in the same spirit as phpstan.neon.dist.
+	-->
+	<rule ref="WordPress">
+		<!--
+			The unit suite is namespaced and PSR-4 autoloaded, so its files are
+			named for their class rather than in WordPress's class-*.php form.
+			That is a deliberate split: tests/ is composer's, includes/ is
+			WordPress's, and only includes/ ships.
+		-->
+		<exclude name="WordPress.Files.FileName"/>
+
+		<!--
+			WordPress hands a callback a fixed argument list. A filter registered
+			for four arguments must declare four whether it reads them all or
+			not, so an unused trailing parameter is the API's shape rather than
+			this code's oversight — and dropping one would change which argument
+			arrives in which position.
+		-->
+		<exclude name="Generic.CodeAnalysis.UnusedFunctionParameter"/>
+
+		<!--
+			$parent, $include, $default, and $echo are parameter names, where PHP
+			reserves nothing. WordPress and WooCommerce use these exact names in
+			the signatures being mirrored — get_option( $option, $default ) among
+			them — and matching a familiar signature is worth more than avoiding
+			a word that reads oddly out of context.
+		-->
+		<exclude name="Universal.NamingConventions.NoReservedKeywordParameterNames"/>
+	</rule>
+
+	<!--
+		manage_woocommerce is WooCommerce's, not core's, so the sniff has no way
+		to know it exists. Declaring it here keeps the sniff working for genuine
+		typos rather than switching it off.
+	-->
+	<rule ref="WordPress.WP.Capabilities">
+		<properties>
+			<property name="custom_capabilities" type="array">
+				<element value="manage_woocommerce"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		The Store API answers in JSON, and the message thrown here is carried in
+		it rather than printed into a page. Escaping it would put HTML entities
+		into a JSON string — an apostrophe reaching the customer as &#039; — so
+		the sniff's usual advice makes this output worse rather than safer. The
+		text is the plugin's own translated strings; none of it is user input.
+	-->
+	<rule ref="WordPress.Security.EscapeOutput.ExceptionNotEscaped">
+		<exclude-pattern>includes/class-bogo-blocks.php</exclude-pattern>
+	</rule>
+
+	<!-- Every translatable string belongs to this plugin's text domain. -->
+	<rule ref="WordPress.WP.I18n">
+		<properties>
+			<property name="text_domain" type="array">
+				<element value="bogo-select"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!-- Globals, hooks, and classes carry the plugin's own prefix. -->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<properties>
+			<property name="prefixes" type="array">
+				<element value="bogo_select"/>
+				<element value="BOGO_Select"/>
+				<element value="BOGO_SELECT"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
+		=====================================================================
+		tests/ is held to the same standard with four exceptions, each of them
+		a convention test code follows and shipped code does not. The shipped
+		plugin — bogo-select.php, uninstall.php, includes/ — passes the full
+		standard with nothing excluded for it alone.
+		=====================================================================
+	-->
+
+	<!--
+		A stub exists to answer to a WordPress or WooCommerce name, so it must
+		carry that name: prefixing get_option() would stop it standing in for
+		get_option(). The same goes for the constants and hook names they
+		declare, and for output they print without escaping.
+	-->
+	<rule ref="WordPress.NamingConventions.PrefixAllGlobals">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.Security.EscapeOutput">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.NamingConventions.ValidFunctionName.FunctionDoubleUnderscore">
+		<exclude-pattern>tests/stubs/*</exclude-pattern>
+	</rule>
+
+	<!--
+		A test's name is its documentation —
+		test_a_reversed_window_is_not_saved says more than a docblock above it
+		would, and 233 generated ones would say nothing at all. Helpers and
+		fixtures in the suite are still documented; that is convention rather
+		than a sniff. Class docblocks carrying only @covers are the same case.
+	-->
+	<rule ref="Squiz.Commenting.FunctionComment.Missing">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.FunctionComment.WrongStyle">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Generic.Commenting.DocComment.MissingShort">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Squiz.Commenting.ClassComment.Missing">
+		<exclude-pattern>tests/stubs/*</exclude-pattern>
+	</rule>
+
+	<!--
+		The fake catalogue is one file describing one thing — a cart and the
+		products in it — and splitting it across files to satisfy a
+		one-class-per-file rule would make it harder to read, not easier. Test
+		files that pair a probe class with the test using it are the same.
+	-->
+	<rule ref="Generic.Files.OneObjectStructurePerFile">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+	<rule ref="Universal.Files.SeparateFunctionsFromOO">
+		<exclude-pattern>tests/*</exclude-pattern>
+	</rule>
+
+	<!--
+		The integration fixtures run under `wp eval-file` against a disposable
+		container that exists for one CI job. They query directly because there
+		is nothing to cache for, and they print their results because the
+		workflow reads that output to wire the next step up.
+	-->
+	<rule ref="WordPress.DB.DirectDatabaseQuery">
+		<exclude-pattern>tests/integration/*</exclude-pattern>
+	</rule>
+	<rule ref="WordPress.PHP.DevelopmentFunctions">
+		<exclude-pattern>tests/integration/*</exclude-pattern>
+	</rule>
+</ruleset>

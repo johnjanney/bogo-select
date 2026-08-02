@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **WordPress Coding Standards, with the shipped plugin passing in full**
+  (`CODEX-REVIEW.md` L-04, the half PHPStan does not cover). PHPCS with the
+  `WordPress` standard runs from `composer sniff` and in the same CI job as the
+  analyser. The two barely overlap: one checks types, the other formatting,
+  escaping, prefixing, and i18n.
+
+  The first run reported 422 errors across 42 files, of which the shipped
+  plugin — `includes/`, `bogo-select.php`, `uninstall.php` — accounted for 42.
+  It now passes the full standard with nothing excluded for it alone.
+
+  One finding was a real, if small, defect that nothing else would have caught:
+  the shop notice carried **two** translator comments, the first describing a
+  two-placeholder version of a string that has taken three since the reward
+  gained a configurable name. A translator reading the file would have been told
+  the wrong thing about the string directly beneath it. The stale one is gone.
+
+  The uninstall script also stopped leaving `$site_ids` and `$site_id` in the
+  global scope it runs in, and two integration fixtures stopped shadowing
+  WordPress's own `$order` and `$mode`.
+
+  Everything excluded is excluded with its reason beside it in
+  `.phpcs.xml.dist`, and there is no baseline. `manage_woocommerce` is declared
+  as a known capability rather than the sniff being switched off, so it still
+  catches a mistyped one. Exception messages in the Store API path are left
+  unescaped deliberately: that response is JSON, and escaping would send an
+  apostrophe to the customer as `&#039;`.
+
+  `tests/` is held to the standard with four documented exceptions, each a
+  convention test code follows and shipped code does not — a stub must carry the
+  WordPress name it stands in for, a test's name is its documentation, the fake
+  catalogue is one file describing one thing, and the integration fixtures query
+  a disposable container directly.
+
 ## [2.3.3] — 2026-08-02
 
 Three more levels of the analyser, and the one thing they found.

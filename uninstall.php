@@ -15,15 +15,17 @@ delete_option( 'bogo_select_version' );
 
 // Multisite: clean each site in the network.
 if ( is_multisite() ) {
-	$site_ids = get_sites(
+	// Prefixed because an uninstall script runs in the global scope, so these
+	// names would otherwise be left behind in it.
+	$bogo_select_site_ids = get_sites(
 		array(
 			'fields' => 'ids',
 			'number' => 0,
 		)
 	);
 
-	foreach ( $site_ids as $site_id ) {
-		switch_to_blog( $site_id );
+	foreach ( $bogo_select_site_ids as $bogo_select_site_id ) {
+		switch_to_blog( $bogo_select_site_id );
 		delete_option( 'bogo_select_settings' );
 		delete_option( 'bogo_select_version' );
 		restore_current_blog();

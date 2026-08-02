@@ -82,6 +82,9 @@ jobs:
       - name: Analyse
         run: composer analyse
 
+      - name: Coding standards
+        run: composer sniff
+
   package:
     name: Package parity
     runs-on: ubuntu-latest

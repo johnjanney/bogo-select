@@ -16,9 +16,9 @@
  * @package BOGO_Select
  */
 
-$mode     = isset( $args[0] ) && 'incl' === $args[0] ? 'incl' : 'excl';
+$tax_mode = isset( $args[0] ) && 'incl' === $args[0] ? 'incl' : 'excl';
 $rate     = 10;
-$includes = ( 'incl' === $mode );
+$includes = ( 'incl' === $tax_mode );
 
 update_option( 'woocommerce_calc_taxes', 'yes' );
 update_option( 'woocommerce_prices_include_tax', $includes ? 'yes' : 'no' );
@@ -79,8 +79,8 @@ function bogo_tax_product( $title, $price ) {
 	return $id;
 }
 
-$paid   = bogo_tax_product( 'Tax Paid Thing ' . $mode, 50 );
-$reward = bogo_tax_product( 'Tax Reward Thing ' . $mode, 20 );
+$paid   = bogo_tax_product( 'Tax Paid Thing ' . $tax_mode, 50 );
+$reward = bogo_tax_product( 'Tax Reward Thing ' . $tax_mode, 20 );
 
 update_option(
 	'bogo_select_settings',
@@ -101,7 +101,7 @@ update_option(
 
 echo wp_json_encode(
 	array(
-		'mode'         => $mode,
+		'mode'         => $tax_mode,
 		'rate'         => $rate,
 		'paid'         => (int) $paid,
 		'reward'       => (int) $reward,

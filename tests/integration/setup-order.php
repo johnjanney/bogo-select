@@ -18,9 +18,9 @@
 update_option(
 	'woocommerce_cod_settings',
 	array(
-		'enabled'     => 'yes',
-		'title'       => 'Cash on delivery',
-		'description' => '',
+		'enabled'      => 'yes',
+		'title'        => 'Cash on delivery',
+		'description'  => '',
 		'instructions' => '',
 	)
 );

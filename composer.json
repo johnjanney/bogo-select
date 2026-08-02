@@ -7,16 +7,22 @@
 		"php": ">=7.4"
 	},
 	"require-dev": {
+		"dealerdirect/phpcodesniffer-composer-installer": "^1.2",
 		"php-stubs/woocommerce-stubs": "^10.9",
 		"phpstan/phpstan": "^2.2",
 		"phpunit/phpunit": "^9.6",
-		"szepeviktor/phpstan-wordpress": "^2.0"
+		"squizlabs/php_codesniffer": "^3.13",
+		"szepeviktor/phpstan-wordpress": "^2.0",
+		"wp-coding-standards/wpcs": "^3.4"
 	},
 	"config": {
 		"platform": {
 			"php": "7.4.0"
 		},
-		"sort-packages": true
+		"sort-packages": true,
+		"allow-plugins": {
+			"dealerdirect/phpcodesniffer-composer-installer": true
+		}
 	},
 	"autoload-dev": {
 		"psr-4": {
@@ -26,6 +32,8 @@
 	"scripts": {
 		"test": "phpunit",
 		"analyse": "phpstan analyse --no-progress",
+		"sniff": "phpcs",
+		"sniff:fix": "phpcbf",
 		"lint": "find . -name '*.php' -not -path './vendor/*' -not -path './.git/*' -print0 | xargs -0 -n1 php -l"
 	}
 }

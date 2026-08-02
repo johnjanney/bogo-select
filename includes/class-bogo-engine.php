@@ -936,6 +936,8 @@ class BOGO_Select_Engine {
 	 * Products" over the catalogue, so no eligible product is unreachable.
 	 *
 	 * @param array<string,mixed> $args {
+	 *     Optional. Which page of choices to build.
+	 *
 	 *     @type string $search   Search term matched against name and SKU.
 	 *     @type int    $page     One-based page number.
 	 *     @type int    $per_page Page size. Defaults to self::choices_per_page().

@@ -7,9 +7,11 @@
 /vendor/
 .phpunit.result.cache
 
-# Local analyser overrides. phpstan.neon.dist is tracked; phpstan.neon is the
-# per-developer copy PHPStan prefers when it exists.
+# Local analyser overrides. The .dist files are tracked; these are the
+# per-developer copies PHPStan and PHPCS prefer when they exist.
 /phpstan.neon
+/.phpcs.xml
+/.phpcs.cache
 
 # OS / editor cruft
 .DS_Store

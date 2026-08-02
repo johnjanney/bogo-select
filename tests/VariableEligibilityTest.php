@@ -35,7 +35,13 @@ class VariableEligibilityTest extends TestCase {
 	}
 
 	public function test_a_variable_parent_is_a_choice_but_never_awardable_as_itself() {
-		$this->variable_product( 100, array( 101 => array(), 102 => array() ) );
+		$this->variable_product(
+			100,
+			array(
+				101 => array(),
+				102 => array(),
+			)
+		);
 		$this->offering( array( 100 ) );
 
 		$this->assertTrue( BOGO_Select_Engine::is_choice( 100 ) );
@@ -43,7 +49,13 @@ class VariableEligibilityTest extends TestCase {
 	}
 
 	public function test_listing_the_parent_makes_its_variations_awardable() {
-		$this->variable_product( 100, array( 101 => array(), 102 => array() ) );
+		$this->variable_product(
+			100,
+			array(
+				101 => array(),
+				102 => array(),
+			)
+		);
 		$this->offering( array( 100 ) );
 
 		$this->assertTrue( BOGO_Select_Engine::is_awardable( 100, 101 ) );
@@ -51,7 +63,13 @@ class VariableEligibilityTest extends TestCase {
 	}
 
 	public function test_a_pinned_variation_is_a_choice_and_awardable() {
-		$this->variable_product( 100, array( 101 => array(), 102 => array() ) );
+		$this->variable_product(
+			100,
+			array(
+				101 => array(),
+				102 => array(),
+			)
+		);
 		$this->offering( array( 101 ) );
 
 		$this->assertTrue( BOGO_Select_Engine::is_choice( 101 ) );

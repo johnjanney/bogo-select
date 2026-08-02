@@ -143,7 +143,7 @@ class BOGO_Select_Ajax {
 
 			if ( $variation_id && $product ) {
 				/**
-				 * reward_product() returns the variation itself when one is
+				 * Reward_product() returns the variation itself when one is
 				 * named, so this is a variation wherever $variation_id is set.
 				 *
 				 * @var WC_Product_Variation $product

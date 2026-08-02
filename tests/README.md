@@ -4,6 +4,7 @@
 composer install
 composer test          # or: ./vendor/bin/phpunit
 composer analyse       # PHPStan, level 8, no baseline
+composer sniff         # WordPress Coding Standards
 composer lint          # php -l over everything outside vendor/
 ```
 
@@ -22,6 +23,15 @@ whose own stubs declare the same functions as the stub packages and would be
 reported as redeclaring every one of them. The level is raised in steps and
 there is no baseline: it sits where the code passes, so the number means
 something. Level 9 remains, unattempted.
+
+**PHPCS with the WordPress standard** (`.phpcs.xml.dist`) reads the same runtime
+code plus the tests. The shipped plugin passes the full standard with nothing
+excluded for it alone. `tests/` is held to it with four documented exceptions,
+each a convention test code follows and shipped code does not: a stub must carry
+the WordPress name it stands in for, a test's name is its documentation, the
+fake catalogue is one file describing one thing, and the integration fixtures
+query a disposable container directly. Every exclusion in that file has its
+reason written beside it.
 
 **The integration job** (`.github/workflows/ci.yml` → `integration`) installs the
 built zip into a real WordPress with WooCommerce — the compatibility floor and

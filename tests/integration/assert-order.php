@@ -45,15 +45,15 @@ function bogo_check( $name, $pass, $detail = '' ) {
 	}
 }
 
-$order = wc_get_order( $order_id );
+$bogo_order = wc_get_order( $order_id );
 
-bogo_check( 'the order exists', (bool) $order, 'order ' . $order_id );
+bogo_check( 'the order exists', (bool) $bogo_order, 'order ' . $order_id );
 
-if ( $order ) {
+if ( $bogo_order ) {
 	$reward_item = null;
 	$paid_item   = null;
 
-	foreach ( $order->get_items() as $item ) {
+	foreach ( $bogo_order->get_items() as $item ) {
 		if ( (int) $item->get_product_id() === $reward_id ) {
 			$reward_item = $item;
 		}
@@ -139,7 +139,14 @@ foreach ( $checks as $c ) {
 	echo "\n";
 }
 
-$passed = count( array_filter( $checks, function ( $c ) { return $c[1]; } ) );
+$passed = count(
+	array_filter(
+		$checks,
+		function ( $c ) {
+			return $c[1];
+		}
+	)
+);
 
 echo "\n" . $passed . '/' . count( $checks ) . " checks passed.\n";
 

@@ -237,10 +237,10 @@ class BOGO_Select_Admin {
 	/**
 	 * Refuse a schedule that cannot mean what it says, keeping the stored one.
 	 *
-	 * add_settings_error() draws a message. It does not stop the option being
-	 * written, so the previous code showed "this window can never run" and then
-	 * saved that window anyway (CODEX-REVIEW.md M-01). Two submissions are
-	 * refused here rather than described:
+	 * WordPress draws the message add_settings_error() records and then writes
+	 * the option regardless, so the previous code showed "this window can never
+	 * run" and saved that window anyway (CODEX-REVIEW.md M-01). Two submissions
+	 * are refused here rather than described:
 	 *
 	 * - A non-empty date that is not a date. Clearing a field is how a store
 	 *   says "no bound on this side", and a typo must not be read as that

@@ -70,6 +70,8 @@ if command -v rsync >/dev/null 2>&1; then
 		--exclude 'phpunit.xml.dist' \
 		--exclude 'phpstan.neon.dist' \
 		--exclude 'phpstan.neon' \
+		--exclude '.phpcs.xml.dist' \
+		--exclude '.phpcs.xml' \
 		--exclude '.phpunit.result.cache' \
 		--exclude 'CODEX-REVIEW*.md' \
 		--exclude '.DS_Store' \
@@ -91,6 +93,8 @@ else
 		"${STAGE}/${SLUG}/phpunit.xml.dist" \
 		"${STAGE}/${SLUG}/phpstan.neon.dist" \
 		"${STAGE}/${SLUG}/phpstan.neon" \
+		"${STAGE}/${SLUG}/.phpcs.xml.dist" \
+		"${STAGE}/${SLUG}/.phpcs.xml" \
 		"${STAGE}/${SLUG}/.phpunit.result.cache"
 	find "${STAGE}/${SLUG}" \
 		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \

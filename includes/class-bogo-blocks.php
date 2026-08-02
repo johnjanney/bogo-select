@@ -178,12 +178,12 @@ class BOGO_Select_Blocks {
 		$state = BOGO_Select_Engine::state();
 
 		return array(
-			'active'              => (bool) $state['active'],
-			'qualifies'           => (bool) $state['qualifies'],
-			'reward_quantity'     => (int) $state['reward_quantity'],
+			'active'                => (bool) $state['active'],
+			'qualifies'             => (bool) $state['qualifies'],
+			'reward_quantity'       => (int) $state['reward_quantity'],
 			'selected_product_id'   => (int) $state['selected_product_id'],
 			'selected_variation_id' => (int) $state['selected_variation_id'],
-			'signature'           => (string) $state['signature'],
+			'signature'             => (string) $state['signature'],
 		);
 	}
 
@@ -194,22 +194,22 @@ class BOGO_Select_Blocks {
 	 */
 	public static function store_api_schema() {
 		return array(
-			'active'              => array(
+			'active'                => array(
 				'description' => __( 'Whether the BOGO offer is running.', 'bogo-select' ),
 				'type'        => 'boolean',
 				'readonly'    => true,
 			),
-			'qualifies'           => array(
+			'qualifies'             => array(
 				'description' => __( 'Whether this cart has earned a reward.', 'bogo-select' ),
 				'type'        => 'boolean',
 				'readonly'    => true,
 			),
-			'reward_quantity'     => array(
+			'reward_quantity'       => array(
 				'description' => __( 'Number of reward units earned.', 'bogo-select' ),
 				'type'        => 'integer',
 				'readonly'    => true,
 			),
-			'selected_product_id' => array(
+			'selected_product_id'   => array(
 				'description' => __( 'Product ID of the chosen reward, or 0. The parent, when a variation was chosen.', 'bogo-select' ),
 				'type'        => 'integer',
 				'readonly'    => true,
@@ -219,7 +219,7 @@ class BOGO_Select_Blocks {
 				'type'        => 'integer',
 				'readonly'    => true,
 			),
-			'signature'           => array(
+			'signature'             => array(
 				'description' => __( 'Changes whenever the gift chooser would render differently.', 'bogo-select' ),
 				'type'        => 'string',
 				'readonly'    => true,
@@ -308,8 +308,8 @@ class BOGO_Select_Blocks {
 	/**
 	 * Note that a Store API response has started being built.
 	 *
-	 * @param mixed               $response Response so far.
-	 * @param array<string,mixed> $handler  Route handler.
+	 * @param mixed                $response Response so far.
+	 * @param array<string,mixed>  $handler  Route handler.
 	 * @param WP_REST_Request|null $request Request being served.
 	 * @return mixed
 	 */
@@ -324,8 +324,8 @@ class BOGO_Select_Blocks {
 	/**
 	 * Note that a Store API response has finished being built.
 	 *
-	 * @param mixed               $response Response.
-	 * @param array<string,mixed> $handler  Route handler.
+	 * @param mixed                $response Response.
+	 * @param array<string,mixed>  $handler  Route handler.
 	 * @param WP_REST_Request|null $request Request being served.
 	 * @return mixed
 	 */

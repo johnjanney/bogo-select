@@ -75,6 +75,8 @@ class BOGO_Select {
 
 	/**
 	 * No unserializing.
+	 *
+	 * @throws \Exception Always.
 	 */
 	public function __wakeup() {
 		throw new \Exception( 'Cannot unserialize BOGO_Select.' );

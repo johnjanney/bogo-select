@@ -17,7 +17,7 @@
  * @package BOGO_Select
  */
 
-$mode = isset( $args[0] ) && 'percent' === $args[0] ? 'percent' : 'free';
+$shipping_mode = isset( $args[0] ) && 'percent' === $args[0] ? 'percent' : 'free';
 
 $threshold  = 50;
 $paid_price = 45;
@@ -106,8 +106,8 @@ update_option(
 		'buy_scope'          => 'all',
 		'get_scope'          => 'select',
 		'get_products'       => array( $reward ),
-		'get_discount_type'  => 'percent' === $mode ? 'percent' : 'free',
-		'get_discount_value' => 'percent' === $mode ? 50 : 0,
+		'get_discount_type'  => 'percent' === $shipping_mode ? 'percent' : 'free',
+		'get_discount_value' => 'percent' === $shipping_mode ? 50 : 0,
 		'repeat'             => 'no',
 		'show_notice'        => 'yes',
 	)
@@ -115,7 +115,7 @@ update_option(
 
 echo wp_json_encode(
 	array(
-		'mode'         => $mode,
+		'mode'         => $shipping_mode,
 		'paid'         => (int) $paid,
 		'reward'       => (int) $reward,
 		'paid_price'   => $paid_price,

@@ -434,7 +434,7 @@ it would take a third-party method — and currencies whose minor unit is not tw
 digits. The hydration path is also unexercised: WooCommerce did not preload a
 cart response in the tested configuration.
 
-### 8.7 Static analysis runs in CI
+### 8.7 Static analysis and coding standards run in CI
 
 Since 2.3.1 the runtime code is analysed by PHPStan (`phpstan.neon.dist`,
 `composer analyse`, and the `analyse` job) against the WordPress and WooCommerce
@@ -473,3 +473,19 @@ redeclaration.
 - Level 9 remains and has not been attempted. It makes `mixed` explicit, and
   against WordPress code `mixed` is frequently the honest type; read what it
   reports before deciding whether the level is worth having.
+
+**PHPCS with the WordPress standard** (`.phpcs.xml.dist`, `composer sniff`) runs
+in the same job and covers the tests as well as the shipped code. It overlaps
+PHPStan hardly at all: one checks types, the other formatting, escaping,
+prefixing, and the i18n conventions.
+
+- **The shipped plugin passes the full standard with nothing excluded for it
+  alone.** Every exclusion in the ruleset is either scoped to `tests/` or
+  applies to a sniff that cannot know something — `manage_woocommerce` is
+  WooCommerce's capability, not core's, and is declared rather than silenced.
+- Where a sniff is excluded, the reason sits beside it in the ruleset. Nothing
+  is excluded for being noisy, and there is no baseline.
+- The four `tests/` exceptions are conventions test code follows and shipped
+  code does not: a stub must carry the WordPress name it stands in for, a test's
+  name is its documentation, the fake catalogue is one file describing one
+  thing, and the integration fixtures query a disposable container directly.
