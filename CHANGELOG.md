@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+No plugin code changes; the version stays at 2.3.1 (`BRIEF.md` §8.1).
+
+- **The pinned-sibling browser assertion matches what WooCommerce renders.**
+  Tightening it in 2.3.1 turned it red: it looked for the variation's full post
+  title, `Classic Variable Thing - Large`, in the cart line. WooCommerce renders
+  a variation line as the parent's name with `Size: Large` beneath it, so that
+  string is never there. The 2.3.1 CI failure was this assertion, not the
+  plugin — and it also showed the assertion it replaced had been passing on a
+  negative that was true whichever sibling was in the cart. It now matches the
+  attribute, still scoped to the cart rows, and prints the row text when it
+  fails.
+
 ## [2.3.1] — 2026-08-01
 
 A settings screen that said no and meant it.

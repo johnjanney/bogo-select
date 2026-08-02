@@ -214,11 +214,17 @@ if (pinnedCards === 2) {
 		check('Classic cart: the card now marked is the sibling that was clicked',
 			swapped.largeIsSelected && swapped.selectedCard === String(LARGE_ID),
 			`card ${swapped.selectedCard} is marked, expected ${LARGE_ID}`);
+		// Matched on the attribute rather than the variation's full name:
+		// WooCommerce renders a variation line as the parent's name with
+		// "Size: Large" beneath it, so the hyphenated post title never appears
+		// in the cart. That is also why the old assertion's negative half —
+		// no "Classic Variable Thing - Small" anywhere on the page — was true
+		// whichever sibling was in the cart.
 		check('Classic cart: the cart now holds the sibling',
 			swapped.rows > 0
-			&& /Classic Variable Thing - Large/i.test(swapped.cartText)
-			&& !/Classic Variable Thing - Small/i.test(swapped.cartText),
-			`${swapped.rows} cart rows read; they name the wrong variation`);
+			&& /\bLarge\b/i.test(swapped.cartText)
+			&& !/\bSmall\b/i.test(swapped.cartText),
+			`${swapped.rows} cart rows read: ${JSON.stringify(swapped.cartText)}`);
 	}
 }
 
