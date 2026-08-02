@@ -355,8 +355,10 @@ class BOGO_Select_Ajax {
 	/**
 	 * Confirm a successful selection and stop.
 	 *
-	 * @param WC_Product $product Chosen product.
-	 * @param int        $qty     Free units awarded.
+	 * @param WC_Product|false $product Chosen product, or `false` if it
+	 *                                  vanished between the add and this
+	 *                                  message.
+	 * @param int              $qty     Free units awarded.
 	 * @return void
 	 */
 	protected function succeed( $product, $qty ) {

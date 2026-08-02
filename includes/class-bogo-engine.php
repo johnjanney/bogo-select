@@ -628,8 +628,18 @@ class BOGO_Select_Engine {
 	/**
 	 * Whether a variation can be given as it stands.
 	 *
+	 * Takes anything, because its callers hand it whatever wc_get_product()
+	 * returned, and that is `false` for an ID with no product behind it. Saying
+	 * so — rather than the callers each checking first — is what makes this the
+	 * one place the question is asked.
+	 *
 	 * @param mixed $variation Variation, or anything else.
 	 * @return bool
+	 *
+	 * @phpstan-assert-if-true WC_Product $variation A true answer is also proof
+	 *                                   there is a product here, which is what
+	 *                                   lets the callers use one without asking
+	 *                                   again.
 	 */
 	protected static function is_offerable_variation( $variation ) {
 		if ( ! $variation instanceof WC_Product || ! $variation->is_type( 'variation' ) ) {
@@ -798,11 +808,18 @@ class BOGO_Select_Engine {
 	/**
 	 * Why a gift product cannot be awarded at the given quantity.
 	 *
-	 * @param WC_Product $product      Product to check.
-	 * @param int        $qty          Quantity to award.
-	 * @param int        $other_demand Units of the same stock-managed product already
-	 *                                 claimed by other cart lines. Counted against
-	 *                                 stock but not reported as free units.
+	 * @param WC_Product|false $product      Product to check, or the `false`
+	 *                                       wc_get_product() returns for an ID
+	 *                                       with nothing behind it. Answered
+	 *                                       rather than refused: a gift whose
+	 *                                       product has been deleted is
+	 *                                       unavailable, which is the question
+	 *                                       being asked.
+	 * @param int              $qty          Quantity to award.
+	 * @param int              $other_demand Units of the same stock-managed
+	 *                                       product already claimed by other
+	 *                                       cart lines. Counted against stock
+	 *                                       but not reported as free units.
 	 * @return string Empty string when it can be awarded.
 	 */
 	public static function unavailable_reason( $product, $qty, $other_demand = 0 ) {
@@ -849,9 +866,11 @@ class BOGO_Select_Engine {
 	 * Lines are matched on the ID that actually holds the stock record, so a
 	 * variation that inherits its parent's stock counts against the same pool.
 	 *
-	 * @param WC_Cart|null $cart        Cart to inspect.
-	 * @param WC_Product   $product     Product whose stock is in question.
-	 * @param string       $exclude_key Cart item key to leave out of the total.
+	 * @param WC_Cart|null     $cart        Cart to inspect.
+	 * @param WC_Product|false $product     Product whose stock is in question,
+	 *                                      or `false` when it no longer exists,
+	 *                                      which claims no stock.
+	 * @param string           $exclude_key Cart item key to leave out of the total.
 	 * @return int
 	 */
 	public static function stock_demand( $cart, $product, $exclude_key = '' ) {

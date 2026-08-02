@@ -344,6 +344,31 @@ are open-ended, and inventing a shape for either would document a guess.
 Nothing else changed. No defect was found at level 6, which is what the earlier
 paragraph predicted and worth confirming rather than assuming.
 
+**Level 7 followed immediately**, and unlike level 6 it had something to say.
+Seven findings, all one root cause: `wc_get_product()` returns
+`WC_Product|false`, and nothing in the codebase said what happened to the
+`false`.
+
+Three are functions that deliberately answer for it — `unavailable_reason()`
+says "This product is no longer available", `stock_demand()` returns zero,
+`succeed()` prints an empty name — while their signatures claimed to require a
+`WC_Product`. In each one the guard is the first line of the body. The
+documentation was understating the code, so the documentation changed and the
+code did not.
+
+The other four trace to `is_offerable_variation()`. Its `true` answer *is* proof
+that a product is there, because it opens with an `instanceof`; nothing said so,
+and its callers went on to use the value without asking again. That was correct
+and it was resting on an invariant no tool could see and no comment recorded — a
+later edit to that function could have turned four call sites into fatals with
+nothing to catch it. A single `@phpstan-assert-if-true` states the guarantee
+where it is established. Deleting that one line brings all four findings back,
+which is how it was verified rather than assumed.
+
+That is the difference between the two levels worth recording: level 6 asked for
+documentation and found no defect, level 7 found an undocumented invariant four
+call sites were relying on. Levels 8 and 9 remain unattempted.
+
 **Still not added: WordPress Coding Standards.** PHPStan and WPCS overlap
 hardly at all — one checks types, the other formatting and WordPress-specific
 escaping conventions. This closes the type half of L-04.

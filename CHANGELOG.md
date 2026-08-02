@@ -9,6 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Static analysis raised to level 7.** Level 7 checks that a union type is
+  narrowed before it is used, and it found seven places where
+  `wc_get_product()` returning `WC_Product|false` had gone unnoticed. All seven
+  were the same story with two different endings.
+
+  Three are functions that deliberately answer for the `false` — a deleted
+  product is "no longer available", and claims no stock — while their signatures
+  claimed to require a `WC_Product`. Each one's very first line is the guard
+  that handles it. The documentation was understating the code, so the
+  documentation changed and nothing else did.
+
+  The other four all trace back to `is_offerable_variation()`, whose `true`
+  answer *is* proof there is a product, since it starts with an `instanceof`.
+  Nothing said so, and callers went on to use the result without asking again —
+  correct, but resting on an invariant no tool could see and nothing recorded.
+  A `@phpstan-assert-if-true` states it once, in the one place that establishes
+  it. Removing that line brings all four findings straight back, which is how it
+  was checked rather than assumed.
+
 - **Static analysis raised to level 6**, which is the step 2.3.2 named as next.
   Every `array` in a docblock now says what it holds and every method declares a
   return type: 34 `void` declarations and 46 array types, still with no baseline

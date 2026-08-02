@@ -456,4 +456,11 @@ redeclaration.
   method actually returns — a page of gift choices is
   `array{ids: int[], page: int, pages: int, total: int}` and cannot drift from
   that silently.
-- Level 7 is the next step: it checks that union types are narrowed before use.
+- **Level 7 since 2.3.3 as well**, checking that a union is narrowed before it
+  is used. `wc_get_product()` returns `WC_Product|false`, and three functions
+  that deliberately answer for the `false` — "no longer available", "claims no
+  stock" — had signatures claiming to require a product. Their documentation now
+  matches what they do. `is_offerable_variation()` carries a
+  `@phpstan-assert-if-true`, so a true answer from it is proof of a product
+  everywhere it is used, which is what the four remaining findings were about.
+- Levels 8 and 9 remain. Neither has been attempted.

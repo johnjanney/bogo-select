@@ -8,10 +8,14 @@ parameters:
     #
     # 5 checks argument types against the WordPress and WooCommerce stubs. 6
     # additionally requires every `array` in a docblock to say what it holds and
-    # every method to declare a return type — 80 annotations, none of which was
-    # a defect, done as their own pass in 2.3.3. The next step is 7, which
-    # checks that union types are narrowed before they are used.
-    level: 6
+    # every method to declare a return type. 7 checks that a union is narrowed
+    # before it is used, which is where wc_get_product() returning
+    # `WC_Product|false` stopped being invisible.
+    #
+    # 8 and 9 are the remaining steps. 8 is about nullable access and 9 makes
+    # `mixed` explicit, and neither has been attempted; do not raise the level
+    # without reading what it reports first.
+    level: 7
 
     # The plugin still supports 7.4, so the analyser must judge it as 7.4 even
     # when it runs on a newer PHP in CI.
