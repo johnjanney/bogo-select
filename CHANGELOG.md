@@ -66,6 +66,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   invisible over it — is the failure worth catching, and Playwright's
   actionability check is exactly that assertion.
 
+  **It found a defect on its first run.** Every geometry assertion passed — the
+  layout is the row it was meant to be — but the buttons measured 21×53 CSS
+  pixels, under the 24px WCAG 2.2 asks for and well under what a thumb wants.
+  On a phone these are tapped rather than pointed at, so the compact layout now
+  gives its controls a 44px minimum target, the size the platform guidelines
+  settled on. "Remove gift" is styled as text rather than as a button and is
+  tapped just the same, so it gets the same target without gaining a border:
+  its background stays transparent, and the extra height is reach rather than
+  anything the customer sees. Cards grew from 134px to still well inside the
+  bound the test holds them to.
+
   Overflow is asserted against the chooser and its cards rather than the
   document. A page-level check would fail on the theme's layout or
   WooCommerce's own blocks, neither of which this plugin can fix, and a check

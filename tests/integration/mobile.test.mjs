@@ -94,6 +94,8 @@ function measure() {
 			actions: box(li.querySelector('.bogo-select__actions')),
 			button: box(li.querySelector('.bogo-select__choose, .bogo-select__actions .button')),
 			buttonText: (li.querySelector('.bogo-select__choose, .bogo-select__actions .button') || {}).textContent || '',
+			// Styled as text rather than as a button, and tapped just the same.
+			remove: box(li.querySelector('.bogo-select__remove')),
 			label: (() => {
 				const sel = li.querySelector('[data-bogo-variation]');
 				if ( ! sel ) return null;
@@ -192,6 +194,15 @@ async function inspect( label, path ) {
 		withButton.length > 0 && tappable.length === withButton.length,
 		withButton.map((c) => `${Math.round(c.button.w)}×${Math.round(c.button.h)}`).join(', '));
 
+	const withRemove = complete.filter((c) => c.remove);
+
+	if ( withRemove.length ) {
+		const reachable = withRemove.filter((c) => c.remove.h >= MIN_TAP && c.remove.w >= MIN_TAP);
+		check(`${label}: "Remove gift" meets the minimum target size too`,
+			reachable.length === withRemove.length,
+			withRemove.map((c) => `${Math.round(c.remove.w)}×${Math.round(c.remove.h)}`).join(', '));
+	}
+
 	const named = withButton.filter((c) => c.buttonText.trim().length > 0);
 	check(`${label}: every button has an accessible name`,
 		named.length === withButton.length, `${named.length}/${withButton.length}`);
@@ -237,6 +248,10 @@ if ( before > 0 ) {
 } else {
 	check('Classic cart: a choose button was present to tap', false, 'no choose button rendered');
 }
+
+// Measured again now that a gift is selected: the selected card is the only one
+// that carries "Remove gift", so the first pass had nothing to measure.
+await inspect('Classic cart, gift chosen', CART_PATH);
 
 // The block cart is the same component and the same stylesheet reached through
 // a different transport, so it is measured rather than driven.

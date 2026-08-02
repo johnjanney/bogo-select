@@ -265,6 +265,32 @@
 	.bogo-select__actions .button {
 		width: auto;
 	}
+
+	/*
+	 * Touch targets.
+	 *
+	 * At this width these are tapped with a thumb rather than pointed at, and
+	 * the theme's own button height — 21px when this was measured — is below
+	 * the 24px WCAG 2.2 asks for and well below what a thumb wants. 44px is the
+	 * size the platform guidelines settled on. The flex centring is what keeps
+	 * the label in the middle of the taller box instead of riding at its top.
+	 *
+	 * "Remove gift" is styled as text rather than as a button and still has to
+	 * be hit, so it gets the same target without gaining a border: its
+	 * background stays transparent, so the extra height is reach rather than
+	 * anything the customer sees.
+	 */
+	.bogo-select__actions .button,
+	.bogo-select__remove {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 44px;
+	}
+
+	.bogo-select__remove {
+		padding: 0 0.25em;
+	}
 }
 
 /* Cart table markers. */
