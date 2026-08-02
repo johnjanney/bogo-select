@@ -131,6 +131,49 @@ if (( ${#KEEP[@]} == 0 )); then
 	exit 1
 fi
 
+# --- A store of our own -----------------------------------------------------
+#
+# The storefront tests are run repeatedly here, and the integration scenarios
+# share one store that every scenario before this has been reconfiguring. Rather
+# than depend on what they left, this seeds the classic fixture and uses the IDs
+# it returns — so the baseline and every mutation see the same store, and this
+# step does not silently depend on its position in the job.
+
+needs_storefront=0
+
+for i in "${KEEP[@]}"; do
+	[[ "${CMDS[$i]}" == *mobile.test.mjs* || "${CMDS[$i]}" == *classic.test.mjs* ]] && needs_storefront=1
+done
+
+if (( needs_storefront )); then
+	echo "Seeding a store for this check..."
+
+	SEED="$( ${COMPOSE} exec -T cli wp eval-file /integration/setup-classic.php | tail -1 | tr -d '\r' )"
+
+	if [[ -z "${SEED}" ]]; then
+		echo "error: the classic fixture returned nothing." >&2
+		exit 1
+	fi
+
+	eval "$( SEED="${SEED}" python3 - <<-'PY'
+		import json, os, sys
+		d = json.loads(os.environ['SEED'])
+		pairs = {
+		    'PAID_ID': 'paid', 'REWARD_ID': 'reward', 'VARIABLE_ID': 'variable',
+		    'SMALL_ID': 'small', 'LARGE_ID': 'large',
+		}
+		for env, key in pairs.items():
+		    if key not in d:
+		        sys.stderr.write(f"fixture did not return {key}\n")
+		        sys.exit(1)
+		    print(f"export {env}={int(d[key])}")
+	PY
+	)"
+
+	echo "  paid ${PAID_ID}, reward ${REWARD_ID}, variable ${VARIABLE_ID}, small ${SMALL_ID}, large ${LARGE_ID}"
+	echo
+fi
+
 # --- Baselines --------------------------------------------------------------
 #
 # Every test used below must pass first. Without this, a broken stack would
