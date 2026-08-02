@@ -19,11 +19,10 @@ Thumbs.db
 *.swp
 *~
 
-# Integration-test scratch. The browser and its deps are installed per run, and
-# screenshots are per-run artifacts uploaded by CI — none of it belongs in git.
+# Integration-test scratch. package.json and package-lock.json are tracked, so
+# the browser the job installs is the one the lockfile pins; node_modules and
+# the per-run screenshots are not.
 /node_modules/
-/package.json
-/package-lock.json
 /tests/integration/node_modules/
 /tests/integration/package.json
 /tests/integration/package-lock.json

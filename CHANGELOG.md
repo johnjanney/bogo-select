@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Everything CI reaches for is pinned, and Dependabot watches the pins**
+  (`CODEX-REVIEW.md` L-03). Actions are pinned to full commit SHAs with the
+  version in a comment beside each — a tag can be moved, a SHA cannot. The
+  integration job's browser now comes from `npm ci` against a committed
+  `package-lock.json`, so it drives the Playwright that file names by integrity
+  hash instead of whatever `npm install` resolved that morning.
+
+  `.github/dependabot.yml` is the half that makes the rest safe, and is why
+  this was not done earlier. Pinning on its own trades a supply-chain risk for
+  a staleness risk: pinned actions stop receiving security fixes and nothing
+  says so. Weekly updates now cover the actions, the Composer dev tools,
+  Playwright, and the integration containers.
+
+  Container images stay pinned by tag rather than digest. They exist for the
+  length of one CI job and are never published or deployed, so what matters is
+  being told when a newer WordPress or MariaDB appears — the same signal that
+  keeps the compatibility matrix honest.
+
+  Nothing here can reach a store: the shipped plugin has no Composer or npm
+  runtime dependency, and neither manifest is in the archive.
+
 ## [2.3.4] — 2026-08-02
 
 A second opinion, and the one thing it saw that the first could not.

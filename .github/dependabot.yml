@@ -1,0 +1,67 @@
+# This file is the update mechanism that makes pinning safe.
+#
+# Actions are pinned to full commit SHAs, the browser is pinned by a lockfile,
+# and the container images are pinned by tag. Pinning without something watching
+# those pins is how a workflow quietly stops receiving security fixes — the
+# staleness risk simply replaces the supply-chain one (CODEX-REVIEW.md L-03).
+# Dependabot is what closes that loop, so if it is ever switched off, the
+# pinning it maintains should be reconsidered rather than left to rot.
+version: 2
+
+updates:
+  # Pinned to SHAs in .github/workflows/ci.yml, with the version in a comment
+  # beside each. Dependabot updates both together, so the comment stays true.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "CI"
+    labels:
+      - dependencies
+
+  # PHPUnit, PHPStan, PHPCS, and the WordPress/WooCommerce stubs. All of them
+  # are development-only; the shipped plugin has no Composer runtime
+  # dependency, so nothing here can reach a store.
+  - package-ecosystem: composer
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "Dev"
+    labels:
+      - dependencies
+
+  # Playwright, which drives the integration job's browser. Grouped because a
+  # Playwright bump moves playwright and playwright-core together and there is
+  # no reason to review them apart.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "CI"
+    labels:
+      - dependencies
+    groups:
+      playwright:
+        patterns:
+          - "playwright*"
+
+  # The disposable WordPress, MariaDB, and WP-CLI containers the integration
+  # job runs against. Tags rather than digests: these exist for the length of
+  # one CI job and are never published or deployed, so what matters is being
+  # told when a newer WordPress or MariaDB appears — which is the same signal
+  # that keeps the compatibility matrix honest.
+  - package-ecosystem: docker
+    directory: /tests/integration
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: "CI"
+    labels:
+      - dependencies

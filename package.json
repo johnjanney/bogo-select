@@ -1,0 +1,10 @@
+{
+  "name": "bogo-select-integration",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser dependencies for the CI integration job. Not part of the plugin — nothing here is packaged or shipped.",
+  "license": "GPL-2.0-or-later",
+  "devDependencies": {
+    "playwright": "1.56.0"
+  }
+}

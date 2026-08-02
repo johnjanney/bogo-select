@@ -489,3 +489,23 @@ prefixing, and the i18n conventions.
   code does not: a stub must carry the WordPress name it stands in for, a test's
   name is its documentation, the fake catalogue is one file describing one
   thing, and the integration fixtures query a disposable container directly.
+
+### 8.8 Dependencies are pinned, and Dependabot watches the pins
+
+Since 2.3.5 every external thing CI reaches for is pinned, and something is
+responsible for telling us when a pin is out of date.
+
+- **Actions are pinned to full commit SHAs**, with the version in a comment
+  beside each. A tag can be moved; a SHA cannot.
+- **Playwright is pinned by `package-lock.json`**, installed with `npm ci`, so
+  the integration job drives the browser the lockfile names by integrity hash.
+- **Container images are pinned by tag rather than digest.** They exist for the
+  length of one CI job and are never published or deployed, so the value is in
+  being told when a newer WordPress or MariaDB appears — the same signal that
+  keeps the compatibility matrix honest.
+- **`.github/dependabot.yml` is what makes the above safe.** Pinning without an
+  update mechanism trades a supply-chain risk for a staleness risk: pinned
+  actions stop receiving security fixes and nothing says so. If Dependabot is
+  ever switched off, the pinning should be reconsidered rather than left to rot.
+- Nothing here reaches a store. The shipped plugin has no Composer or npm
+  runtime dependency; all of it is development and CI tooling.

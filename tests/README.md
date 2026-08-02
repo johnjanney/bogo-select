@@ -36,7 +36,10 @@ reason written beside it.
 **The integration job** (`.github/workflows/ci.yml` → `integration`) installs the
 built zip into a real WordPress with WooCommerce — the compatibility floor and
 whatever is current — and drives it over HTTP and in headless Chromium. It needs
-Docker, so it runs in CI rather than from `composer test`.
+Docker, so it runs in CI rather than from `composer test`. Its browser comes
+from `npm ci` against the committed `package-lock.json`, so the Playwright it
+runs is the one that file names; Dependabot proposes the bump rather than a new
+version arriving unannounced mid-run.
 
 ### Unit suite
 

@@ -45,7 +45,7 @@ the response document is the only durable half of the exchange.
 | M-03 | Medium | **Confirmed** — measured at 120 loads for 60 candidates | **Fixed** — request memo; the measurement is now a test |
 | L-01 | Low runtime / Medium docs | **Confirmed** — all four points | **Fixed** — README, BRIEF, tests/README, and the hook signature |
 | L-02 | Low | **Confirmed** — including the assertion that computes and discards | **Fixed in part** — WP_DEBUG now fails the build; the sibling assertion is exact; mobile viewport still uncovered |
-| L-03 | Low | **Confirmed** | **Fixed in part** — token permissions versioned; SHA pinning and lock files deferred |
+| L-03 | Low | **Confirmed** | **Fixed and closed** — token permissions versioned; actions pinned to SHAs, browser pinned by lockfile, Dependabot watching all of it (see the addendum) |
 | L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed and closed** — annotation corrected; PHPStan at level 8 and WPCS both clean with no baseline (see the addendum) |
 | L-05 | Low | **Confirmed** — reproduced | **Fixed** — the summary counts selections, not array entries |
 
@@ -205,6 +205,10 @@ them.
 **Done:** the workflow declares `permissions: contents: read`. The review notes
 the repository default is already read-only; the point of stating it in the file
 is that the file is versioned and the setting is not.
+
+**Deferred at the time, and done in 2.3.5** once the owner asked for Dependabot.
+The paragraph below is left as it was written; the addendum at the end of this
+part records what actually happened.
 
 **Deferred, deliberately:** pinning every action to a full commit SHA, committing
 an npm lock file, and pinning container images by digest. Each is a real
@@ -424,6 +428,40 @@ is one file describing one thing, and the integration fixtures query a
 disposable container that exists for one CI job.
 
 No baseline, in either tool. L-04 is closed.
+
+## Addendum — L-03, after Dependabot
+
+The deferral above turned on one question — whether this repository wanted an
+update mechanism — and the answer was yes, so the rest followed.
+
+**Actions are pinned to full commit SHAs**, with the resolved version in a
+comment beside each: `actions/checkout@fbc6f39… # v5.1.0` and so on. A tag can
+be moved to point at different code; a SHA cannot. Dependabot maintains both
+halves, so the comment does not drift away from the pin.
+
+**The integration job's browser is pinned by a committed lockfile.** It was
+running `npm init -y` and `npm install --no-save playwright@1.56.0` at the top
+of every run, which pins a version but not a tree. `npm ci` against
+`package-lock.json` pins the tree by integrity hash. `.gitignore` used to
+exclude both manifests on the reasoning that the browser is installed per run;
+that reasoning is what this replaces.
+
+**Container images stay pinned by tag, not digest** — the one recommendation
+not taken. They are a WordPress, a MariaDB, and a WP-CLI that exist for the
+length of one CI job, are never published or deployed, and are rebuilt from
+scratch every time. What is worth having there is the signal that a newer
+WordPress exists, which is the same signal that keeps the compatibility matrix
+honest, and Dependabot gives that from the tag. Digest pinning would trade it
+for a guarantee about a container nobody keeps.
+
+**`.github/dependabot.yml` is the point of the exercise**, not a side effect.
+Weekly updates cover the actions, the Composer dev tools, Playwright, and the
+containers. Its header says plainly that if it is ever switched off, the pinning
+it maintains should be reconsidered rather than left to rot — because a pinned
+workflow with nothing watching it is worse than an unpinned one, and the next
+person should not have to work that out.
+
+L-03 is closed on those terms.
 
 ---
 

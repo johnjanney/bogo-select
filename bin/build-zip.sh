@@ -72,6 +72,8 @@ if command -v rsync >/dev/null 2>&1; then
 		--exclude 'phpstan.neon' \
 		--exclude '.phpcs.xml.dist' \
 		--exclude '.phpcs.xml' \
+		--exclude 'package.json' \
+		--exclude 'package-lock.json' \
 		--exclude '.phpunit.result.cache' \
 		--exclude 'CODEX-REVIEW*.md' \
 		--exclude '.DS_Store' \
@@ -95,6 +97,8 @@ else
 		"${STAGE}/${SLUG}/phpstan.neon" \
 		"${STAGE}/${SLUG}/.phpcs.xml.dist" \
 		"${STAGE}/${SLUG}/.phpcs.xml" \
+		"${STAGE}/${SLUG}/package.json" \
+		"${STAGE}/${SLUG}/package-lock.json" \
 		"${STAGE}/${SLUG}/.phpunit.result.cache"
 	find "${STAGE}/${SLUG}" \
 		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \

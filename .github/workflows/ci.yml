@@ -23,10 +23,10 @@ jobs:
         php: [ '7.4', '8.0', '8.1', '8.2', '8.3' ]
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: ${{ matrix.php }}
           coverage: none
@@ -45,9 +45,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
 
@@ -65,13 +65,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # Runs on 8.3 and judges the code as 7.4, which phpstan.neon.dist sets.
       # The stub packages need a modern PHP to install; the plugin's own floor
       # is what the analysis is against, not what it runs on.
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
         with:
           php-version: '8.3'
           coverage: none
@@ -90,7 +90,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       # A green test suite says nothing about what was packaged: v1.2.0 was
       # built before its own fix landed and shipped a superseded class
@@ -125,9 +125,9 @@ jobs:
       BOGO_TESTS: ${{ github.workspace }}/tests/integration
 
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
-      - uses: actions/setup-node@v5
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
 
@@ -199,10 +199,14 @@ jobs:
           echo "paid=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["paid"])')" >> "$GITHUB_OUTPUT"
           echo "gift=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["gift_a"])')" >> "$GITHUB_OUTPUT"
 
+      # npm ci rather than npm install, against a committed lockfile: the job
+      # then drives the browser the lockfile pins by integrity hash, and
+      # Dependabot proposes a change to that file when a newer one exists,
+      # rather than a new version arriving unannounced mid-run
+      # (CODEX-REVIEW.md L-03).
       - name: Install Chromium
         run: |
-          npm init -y >/dev/null 2>&1
-          npm install --no-save playwright@1.56.0
+          npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
 
       - name: Run the block integration test
@@ -429,7 +433,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: blocks-${{ matrix.woocommerce }}
           path: integration-*.png
