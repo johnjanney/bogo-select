@@ -494,7 +494,16 @@ jobs:
           YESTERDAY: ${{ steps.admin.outputs.yesterday }}
           NEXT_WEEK: ${{ steps.admin.outputs.next_week }}
           WC_VERSION: ${{ matrix.woocommerce }}
-        run: bash bin/verify-browser-tests.sh
+        run: |
+          # admin.test.mjs ends by proving that an offer which finished
+          # yesterday is reported as closed, which leaves the store with a
+          # closed offer and no chooser on it. Put a running one back before
+          # asking whether the storefront assertions can tell a defect from
+          # working code — the script's baseline check catches this, and the
+          # first run is how we found out it needed to.
+          docker compose -f tests/integration/docker-compose.yml exec -T cli \
+            wp eval-file /integration/setup-admin.php >/dev/null
+          bash bin/verify-browser-tests.sh
 
       # Only lines naming this plugin's own files fail the build. WordPress and
       # WooCommerce raise deprecations of their own that no change here can fix,
