@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.6] — 2026-08-02
+
+The measurement, and what it turned out to be worth.
+
+`CODEX-REVIEW.md` M-03 asked for a benchmark before any latency claim was
+published. Running it found a broad gift search costing 612 database queries on
+a 2,000-product catalogue; fixing what it found brought that to 15. The runtime
+change is one batched fetch — behaviour is identical and only the cost moved,
+which makes this a PATCH.
+
 ### Changed
 
 - **A page of gift choices is fetched in one batch instead of one product at a
@@ -983,7 +993,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...HEAD
+[2.3.6]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...v2.3.6
 [2.3.5]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...v2.3.5
 [2.3.4]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...v2.3.4
 [2.3.3]: https://github.com/johnjanney/bogo-select/compare/v2.3.2...v2.3.3
