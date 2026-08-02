@@ -433,3 +433,20 @@ weight-based shipping rates — WooCommerce's own flat rate cannot express one, 
 it would take a third-party method — and currencies whose minor unit is not two
 digits. The hydration path is also unexercised: WooCommerce did not preload a
 cart response in the tested configuration.
+
+### 8.7 Static analysis runs in CI
+
+Since 2.3.1 the runtime code is analysed by PHPStan (`phpstan.neon.dist`,
+`composer analyse`, and the `analyse` job) against the WordPress and WooCommerce
+stub packages, judged as PHP 7.4 — the compatibility floor — while running on a
+current PHP.
+
+- **The level is raised in steps and there is no baseline.** A baseline records
+  what the code got wrong and then stops mentioning it, which turns the level
+  into a number about history. Where the level sits is where the code passes.
+- **`treatPhpDocTypesAsCertain: false`**, because the stubs describe current
+  WooCommerce optimistically. A `method_exists()` guard against an older release,
+  or a check that a filter really returned an array, is not dead code, and an
+  analyser that calls it redundant is inviting a regression.
+- Level 6 is the next step. It requires 80 type annotations across 9 files and
+  finds no defect; it is a pass of its own, not a footnote to another change.

@@ -7,7 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-No plugin code changes; the version stays at 2.3.1 (`BRIEF.md` §8.1).
+### Added
+
+- **Static analysis, at a level the code actually passes** (`CODEX-REVIEW.md`
+  L-04, the half deferred from 2.3.1). PHPStan reads the runtime code against
+  the WordPress and WooCommerce stub packages and judges it as PHP 7.4, the
+  compatibility floor, while running on a current PHP. `composer analyse` runs
+  it and so does a CI job of its own. There is no baseline and nothing is
+  suppressed: a baseline records what the code got wrong and then stops
+  mentioning it, which turns the level into a number about history rather than
+  about the code.
+
+  The first run reported 116 problems. Eighty were missing type annotations —
+  the level-6 rules, no defect among them, and the named next step. Of the rest:
+  seven passed an int to `esc_attr()`, six used plugin constants the analyser
+  cannot see because it does not run `define()`, three crossed float and string
+  on a price, and two called `get_variation_attributes()` on a `WC_Product`,
+  where it does not exist. All are fixed; none changed behaviour.
+
+  Twelve were reported as redundant guards and were kept. The stubs describe
+  current WooCommerce optimistically, so a `method_exists()` check against an
+  older release reads as always true and is not — deleting those is how a
+  compatibility guard becomes a regression. `treatPhpDocTypesAsCertain: false`
+  stops docblock types being treated as certainties while leaving native types
+  alone, and the twelve findings went away without the code going with them.
+
+### Fixed
 
 - **The pinned-sibling browser assertion matches what WooCommerce renders.**
   Tightening it in 2.3.1 turned it red: it looked for the variation's full post

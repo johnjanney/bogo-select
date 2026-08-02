@@ -1,0 +1,47 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    # Raised in steps rather than set at maximum on day one, and with no
+    # baseline at any step: the level is only allowed to say something true
+    # about the code, so it stays where the code actually passes.
+    #
+    # 5 checks argument types against the WordPress and WooCommerce stubs, which
+    # is where the first pass found everything it found. The next step is 6,
+    # which additionally requires every `array` in a docblock to say what it
+    # holds and every method to declare a return type: 80 annotations across 9
+    # files, none of them a defect. Worth doing on its own, not as a footnote to
+    # this one.
+    level: 5
+
+    # The plugin still supports 7.4, so the analyser must judge it as 7.4 even
+    # when it runs on a newer PHP in CI.
+    phpVersion: 70400
+
+    paths:
+        - bogo-select.php
+        - uninstall.php
+        - includes
+
+    # Runtime code only. The unit suite runs against hand-written WordPress and
+    # WooCommerce stubs of its own, which declare the same functions as the stub
+    # packages below; analysing both together reports every one of them as a
+    # redeclaration and says nothing about either.
+    scanFiles:
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+
+    # Under bin/ because both bin/build-zip.sh and bin/verify-zip.sh already
+    # prune that directory. A .php file at the repository root would have to be
+    # named in an exclude list in each of them, and forgetting one either ships
+    # analyser scaffolding to stores or breaks package verification.
+    bootstrapFiles:
+        - bin/phpstan-constants.php
+
+    # The stubs describe the WooCommerce and WordPress of today, and describe it
+    # optimistically: a docblock saying a filter returns an array does not stop
+    # a third party returning null, and a method the stubs declare may not exist
+    # in the oldest WooCommerce this plugin supports. Guards written for those
+    # cases are not dead code, and analysing docblock types as certainties would
+    # report every one of them as redundant and invite their removal. Native
+    # types are still treated as certain, because those the engine enforces.
+    treatPhpDocTypesAsCertain: false

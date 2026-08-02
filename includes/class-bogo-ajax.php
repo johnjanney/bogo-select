@@ -137,11 +137,23 @@ class BOGO_Select_Ajax {
 		try {
 			$errors_before = count( wc_get_notices( 'error' ) );
 
+			$attributes = array();
+
+			if ( $variation_id && $product ) {
+				/**
+				 * reward_product() returns the variation itself when one is
+				 * named, so this is a variation wherever $variation_id is set.
+				 *
+				 * @var WC_Product_Variation $product
+				 */
+				$attributes = (array) $product->get_variation_attributes();
+			}
+
 			$key = $cart->add_to_cart(
 				$product_id,
 				$qty,
 				$variation_id,
-				$variation_id && $product ? (array) $product->get_variation_attributes() : array(),
+				$attributes,
 				array(
 					BOGO_Select_Engine::FLAG => true,
 				)

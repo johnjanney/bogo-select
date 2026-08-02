@@ -68,6 +68,8 @@ if command -v rsync >/dev/null 2>&1; then
 		--exclude 'composer.json' \
 		--exclude 'composer.lock' \
 		--exclude 'phpunit.xml.dist' \
+		--exclude 'phpstan.neon.dist' \
+		--exclude 'phpstan.neon' \
 		--exclude '.phpunit.result.cache' \
 		--exclude 'CODEX-REVIEW*.md' \
 		--exclude '.DS_Store' \
@@ -87,6 +89,8 @@ else
 		"${STAGE}/${SLUG}/composer.json" \
 		"${STAGE}/${SLUG}/composer.lock" \
 		"${STAGE}/${SLUG}/phpunit.xml.dist" \
+		"${STAGE}/${SLUG}/phpstan.neon.dist" \
+		"${STAGE}/${SLUG}/phpstan.neon" \
 		"${STAGE}/${SLUG}/.phpunit.result.cache"
 	find "${STAGE}/${SLUG}" \
 		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \

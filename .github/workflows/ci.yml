@@ -60,6 +60,28 @@ jobs:
       - name: Check integration test syntax
         run: for f in tests/integration/*.mjs; do node --check "$f"; done
 
+  analyse:
+    name: Static analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Runs on 8.3 and judges the code as 7.4, which phpstan.neon.dist sets.
+      # The stub packages need a modern PHP to install; the plugin's own floor
+      # is what the analysis is against, not what it runs on.
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: Analyse
+        run: composer analyse
+
   package:
     name: Package parity
     runs-on: ubuntu-latest

@@ -424,7 +424,7 @@ class BOGO_Select_Frontend {
 		}
 		?>
 		<li class="<?php echo esc_attr( implode( ' ', $classes ) ); ?>"
-			data-bogo-card="<?php echo esc_attr( $product_id ); ?>">
+			data-bogo-card="<?php echo esc_attr( (string) $product_id ); ?>">
 			<div class="bogo-select__thumb">
 				<?php echo wp_kses_post( $product->get_image( 'woocommerce_thumbnail' ) ); ?>
 			</div>
@@ -434,11 +434,11 @@ class BOGO_Select_Frontend {
 					<?php echo wp_kses_post( self::price_markup( $priced ) ); ?>
 				</span>
 				<?php if ( $is_variable && $options ) : ?>
-					<label class="bogo-select__variation-label" for="bogo-select-variation-<?php echo esc_attr( $product_id ); ?>">
+					<label class="bogo-select__variation-label" for="bogo-select-variation-<?php echo esc_attr( (string) $product_id ); ?>">
 						<?php esc_html_e( 'Choose an option', 'bogo-select' ); ?>
 					</label>
 					<select class="bogo-select__variation" data-bogo-variation="1"
-						id="bogo-select-variation-<?php echo esc_attr( $product_id ); ?>">
+						id="bogo-select-variation-<?php echo esc_attr( (string) $product_id ); ?>">
 						<?php foreach ( $options as $option ) : ?>
 							<option value="<?php echo esc_attr( $option['id'] ); ?>"
 								data-price="<?php echo esc_attr( $option['price'] ); ?>"
@@ -458,7 +458,7 @@ class BOGO_Select_Frontend {
 					<span class="bogo-select__selected"><?php esc_html_e( 'Selected', 'bogo-select' ); ?></span>
 					<?php if ( $is_variable && $options ) : ?>
 						<button type="button" class="button bogo-select__choose"
-							data-product-id="<?php echo esc_attr( $card_product_id ); ?>">
+							data-product-id="<?php echo esc_attr( (string) $card_product_id ); ?>">
 							<?php esc_html_e( 'Change option', 'bogo-select' ); ?>
 						</button>
 					<?php endif; ?>
@@ -471,8 +471,8 @@ class BOGO_Select_Frontend {
 					</button>
 				<?php else : ?>
 					<button type="button" class="button bogo-select__choose"
-						data-product-id="<?php echo esc_attr( $card_product_id ); ?>"
-						data-variation-id="<?php echo esc_attr( $card_variation_id ); ?>">
+						data-product-id="<?php echo esc_attr( (string) $card_product_id ); ?>"
+						data-variation-id="<?php echo esc_attr( (string) $card_variation_id ); ?>">
 						<?php echo $selected ? esc_html__( 'Choose this instead', 'bogo-select' ) : esc_html__( 'Select', 'bogo-select' ); ?>
 					</button>
 				<?php endif; ?>
@@ -506,7 +506,7 @@ class BOGO_Select_Frontend {
 		return $out . '<strong>' . wc_price(
 			wc_get_price_to_display(
 				$product,
-				array( 'price' => BOGO_Select_Engine::reward_price( $product->get_price() ) )
+				array( 'price' => BOGO_Select_Engine::reward_price( (float) $product->get_price() ) )
 			)
 		) . '</strong>';
 	}

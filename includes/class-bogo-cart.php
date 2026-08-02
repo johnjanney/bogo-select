@@ -98,7 +98,7 @@ class BOGO_Select_Cart {
 				continue;
 			}
 
-			$cart_item['data']->set_price( BOGO_Select_Engine::reward_price( self::base_price( $cart_item ) ) );
+			$cart_item['data']->set_price( (string) BOGO_Select_Engine::reward_price( self::base_price( $cart_item ) ) );
 		}
 	}
 
@@ -398,7 +398,7 @@ class BOGO_Select_Cart {
 					$product,
 					array(
 						'qty'   => $qty,
-						'price' => BOGO_Select_Engine::reward_price( $product->get_price() ),
+						'price' => BOGO_Select_Engine::reward_price( (float) $product->get_price() ),
 					)
 				)
 			);

@@ -3,15 +3,25 @@
 ```bash
 composer install
 composer test          # or: ./vendor/bin/phpunit
+composer analyse       # PHPStan, level 5, no baseline
+composer lint          # php -l over everything outside vendor/
 ```
 
 ## What is covered
 
-Two suites, covering different things.
+Two suites and an analyser, covering different things.
 
 **The unit suite** tests the parts of the plugin that are pure decisions,
 against small stand-ins for the WordPress and WooCommerce functions they call
 (`tests/stubs/`). No database, no HTTP, no WordPress install.
+
+**PHPStan** (`phpstan.neon.dist`) reads the runtime code against the WordPress
+and WooCommerce stub packages and judges it as PHP 7.4, the compatibility floor.
+It analyses `includes/`, `bogo-select.php`, and `uninstall.php` — not `tests/`,
+whose own stubs declare the same functions as the stub packages and would be
+reported as redeclaring every one of them. The level is raised in steps and
+there is no baseline: it sits where the code passes, so the number means
+something. Level 6 is next and wants 80 type annotations, none of them a defect.
 
 **The integration job** (`.github/workflows/ci.yml` → `integration`) installs the
 built zip into a real WordPress with WooCommerce — the compatibility floor and

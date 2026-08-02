@@ -46,7 +46,7 @@ the response document is the only durable half of the exchange.
 | L-01 | Low runtime / Medium docs | **Confirmed** — all four points | **Fixed** — README, BRIEF, tests/README, and the hook signature |
 | L-02 | Low | **Confirmed** — including the assertion that computes and discards | **Fixed in part** — WP_DEBUG now fails the build; the sibling assertion is exact; mobile viewport still uncovered |
 | L-03 | Low | **Confirmed** | **Fixed in part** — token permissions versioned; SHA pinning and lock files deferred |
-| L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed** — annotation corrected; analyzer deferred |
+| L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed** — annotation corrected; PHPStan added at level 5, clean, no baseline (see the addendum) |
 | L-05 | Low | **Confirmed** — reproduced | **Fixed** — the summary counts selections, not array entries |
 
 ## M-01 — a message is not a refusal
@@ -221,6 +221,10 @@ Confirmed: `@var array<int,int[]>` on a property holding `WC_Product[]`. Correct
 to `array<int,WC_Product[]>`. It never changed behaviour, which is precisely why
 it survived — a wrong annotation is invisible until a tool reads it.
 
+**The analyzer was deferred here and added immediately afterwards.** See the
+addendum at the end of this part; what follows below was written before that and
+is left as it stood.
+
 **The analyzer is deferred.** Adding PHPStan or WPCS means WordPress and
 WooCommerce stubs, a baseline, and a first run that produces a large volume of
 findings against a codebase that has never had one. That is worth doing and it is
@@ -277,6 +281,61 @@ unrelated products.
   all recorded above with reasons rather than left implied.
 - No large-catalogue benchmark. The review asked for one before any latency claim
   is published; none is published.
+
+## Addendum — the analyzer, added after 2.3.1
+
+L-04 above says the analyzer is deferred. It was added straight after 2.3.1
+shipped, so that paragraph is now history rather than a plan.
+
+**PHPStan at level 5, clean, with no baseline.** Configuration is
+`phpstan.neon.dist`; `composer analyse` runs it and so does a CI job of its own.
+`szepeviktor/phpstan-wordpress` supplies the WordPress stubs and
+`php-stubs/woocommerce-stubs` the WooCommerce ones. It judges the code as PHP
+7.4 while running on 8.3, since the compatibility floor is what matters and the
+stub packages want a modern PHP to install.
+
+**The first run found 116 problems. 36 were real enough to act on.**
+
+| Kind | Count | What happened |
+|---|---|---|
+| Missing type annotations | 80 | Not defects. Level 6 requires them; see below |
+| `esc_attr()` given an int | 7 | Cast at the call site |
+| Unknown plugin constants | 6 | The analyser cannot run `define()`; a bootstrap file declares them |
+| Guards the stubs call redundant | 12 | Kept. `treatPhpDocTypesAsCertain: false` |
+| Price types crossing float and string | 3 | Cast at the call site |
+| `get_variation_attributes()` on `WC_Product` | 2 | Narrowed with `@var`, not with a new runtime guard |
+
+Three of those are worth more than a table row.
+
+**The redundant-guard finding was the one to get wrong.** Twelve `is_object()`,
+`method_exists()`, and `instanceof` checks were reported as always true, and
+deleting them is what the report literally asks for. They are not dead. The stubs
+describe the WooCommerce of today: `method_exists( $store, 'search_products' )`
+guards a WooCommerce older than the stubs, and a docblock promising an array does
+not stop a third-party filter returning null. `treatPhpDocTypesAsCertain: false`
+is the setting for exactly this — docblock types stop being treated as
+certainties, native types still are. Twelve findings went away and no defensive
+code went with them.
+
+**`get_variation_attributes()` on a `WC_Product` is real** — the method lives on
+`WC_Product_Variation` — but the two call sites only reach it for variations, and
+the obvious fix would have broken the suite: the test stubs model a variation as
+a `WC_Product` with a type of `variation`, so an `instanceof WC_Product_Variation`
+guard would be false in every test and silently make every "Any" variation look
+offerable. It is narrowed with `@var` instead, which documents the invariant,
+costs nothing at runtime, and leaves the tests measuring what they measured
+before.
+
+**Nothing is suppressed.** No baseline file, no `@phpstan-ignore`. The level
+sits where the code actually passes, which is the only way the number means
+anything. Level 6 is the next step and needs 80 annotations across 9 files —
+every `array` in a docblock saying what it holds, every method declaring a
+return type. None of them is a defect, and it is worth its own pass rather than
+being bundled here.
+
+**Still not added: WordPress Coding Standards.** PHPStan and WPCS overlap
+hardly at all — one checks types, the other formatting and WordPress-specific
+escaping conventions. This closes the type half of L-04.
 
 ---
 

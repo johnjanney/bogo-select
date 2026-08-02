@@ -652,7 +652,7 @@ class BOGO_Select_Admin {
 
 				printf(
 					'<option value="%1$s" selected="selected">%2$s</option>',
-					esc_attr( $product_id ),
+					esc_attr( (string) $product_id ),
 					esc_html( wp_strip_all_tags( $product->get_formatted_name() ) )
 				);
 			}

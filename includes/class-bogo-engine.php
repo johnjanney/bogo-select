@@ -661,7 +661,18 @@ class BOGO_Select_Engine {
 	 * @return bool
 	 */
 	protected static function has_any_attribute( $variation ) {
-		foreach ( $variation->get_variation_attributes() as $value ) {
+		/**
+		 * Both callers establish this first — one from `is_type( 'variation' )`,
+		 * the other from having just checked a variation's parent — but they
+		 * hold a WC_Product, which is all the analyser can see. Asserted rather
+		 * than re-checked: a second guard here would be dead in every path that
+		 * reaches it.
+		 *
+		 * @var WC_Product_Variation $variation
+		 */
+		$attributes = (array) $variation->get_variation_attributes();
+
+		foreach ( $attributes as $value ) {
 			if ( '' === (string) $value ) {
 				return true;
 			}
