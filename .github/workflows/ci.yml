@@ -440,6 +440,27 @@ jobs:
           MODE=incl PAID_ID="$PAID" REWARD_ID="$REWARD" REWARD_PRICE=20 \
             DISCOUNT_PERCENT=50 TAX_RATE=10 node tests/integration/tax.test.mjs
 
+      # Here rather than later: the storefront mutations need the classic
+      # fixture's offer, and every scenario below reconfigures the store. One
+      # lane only — whether an assertion can tell a defect apart does not vary
+      # by WooCommerce version.
+      - name: Check the storefront assertions catch what they should
+        if: matrix.woocommerce == 'latest'
+        env:
+          PAID_ID: ${{ steps.classic.outputs.paid }}
+          REWARD_ID: ${{ steps.classic.outputs.reward }}
+          REWARD_PRICE: 24
+          VARIABLE_ID: ${{ steps.classic.outputs.variable }}
+          SMALL_ID: ${{ steps.classic.outputs.small }}
+          LARGE_ID: ${{ steps.classic.outputs.large }}
+          LARGE_PRICE: 50
+          DISCOUNT_PERCENT: 50
+          CART_PATH: /classic-cart/
+          CHECKOUT_PATH: /classic-checkout/
+          BLOCK_CART_PATH: /cart/
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: bash bin/verify-browser-tests.sh mobile.test.mjs classic.test.mjs
+
       # Last, because it moves the site to a non-UTC timezone and enables the
       # offer — both of which would change what every storefront scenario above
       # is looking at. Everything before this has already run.
@@ -468,24 +489,9 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/admin.test.mjs
 
-      # Reuses the stack the steps above already built: standing up WordPress
-      # per mutation is not affordable, and copying a mutated file into the
-      # installed plugin is. One lane only — whether an assertion can tell a
-      # defect apart does not vary by WooCommerce version.
-      - name: Check the browser assertions catch what they should
+      - name: Check the settings-screen assertions catch what they should
         if: matrix.woocommerce == 'latest'
         env:
-          PAID_ID: ${{ steps.classic.outputs.paid }}
-          REWARD_ID: ${{ steps.classic.outputs.reward }}
-          REWARD_PRICE: 24
-          VARIABLE_ID: ${{ steps.classic.outputs.variable }}
-          SMALL_ID: ${{ steps.classic.outputs.small }}
-          LARGE_ID: ${{ steps.classic.outputs.large }}
-          LARGE_PRICE: 50
-          DISCOUNT_PERCENT: 50
-          CART_PATH: /classic-cart/
-          CHECKOUT_PATH: /classic-checkout/
-          BLOCK_CART_PATH: /cart/
           MANAGER_USER: bogo_shop_manager
           EDITOR_USER: bogo_editor
           ADMIN_PASS: ${{ steps.admin.outputs.pass }}
@@ -495,15 +501,12 @@ jobs:
           NEXT_WEEK: ${{ steps.admin.outputs.next_week }}
           WC_VERSION: ${{ matrix.woocommerce }}
         run: |
-          # admin.test.mjs ends by proving that an offer which finished
-          # yesterday is reported as closed, which leaves the store with a
-          # closed offer and no chooser on it. Put a running one back before
-          # asking whether the storefront assertions can tell a defect from
-          # working code — the script's baseline check catches this, and the
-          # first run is how we found out it needed to.
+          # admin.test.mjs leaves the offer closed, which is what it set out to
+          # prove; the fixture puts a running one back so each mutation starts
+          # from the same place.
           docker compose -f tests/integration/docker-compose.yml exec -T cli \
             wp eval-file /integration/setup-admin.php >/dev/null
-          bash bin/verify-browser-tests.sh
+          bash bin/verify-browser-tests.sh admin.test.mjs
 
       # Only lines naming this plugin's own files fail the build. WordPress and
       # WooCommerce raise deprecations of their own that no change here can fix,

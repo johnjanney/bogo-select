@@ -21,7 +21,13 @@
 # - Every mutation must match its file exactly once. A pattern that has drifted
 #   is an error, not a hole.
 #
-# Usage: bash bin/verify-browser-tests.sh
+# Takes the test files to cover, because the integration scenarios share one
+# store and reconfigure it as they go: the storefront mutations have to run while
+# the classic fixture's offer is in place, and the settings-screen ones after the
+# admin fixture has seeded its users. Running everything at one point in the job
+# means running some of it against a store its test was not written for.
+#
+# Usage: bash bin/verify-browser-tests.sh mobile.test.mjs classic.test.mjs
 #        Expects the integration stack up, the plugin installed, and the same
 #        env the integration tests are given.
 #
@@ -102,6 +108,29 @@ mutation \
 			$clean['"'"'end_date'"'"']   = $clean['"'"'end_date'"'"'];' \
 	"node tests/integration/admin.test.mjs"
 
+# --- Keep only the mutations for the tests named on the command line --------
+
+if (( $# == 0 )); then
+	echo "error: name at least one test file, e.g. mobile.test.mjs" >&2
+	exit 1
+fi
+
+KEEP=()
+
+for i in "${!NAMES[@]}"; do
+	for want in "$@"; do
+		if [[ "${CMDS[$i]}" == *"${want}"* ]]; then
+			KEEP+=( "$i" )
+			break
+		fi
+	done
+done
+
+if (( ${#KEEP[@]} == 0 )); then
+	echo "error: no mutations cover $*" >&2
+	exit 1
+fi
+
 # --- Baselines --------------------------------------------------------------
 #
 # Every test used below must pass first. Without this, a broken stack would
@@ -112,7 +141,7 @@ echo "Baselines — every target test must pass before anything is mutated."
 
 declare -A SEEN=()
 
-for i in "${!NAMES[@]}"; do
+for i in "${KEEP[@]}"; do
 	cmd="${CMDS[$i]}"
 	[[ -n "${SEEN[$cmd]:-}" ]] && continue
 	SEEN[$cmd]=1
@@ -139,12 +168,12 @@ echo
 
 # --- Run --------------------------------------------------------------------
 
-echo "Checking that the browser assertions object to ${#NAMES[@]} defects."
+echo "Checking that the browser assertions object to ${#KEEP[@]} defects."
 echo
 
 SURVIVORS=()
 
-for i in "${!NAMES[@]}"; do
+for i in "${KEEP[@]}"; do
 	name="${NAMES[$i]}"; file="${FILES[$i]}"
 	from="${FROMS[$i]}"; to="${TOS[$i]}"; cmd="${CMDS[$i]}"
 
@@ -184,7 +213,7 @@ done
 echo
 
 if (( ${#SURVIVORS[@]} > 0 )); then
-	echo "${#SURVIVORS[@]} of ${#NAMES[@]} defects went unnoticed by the browser tests:" >&2
+	echo "${#SURVIVORS[@]} of ${#KEEP[@]} defects went unnoticed by the browser tests:" >&2
 	for s in "${SURVIVORS[@]}"; do
 		echo "  - ${s}" >&2
 	done
@@ -193,4 +222,4 @@ if (( ${#SURVIVORS[@]} > 0 )); then
 	exit 1
 fi
 
-echo "All ${#NAMES[@]} defects were caught."
+echo "All ${#KEEP[@]} defects were caught."
