@@ -18,6 +18,30 @@ pixels tall on a phone, which is a real defect a real customer has been tapping
 at since 2.2.0. The fix for it is what makes this a PATCH rather than another
 entry under Unreleased.
 
+### Fixed
+
+- **The build no longer packages `node_modules`, and the parity check no longer
+  says it did not.** Committing a lockfile in this release means a developer who
+  has run `npm ci` has a `node_modules/` directory, and `build-zip.sh` had no
+  reason to exclude one before — so cutting this release produced an archive of
+  4.1MB and 180 files instead of 136KB and 23, carrying 197 files of Playwright
+  into stores.
+
+  The worse half is that `verify-zip.sh` **passed** it. That script exists to
+  catch exactly this (`CODEX-REVIEW.md` M-01, the v1.2.0 archive that shipped a
+  superseded class). It compares runtime files on both sides while pruning the
+  directories the build excludes, and `node_modules` was in neither list — so it
+  found the same stray `.js` files in the worktree and in the archive, called
+  them matching, and reported "87 runtime files verified": six times the real
+  number, in the message whose whole job is to be trusted. Both scripts now
+  prune it, and the archive was checked by reading its contents rather than by
+  trusting the exclude list.
+
+  CI could not have caught this, because the package job never installs npm
+  dependencies and its archive was always clean. Only a developer's own build
+  was affected, and only since the lockfile landed — introduced and found inside
+  the same unreleased window.
+
 ### Changed
 
 - **Everything CI reaches for is pinned, and Dependabot watches the pins**
