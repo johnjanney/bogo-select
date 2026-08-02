@@ -1240,6 +1240,53 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * Fetch a batch of products' rows before anything asks for them one by one.
+	 *
+	 * The per-request memo stops the same product being loaded twice inside one
+	 * request; it does nothing about the request being the first, and on a store
+	 * with no persistent object cache every request is the first. Measured
+	 * against 2,000 products, a broad search cost 612 database queries to answer
+	 * — roughly three per candidate, because each wc_get_product() finds its own
+	 * way to the post row, its meta, and its product_type and product_visibility
+	 * terms (CODEX-REVIEW.md M-03, and the benchmark recorded in
+	 * CODEX-REVIEW-RESPONSE.md).
+	 *
+	 * _prime_post_caches() asks for all of that once for the whole batch, so the
+	 * loads that follow read from the object cache WordPress has just filled.
+	 * Nothing downstream changes: the same products are loaded, in the same
+	 * order, by the same calls.
+	 *
+	 * IDs already memoised are left out — they will not be loaded again anyway,
+	 * and priming them would be paying for rows nobody reads.
+	 *
+	 * @param int[] $ids Candidate product IDs.
+	 * @return void
+	 */
+	protected static function prime_products( $ids ) {
+		if ( ! function_exists( '_prime_post_caches' ) ) {
+			return;
+		}
+
+		$wanted = array();
+
+		foreach ( (array) $ids as $id ) {
+			$id = (int) $id;
+
+			if ( $id && ! array_key_exists( $id, self::$choice_products ) ) {
+				$wanted[ $id ] = $id;
+			}
+		}
+
+		// One product is not a batch, and the call would cost a query to save
+		// none.
+		if ( count( $wanted ) < 2 ) {
+			return;
+		}
+
+		_prime_post_caches( array_values( $wanted ), true, true );
+	}
+
+	/**
 	 * A product loaded once per request while a page of choices is built.
 	 *
 	 * A search asks about the same product twice over: once to decide it may be
@@ -1372,6 +1419,8 @@ class BOGO_Select_Engine {
 		$known = self::eligibility_map();
 		$out   = array();
 
+		self::prime_products( $ids );
+
 		foreach ( (array) $ids as $id ) {
 			$id = (int) $id;
 
@@ -1428,6 +1477,8 @@ class BOGO_Select_Engine {
 
 			return self::$eligibility;
 		}
+
+		self::prime_products( $configured );
 
 		foreach ( $configured as $id ) {
 			self::$eligibility[ $id ] = self::is_choice( $id );
