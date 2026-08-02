@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.4] — 2026-08-02
+
+A second opinion, and the one thing it saw that the first could not.
+
+What is added is development tooling and is not in the archive, so this is a
+PATCH: the runtime changes are whitespace, a post-increment made a
+pre-increment, docblock wording, and a translator comment that had been
+describing the wrong string. Every offer behaves as it did in 2.3.3.
+
 ### Added
 
 - **WordPress Coding Standards, with the shipped plugin passing in full**
@@ -792,7 +801,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...HEAD
+[2.3.4]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...v2.3.4
 [2.3.3]: https://github.com/johnjanney/bogo-select/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/johnjanney/bogo-select/compare/v2.3.1...v2.3.2
 [2.3.1]: https://github.com/johnjanney/bogo-select/compare/v2.3.0...v2.3.1
