@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.8] — 2026-08-02
+
+Level 9, and a correction to why 2.3.7 said it was out of reach.
+
+The analyser now runs at its maximum with no baseline and nothing suppressed.
+Getting there was mostly declaring shapes that were already true rather than
+guarding against values that could not occur. The runtime change is that a cart
+line's numbers are read through the same normaliser as request input instead of
+cast, so an array refuses where it used to become 1 — behaviour changes only for
+input that was never valid, which makes this a PATCH.
+
 ### Changed
 
 - **Static analysis raised to level 9, and the reason 2.3.7 gave for stopping
@@ -1080,7 +1091,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.8...HEAD
+[2.3.8]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...v2.3.8
 [2.3.7]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...v2.3.7
 [2.3.6]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...v2.3.6
 [2.3.5]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...v2.3.5
