@@ -1,0 +1,83 @@
+name: Benchmark
+
+# Not on push. Seeding a catalogue takes minutes, and the numbers are for
+# reading rather than for gating: `CODEX-REVIEW.md` M-03 asked for a measurement
+# before any latency claim is published, not for a threshold CI enforces. A
+# threshold on a shared runner would measure the runner.
+on:
+  workflow_dispatch:
+    inputs:
+      catalogue:
+        description: How many products to seed
+        required: false
+        default: '2000'
+      curated:
+        description: How many of them to put on the Get list
+        required: false
+        default: '500'
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Large catalogue
+    runs-on: ubuntu-latest
+
+    env:
+      BOGO_DIST: ${{ github.workspace }}/dist
+      BOGO_TESTS: ${{ github.workspace }}/tests/integration
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build the plugin zip
+        run: bash bin/build-zip.sh
+
+      - name: Start WordPress
+        run: |
+          docker compose -f tests/integration/docker-compose.yml up -d
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8910/ || true)
+            case "$code" in 200|301|302) echo "web up ($code)"; exit 0;; esac
+            sleep 3
+          done
+          echo "WordPress did not come up"
+          docker compose -f tests/integration/docker-compose.yml logs --tail=60
+          exit 1
+
+      - name: Install WordPress, WooCommerce, and the plugin
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          $C wp core install --url=http://localhost:8910 --title="BOGO Benchmark" \
+            --admin_user=admin --admin_password=admin \
+            --admin_email=ci@example.com --skip-email
+          $C wp plugin install woocommerce --activate
+          VERSION=$(grep -m1 -oP '^\s*\*\s*Version:\s*\K[0-9A-Za-z.\-+]+' bogo-select.php)
+          $C wp plugin install "/artifact/bogo-select-${VERSION}.zip" --activate
+          $C wp plugin list --fields=name,status,version
+
+      - name: Record the machine
+        run: |
+          echo "runner: $(nproc) cores, $(free -g | awk '/^Mem:/{print $2}') GB"
+          docker compose -f tests/integration/docker-compose.yml exec -T cli wp --info | head -6
+
+      - name: Measure
+        run: |
+          docker compose -f tests/integration/docker-compose.yml exec -T cli \
+            wp eval-file /integration/benchmark.php \
+            "${{ github.event.inputs.catalogue || '2000' }}" \
+            "${{ github.event.inputs.curated || '500' }}" | tee benchmark.txt
+
+      - name: Upload the raw numbers
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: benchmark
+          path: benchmark.txt
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Tear down
+        if: always()
+        run: docker compose -f tests/integration/docker-compose.yml down -v
