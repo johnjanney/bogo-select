@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.7] — 2026-08-02
+
+An array where an ID belonged.
+
+Attempting PHPStan level 9 found input handling that read a non-scalar as
+product 1. The level is not taken — the reasoning is in `phpstan.neon.dist` —
+but what it found on the way is worth shipping. Behaviour changes only for
+input that was never valid, so this is a PATCH.
+
 ### Fixed
 
 - **A value that is not a scalar is no longer read as product 1.** `absint()`
@@ -1045,7 +1054,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...HEAD
+[2.3.7]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...v2.3.7
 [2.3.6]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...v2.3.6
 [2.3.5]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...v2.3.5
 [2.3.4]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...v2.3.4
