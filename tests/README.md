@@ -111,10 +111,24 @@ Every target test is run **before** its mutation and required to pass. Without
 that, a broken stack would report every mutation as caught, which is the most
 flattering possible way for a check like this to be useless.
 
-Neither is a substitute for a mutation testing tool. They are fixed, curated
-sets, chosen so each entry names a defect rather than a line number, and so a
-survivor tells you what is unguarded rather than that some percentage of mutants
-lived.
+`bin/verify-zip-check.sh` asks the same question of the release gate rather than
+of a test suite. It builds real archives in a temporary sandbox and breaks each
+one — a shipped document drifting from the worktree, a file absent from the
+archive, `node_modules/` packaged, an unknown file, an entry unpacking outside
+the plugin directory — then requires `bin/verify-zip.sh` to reject it **and to
+say why**, since a gate that rejects everything is as useless as one that
+rejects nothing and reads the same from outside.
+
+It was written against the gate as it stood, and all six survived: the check
+compared `.php`, `.js`, and `.css` and reported that the archive matched the
+worktree, so every changelog and licence it shipped went out unread. That is the
+third check here found to be narrower than its own report, after the browser
+assertion and `phpcs | tail -3`.
+
+None of the three is a substitute for a mutation testing tool. They are fixed,
+curated sets, chosen so each entry names a defect rather than a line number, and
+so a survivor tells you what is unguarded rather than that some percentage of
+mutants lived.
 
 ## The benchmark
 

@@ -90,6 +90,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   No runtime file changed and the published 2.3.8 archive is unaffected.
 
+- **The archive check now reads every entry in the archive**
+  (`CODEX-REVIEW.md` L-03, the last of that finding's recommendations). It
+  compared `.php`, `.js`, and `.css` and nothing else, so of the 28 entries in
+  the 2.3.8 archive it looked at 14. The changelog, the brief, the decision
+  record, and the licence shipped in every release unread — a stale or
+  substituted document was outside what the gate could see, and the gate said
+  "matches the worktree" regardless.
+
+  Three questions are asked of each entry now, rather than one of some of them:
+  it must be a file the worktree has, with an identical SHA-256, that the build
+  was meant to ship. The last of those is new and catches what the other two
+  cannot — a `node_modules/` or a `composer.lock` inside an archive is a defect
+  even when it matches the worktree perfectly, which is exactly how the 2.3.5
+  archive passed.
+
+  Entries are read from the archive with `unzip -Z1` rather than by walking the
+  unpacked tree, because a file installed outside `bogo-select/` would unpack
+  outside the directory a walk of that directory can reach.
+
+- **The build and the verifier now read one list.** `bin/package-manifest.sh`
+  holds the exclusions; `build-zip.sh` copies what it returns and
+  `verify-zip.sh` checks the archive against the same thing. They used to keep
+  a list each — one in `rsync --exclude` flags, one in a `find` prune, and a
+  third in the no-rsync fallback — which is why `node_modules` could be added to
+  the build and missed by the check.
+
+  The build is an allowlist now: it copies the files the manifest returns
+  instead of copying everything and deleting afterwards, and the `-x '.*'`
+  filter at zip time is gone, since a second filter after the list is decided is
+  another place for the two to disagree. The 2.3.8 archive rebuilt this way
+  contains the same 28 entries as the published one.
+
+  Both directions were checked against a deliberately wrong archive: drifted
+  `CHANGELOG.md` and `LICENSE` are reported stale, a removed file missing, a
+  smuggled `composer.lock` and `node_modules/` excluded, an unknown file extra,
+  and an entry outside `bogo-select/` out of tree.
+
+- **The parity gate is now required to object, the way the suites are.**
+  `bin/verify-zip-check.sh` builds real archives in a temporary sandbox, breaks
+  each one of those six ways, and requires `verify-zip.sh` to fail **and to name
+  the reason** — a non-zero exit for the wrong reason is not a catch, since a
+  gate that rejects everything is as useless as one that rejects nothing and
+  reads the same from outside. It runs in CI beside the parity check, and never
+  writes to the checkout.
+
+  Run against the previous `verify-zip.sh`, **all six survive.** That is the
+  finding stated as a test rather than as a paragraph: every one of those
+  archives would have been published, and the gate would have said "matches the
+  worktree" each time.
+
+  This is the third check here found to be narrower than its report — after the
+  browser assertion that passed on a negative true either way, and `phpcs |
+  tail -3`. The pattern is the same every time and is invisible from the
+  inside: a file not read looks exactly like a file that is fine. The only
+  answer is to break something on purpose and require the objection.
+
 ### Not released
 
 Everything above is the release process, its safety nets, and comment text. The

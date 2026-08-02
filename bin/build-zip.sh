@@ -15,6 +15,9 @@ PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAIN_FILE="${PLUGIN_DIR}/${SLUG}.php"
 DIST_DIR="${PLUGIN_DIR}/dist"
 
+# shellcheck source=bin/package-manifest.sh
+source "${PLUGIN_DIR}/bin/package-manifest.sh"
+
 # --- Read and cross-check the version ---------------------------------------
 
 if [[ ! -f "${MAIN_FILE}" ]]; then
@@ -49,69 +52,44 @@ if [[ -e "${ARCHIVE}" ]]; then
 fi
 
 # --- Stage a clean copy under a top-level plugin directory ------------------
+#
+# The staged tree is copied file by file from `package_files`, which is the same
+# list `bin/verify-zip.sh` checks the finished archive against. Copying the tree
+# and then deleting from it is what produced the node_modules archive: the two
+# scripts each carried their own idea of what to remove, and only one of them
+# learned about a new directory (CHANGELOG 2.3.5).
 
 STAGE="$(mktemp -d)"
 trap 'rm -rf "${STAGE}"' EXIT
 
 mkdir -p "${STAGE}/${SLUG}"
 
-# rsync when available (precise excludes); otherwise fall back to cp + prune.
-if command -v rsync >/dev/null 2>&1; then
-	rsync -a \
-		--exclude '.git/' \
-		--exclude '.github/' \
-		--exclude '.gitignore' \
-		--exclude 'dist/' \
-		--exclude 'bin/' \
-		--exclude 'tests/' \
-		--exclude 'vendor/' \
-		--exclude 'node_modules/' \
-		--exclude 'composer.json' \
-		--exclude 'composer.lock' \
-		--exclude 'phpunit.xml.dist' \
-		--exclude 'phpstan.neon.dist' \
-		--exclude 'phpstan.neon' \
-		--exclude '.phpcs.xml.dist' \
-		--exclude '.phpcs.xml' \
-		--exclude 'package.json' \
-		--exclude 'package-lock.json' \
-		--exclude '.phpunit.result.cache' \
-		--exclude 'CODEX-REVIEW*.md' \
-		--exclude '.DS_Store' \
-		--exclude 'Thumbs.db' \
-		--exclude '*.swp' \
-		--exclude '*~' \
-		"${PLUGIN_DIR}/" "${STAGE}/${SLUG}/"
-else
-	cp -R "${PLUGIN_DIR}/." "${STAGE}/${SLUG}/"
-	rm -rf "${STAGE}/${SLUG}/.git" \
-		"${STAGE}/${SLUG}/.github" \
-		"${STAGE}/${SLUG}/.gitignore" \
-		"${STAGE}/${SLUG}/dist" \
-		"${STAGE}/${SLUG}/bin" \
-		"${STAGE}/${SLUG}/tests" \
-		"${STAGE}/${SLUG}/vendor" \
-		"${STAGE}/${SLUG}/node_modules" \
-		"${STAGE}/${SLUG}/composer.json" \
-		"${STAGE}/${SLUG}/composer.lock" \
-		"${STAGE}/${SLUG}/phpunit.xml.dist" \
-		"${STAGE}/${SLUG}/phpstan.neon.dist" \
-		"${STAGE}/${SLUG}/phpstan.neon" \
-		"${STAGE}/${SLUG}/.phpcs.xml.dist" \
-		"${STAGE}/${SLUG}/.phpcs.xml" \
-		"${STAGE}/${SLUG}/package.json" \
-		"${STAGE}/${SLUG}/package-lock.json" \
-		"${STAGE}/${SLUG}/.phpunit.result.cache"
-	find "${STAGE}/${SLUG}" \
-		\( -name '.DS_Store' -o -name 'Thumbs.db' -o -name '*.swp' -o -name '*~' \
-		   -o -name 'CODEX-REVIEW*.md' \) \
-		-delete
+COPIED=0
+
+while IFS= read -r file; do
+	dir="${file%/*}"
+
+	if [[ "${dir}" != "${file}" ]]; then
+		mkdir -p "${STAGE}/${SLUG}/${dir}"
+	fi
+
+	cp -p "${PLUGIN_DIR}/${file}" "${STAGE}/${SLUG}/${file}"
+	COPIED=$(( COPIED + 1 ))
+done < <(package_files "${PLUGIN_DIR}")
+
+if [[ "${COPIED}" -eq 0 ]]; then
+	echo "error: nothing to package — bin/package-manifest.sh excluded every file." >&2
+	exit 1
 fi
 
 # --- Archive ----------------------------------------------------------------
+#
+# No -x here. The staged tree is already exactly what should ship, and a second
+# filter at zip time could drop a file the manifest included — leaving the build
+# and the verifier disagreeing again, which is the whole thing this avoids.
 
 mkdir -p "${DIST_DIR}"
-( cd "${STAGE}" && zip -qr "${ARCHIVE}" "${SLUG}" -x '.*' )
+( cd "${STAGE}" && zip -qr "${ARCHIVE}" "${SLUG}" )
 
 echo "Built ${ARCHIVE#"${PLUGIN_DIR}/"}  ($(du -h "${ARCHIVE}" | cut -f1), $(unzip -Z1 "${ARCHIVE}" | grep -vc '/$') files)"
 echo

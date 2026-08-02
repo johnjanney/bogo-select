@@ -407,10 +407,20 @@ was reviewed:
 bash bin/verify-zip.sh
 ```
 
-- Every runtime file (`.php`, `.js`, `.css`) in the worktree must appear in the
-  archive with an identical SHA-256, and the archive must carry no runtime file
-  the worktree lacks.
-- The script exits non-zero and names each stale, missing, or extra file.
+- Every entry in the archive is checked, whatever its extension: it must be a
+  file the worktree has, with an identical SHA-256, that the build was meant to
+  ship. Every file the build was meant to ship must be in the archive.
+- What ships is `bin/package-manifest.sh`, a list of exclusions that the build
+  reads too, so the verifier cannot fall behind what the build does. Anything
+  not excluded is packaged and checked without being named there.
+- The script exits non-zero and names each stale, missing, extra, excluded, or
+  out-of-tree entry.
+- `bash bin/verify-zip-check.sh` proves it would: it builds real archives in a
+  temporary sandbox, breaks each one in a way that has happened here, and
+  requires the gate to reject it **and to say why**. It runs in CI beside the
+  parity check itself. A gate narrower than its own report is what this
+  repository has actually shipped, twice, and nothing inside a check can notice
+  that about itself.
 - CI runs the same build-then-verify pair on every push, so a zip that disagrees
   with the source fails the build rather than reaching a customer.
 - If it fails: rebuild from the reviewed state (§8.2 — bump the version or remove

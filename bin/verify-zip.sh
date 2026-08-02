@@ -9,9 +9,11 @@
 # two. This script is that comparison, and it is a release gate — see BRIEF.md
 # §8.5.
 #
-# Every runtime file (.php, .js, .css) in the worktree must be present in the
-# archive with an identical SHA-256, and the archive must not carry runtime files
-# the worktree does not have.
+# Every entry in the archive is checked, whatever its extension: it must be a
+# file the worktree has, with an identical SHA-256, that the build was meant to
+# ship. And every file the build was meant to ship must be in the archive. The
+# list of what ships is `bin/package-manifest.sh`, which the build reads too, so
+# the verifier cannot fall behind what the build does.
 #
 # Usage: bash bin/verify-zip.sh
 #
@@ -21,6 +23,9 @@ SLUG="bogo-select"
 PLUGIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 MAIN_FILE="${PLUGIN_DIR}/${SLUG}.php"
 DIST_DIR="${PLUGIN_DIR}/dist"
+
+# shellcheck source=bin/package-manifest.sh
+source "${PLUGIN_DIR}/bin/package-manifest.sh"
 
 # --- Locate the archive for the current version -----------------------------
 
@@ -52,29 +57,65 @@ if [[ ! -d "${PACKED}" ]]; then
 	exit 1
 fi
 
-# --- List the runtime files on each side ------------------------------------
-#
-# The exclusions mirror bin/build-zip.sh: anything the build deliberately leaves
-# out must not be reported as missing from the archive.
-
-runtime_files() {
-	# $1: root directory to list, relative paths on stdout.
-	( cd "$1" && find . \
-		\( -path './.git' -o -path './.github' -o -path './dist' -o -path './bin' \
-		   -o -path './tests' -o -path './vendor' -o -name 'node_modules' \) -prune -o \
-		-type f \( -name '*.php' -o -name '*.js' -o -name '*.css' \) -print ) \
-		| sed 's|^\./||' | sort
-}
-
-SOURCE_LIST="${STAGE}/source.txt"
-PACKED_LIST="${STAGE}/packed.txt"
-
-runtime_files "${PLUGIN_DIR}" > "${SOURCE_LIST}"
-runtime_files "${PACKED}" > "${PACKED_LIST}"
-
-# --- Compare ----------------------------------------------------------------
-
 STATUS=0
+
+# --- Every entry in the archive, read from the archive itself ---------------
+#
+# `unzip -Z1` is used rather than a walk of the unpacked tree because the
+# question is what the archive contains. A file installed outside the plugin
+# directory would never appear under ${PACKED} and so could not be found by
+# walking it.
+
+ENTRIES=0
+ARCHIVE_FILES="${STAGE}/archive.txt"
+: > "${ARCHIVE_FILES}"
+
+while IFS= read -r entry; do
+	ENTRIES=$(( ENTRIES + 1 ))
+
+	if [[ "${entry}" != "${SLUG}/"* ]]; then
+		echo "OUTSIDE   ${entry} — outside the ${SLUG}/ directory the archive installs" >&2
+		STATUS=1
+		continue
+	fi
+
+	file="${entry#"${SLUG}/"}"
+
+	# A directory entry carries no content, but it can still name something
+	# that has no business in a release.
+	if [[ "${entry}" == */ ]]; then
+		if package_excluded "${file}"; then
+			echo "EXCLUDED  ${file} — the build leaves this out; the archive has it anyway" >&2
+			STATUS=1
+		fi
+		continue
+	fi
+
+	printf '%s\n' "${file}" >> "${ARCHIVE_FILES}"
+
+	if package_excluded "${file}"; then
+		echo "EXCLUDED  ${file} — the build leaves this out; the archive has it anyway" >&2
+		STATUS=1
+		continue
+	fi
+
+	if [[ ! -f "${PLUGIN_DIR}/${file}" ]]; then
+		echo "EXTRA     ${file} — in the archive, absent from the worktree" >&2
+		STATUS=1
+	fi
+done < <(unzip -Z1 "${ARCHIVE}")
+
+if [[ "${ENTRIES}" -eq 0 ]]; then
+	echo "error: ${ARCHIVE##*/} is empty." >&2
+	exit 1
+fi
+
+LC_ALL=C sort -o "${ARCHIVE_FILES}" "${ARCHIVE_FILES}"
+
+# --- Every file the build was meant to ship ---------------------------------
+
+EXPECTED="${STAGE}/expected.txt"
+package_files "${PLUGIN_DIR}" > "${EXPECTED}"
 
 while IFS= read -r file; do
 	if [[ ! -f "${PACKED}/${file}" ]]; then
@@ -92,18 +133,16 @@ while IFS= read -r file; do
 		echo "            archive  ${pkg:0:16}" >&2
 		STATUS=1
 	fi
-done < "${SOURCE_LIST}"
-
-while IFS= read -r file; do
-	if [[ ! -f "${PLUGIN_DIR}/${file}" ]]; then
-		echo "EXTRA     ${file} — in the archive, absent from the worktree" >&2
-		STATUS=1
-	fi
-done < "${PACKED_LIST}"
+done < "${EXPECTED}"
 
 # --- Report -----------------------------------------------------------------
+#
+# The count is of files actually compared, not of files listed on one side. A
+# parity check that overstates its own coverage is worse than none: the v2.3.5
+# archive reported "87 runtime files verified" while carrying 197 it had never
+# looked at.
 
-COUNT="$(wc -l < "${SOURCE_LIST}" | tr -d ' ')"
+COUNT="$(LC_ALL=C comm -12 "${EXPECTED}" "${ARCHIVE_FILES}" | wc -l | tr -d ' ')"
 
 if [[ "${STATUS}" -ne 0 ]]; then
 	echo >&2
@@ -112,4 +151,4 @@ if [[ "${STATUS}" -ne 0 ]]; then
 	exit 1
 fi
 
-echo "${ARCHIVE##*/} matches the worktree (${COUNT} runtime files verified)."
+echo "${ARCHIVE##*/} matches the worktree (${COUNT} files verified, every archive entry checked)."

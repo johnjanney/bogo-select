@@ -80,7 +80,7 @@ jobs:
         run: for f in assets/js/*.js; do node --check "$f"; done
 
       - name: Check build script syntax
-        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh bin/verify-tests.sh bin/verify-browser-tests.sh
+        run: bash -n bin/package-manifest.sh bin/build-zip.sh bin/verify-zip.sh bin/verify-zip-check.sh bin/verify-ci.sh bin/verify-tests.sh bin/verify-browser-tests.sh
 
       - name: Check integration test syntax
         run: for f in tests/integration/*.mjs; do node --check "$f"; done
@@ -126,6 +126,14 @@ jobs:
 
       - name: Verify the zip matches the source
         run: bash bin/verify-zip.sh
+
+      # And that the verifier would say so if it did not. It compared three
+      # extensions for eight releases while reporting that the archive matched,
+      # so a check narrower than its own report is the failure this repository
+      # has actually had (CODEX-REVIEW.md L-03). Sandboxed: it builds and breaks
+      # archives in a temp directory and never writes to the checkout.
+      - name: Check the parity gate objects to bad archives
+        run: bash bin/verify-zip-check.sh
 
   integration:
     name: WooCommerce ${{ matrix.woocommerce }} blocks
