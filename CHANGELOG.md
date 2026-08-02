@@ -7,6 +7,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.1] — 2026-08-01
+
+A settings screen that said no and meant it.
+
+Answers the sixth Codex review (`CODEX-REVIEW-RESPONSE.md` Part 0).
+
+### Fixed
+
+- **The settings screen refuses a schedule it cannot honour, instead of
+  describing one and saving it anyway** (`CODEX-REVIEW.md` M-01). A window
+  running from the 20th to the 10th produced the error "so it will never run"
+  and was then stored exactly as typed: `add_settings_error()` draws a message,
+  and WordPress writes the option regardless. Every check the screen made was
+  advisory, and two of them — this changelog at 1.3.0, and Q-005 — said
+  otherwise. A reversed window now leaves the stored schedule in place, and the
+  message names the schedule that survived. A date the screen cannot read does
+  the same rather than clearing the bound: an empty field means "no bound"
+  because a store asked for one, while a typo is a store asking for a bound and
+  missing, and reading the second as the first is the one mistake that widens a
+  campaign meant to be narrowed. Everything else in the same submission still
+  saves. The reversed-window check no longer runs only for enabled offers, so a
+  window that can never run cannot be parked on a disabled one and switched on
+  later.
+
+- **`2026-08-01junk` is no longer read as the first of August.** Each
+  dash-separated part was converted with `intval()`, which stops at the first
+  character it cannot read, so a value that looks nothing like a date became a
+  real schedule boundary. The whole string must now be a date. Unpadded parts
+  such as `2026-8-1` still work.
+
+- **A Shop Manager can save the settings page they can already open**
+  (`CODEX-REVIEW.md` M-02). The menu and the page both ask for
+  `manage_woocommerce`, which is the capability WooCommerce gives that role, but
+  `options.php` asks for `manage_options` unless the option group says
+  otherwise — so the intended operator could fill the form in and be turned away
+  on submit. One capability now governs both halves.
+
+- **The offer summary counts selections rather than list entries**
+  (`CODEX-REVIEW.md` L-05). A Buy list holding a product and one of its own
+  variations reported "2 selected products", when the second selects nothing the
+  first had not already selected. The stored list is unchanged — it is what the
+  store typed — and only the sentence describing it was wrong.
+
+- **Documentation that had drifted from the code** (`CODEX-REVIEW.md` L-01). The
+  README described `bogo_select_reward_added` as taking two arguments when it
+  has sent three since variations landed, so a callback written from the README
+  never received the one that says which variation was given. It also called
+  shipping untested, and the brief still asked for a manual staging pass; both
+  have been covered by CI since v2.1.0 and v1.3.0 respectively. `ScheduleTest.php`
+  was missing from the test inventory.
+
+### Changed
+
+- **One gift search loads each candidate once instead of twice**
+  (`CODEX-REVIEW.md` M-03). A search judged every match for eligibility, loading
+  each product, then sorted the survivors by name, loading each again — 120
+  product loads for 60 candidates, and up to 400 at the 200-match ceiling, to
+  render 24 cards. A per-request memo sits behind both passes. It holds only
+  facts that cannot change inside one request; stock is deliberately not among
+  them, so a reward added mid-request is still judged against a freshly loaded
+  product. A test holds the ratio, and another asserts the memo does not outlive
+  the cache flush that clears the variation memo beside it.
+
+- **CI fails on PHP notices raised by this plugin** (`CODEX-REVIEW.md` L-02).
+  The brief has asked for a clean log under `WP_DEBUG` since 1.0.0 and nothing
+  had ever checked. The integration job now turns `WP_DEBUG` on before the
+  plugin is installed and fails on any logged line naming a file of ours;
+  notices from WordPress and WooCommerce themselves are printed and ignored,
+  since no change here can fix them. The workflow also declares
+  `permissions: contents: read`, so the token's reach is versioned with the code
+  rather than held in a repository setting (`CODEX-REVIEW.md` L-03).
+
+- **The settings screen has tests.** It had none, which is how a screen that
+  said it refused a schedule went on saving it. `AdminSettingsTest.php` asserts
+  what the sanitizer returns and not merely what it says, because a test that
+  read the error message would have passed against the broken code.
+
+- **The pinned-sibling browser assertion checks the card it means**
+  (`CODEX-REVIEW.md` L-02). It computed whether the large variation was selected
+  and then never asserted it, falling back to searching the whole page for
+  "Large" — which appears in the chooser's own options either way, so it passed
+  whether or not the swap happened.
+
 ## [2.3.0] — 2026-08-01
 
 A Buy list that can name one size.
@@ -564,7 +647,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.0...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.1...HEAD
+[2.3.1]: https://github.com/johnjanney/bogo-select/compare/v2.3.0...v2.3.1
 [2.3.0]: https://github.com/johnjanney/bogo-select/compare/v2.2.1...v2.3.0
 [2.2.1]: https://github.com/johnjanney/bogo-select/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/johnjanney/bogo-select/compare/v2.1.0...v2.2.0

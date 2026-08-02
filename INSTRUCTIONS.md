@@ -80,6 +80,12 @@ Go to **WooCommerce → BOGO Select**.
 | **Start date** | The first day the offer runs. Leave empty to start immediately. |
 | **End date** | The last day the offer runs — it runs all of that day. Leave empty to run until you switch it off. |
 
+Clearing a date removes that bound. A date the screen cannot read is not the same
+thing: it keeps the date you had, and tells you it did, so a typo never quietly
+turns a bounded campaign into an open-ended one. An end date before the start
+date is refused for the same reason — the schedule you were already running
+stays in place until you enter one that can actually run.
+
 ### Quantities
 
 | Setting | What it does |

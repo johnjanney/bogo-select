@@ -5,6 +5,13 @@ on:
     branches: [ main ]
   pull_request:
 
+# Every job here reads the repository and writes nothing back. Stating that in
+# the workflow keeps it true if the repository default ever widens, rather than
+# leaving the token's reach to a setting held outside version control
+# (CODEX-REVIEW.md L-03).
+permissions:
+  contents: read
+
 jobs:
   test:
     name: PHP ${{ matrix.php }}
@@ -128,6 +135,17 @@ jobs:
             'a2enmod rewrite >/dev/null && sed -i "s|AllowOverride None|AllowOverride All|g" /etc/apache2/apache2.conf && apache2ctl graceful'
           sleep 3
           $C wp rewrite flush --hard
+
+      # BRIEF.md §6 asks for no PHP notices or warnings with WP_DEBUG on, and
+      # nothing had ever checked it (CODEX-REVIEW.md L-02). Logged rather than
+      # displayed: a notice printed into the page would break the browser tests
+      # in a way that says nothing about what raised it.
+      - name: Turn on WP_DEBUG
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          $C wp config set WP_DEBUG true --raw
+          $C wp config set WP_DEBUG_LOG true --raw
+          $C wp config set WP_DEBUG_DISPLAY false --raw
 
       - name: Install WooCommerce and the plugin
         run: |
@@ -355,6 +373,30 @@ jobs:
           REWARD=$(echo "$OUT" | python3 -c 'import json,sys; print(json.load(sys.stdin)["reward"])')
           MODE=incl PAID_ID="$PAID" REWARD_ID="$REWARD" REWARD_PRICE=20 \
             DISCOUNT_PERCENT=50 TAX_RATE=10 node tests/integration/tax.test.mjs
+
+      # Only lines naming this plugin's own files fail the build. WordPress and
+      # WooCommerce raise deprecations of their own that no change here can fix,
+      # and failing on those would make the check something to switch off.
+      - name: Fail on PHP notices from the plugin
+        if: always()
+        run: |
+          docker compose -f tests/integration/docker-compose.yml exec -T wp \
+            cat /var/www/html/wp-content/debug.log > debug.log 2>/dev/null || true
+
+          if [ ! -s debug.log ]; then
+            echo "No debug log written — WP_DEBUG raised nothing."
+            exit 0
+          fi
+
+          echo "--- debug.log ---"
+          cat debug.log
+
+          if grep -n 'plugins/bogo-select/' debug.log; then
+            echo "::error::WP_DEBUG logged the lines above against this plugin."
+            exit 1
+          fi
+
+          echo "Nothing in the log names this plugin."
 
       - name: Container logs on failure
         if: failure()

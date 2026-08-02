@@ -186,18 +186,39 @@ if (pinnedCards === 2) {
 		]);
 		await page.waitForTimeout(4000);
 
-		const swapped = await page.evaluate((id) => ({
-			selected: document.querySelectorAll('.bogo-select__item.is-selected').length,
-			largeIsSelected: !!document.querySelector(
-				`.bogo-select__item.is-selected button[data-bogo-remove], .bogo-select__item.is-selected`
-			) && !!document.querySelector(`.bogo-select__item.is-selected`),
-			text: document.body.innerText,
-		}), LARGE_ID);
+		// Asked of the exact card, not of the page: "Large" appears in the
+		// chooser's own options whichever sibling is in the cart, so searching
+		// the body text passed whether or not the swap happened.
+		const swapped = await page.evaluate((id) => {
+			const selected = document.querySelectorAll('.bogo-select__item.is-selected');
+
+			// The chooser is printed inside the cart form, so its own option
+			// text is not evidence about the cart. Only the line rows are.
+			const rows = document.querySelectorAll(
+				'.shop_table.cart tr.cart_item, .woocommerce-cart-form__cart-item'
+			);
+
+			return {
+				selected: selected.length,
+				selectedCard: selected.length ? selected[0].getAttribute('data-bogo-card') : null,
+				largeIsSelected: !!document.querySelector(
+					`.bogo-select__item[data-bogo-card="${id}"].is-selected`
+				),
+				rows: rows.length,
+				cartText: Array.from(rows).map((row) => row.innerText).join('\n'),
+			};
+		}, LARGE_ID);
 
 		check('Classic cart: switching to the sibling still marks exactly one card',
 			swapped.selected === 1, `${swapped.selected} cards marked selected`);
+		check('Classic cart: the card now marked is the sibling that was clicked',
+			swapped.largeIsSelected && swapped.selectedCard === String(LARGE_ID),
+			`card ${swapped.selectedCard} is marked, expected ${LARGE_ID}`);
 		check('Classic cart: the cart now holds the sibling',
-			/Large/i.test(swapped.text) && !/Classic Variable Thing - Small/i.test(swapped.text));
+			swapped.rows > 0
+			&& /Classic Variable Thing - Large/i.test(swapped.cartText)
+			&& !/Classic Variable Thing - Small/i.test(swapped.cartText),
+			`${swapped.rows} cart rows read; they name the wrong variation`);
 	}
 }
 

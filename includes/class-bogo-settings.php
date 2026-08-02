@@ -170,11 +170,21 @@ class BOGO_Select_Settings {
 	/**
 	 * Normalise a calendar date to `Y-m-d`, or to nothing.
 	 *
-	 * Anything that is not a real date becomes an empty string, which the
-	 * schedule reads as "no bound on this side" — the same as leaving the field
-	 * blank. A date that does not exist, such as 2026-02-30, is rejected rather
-	 * than rolled forward into March, because a schedule silently shifting by a
-	 * day is worse than one that refuses the input.
+	 * Anything that is not a real date becomes an empty string. At this level
+	 * that reads as "no bound on this side", which is also what a blank field
+	 * means — the two are told apart where it matters, in the settings screen,
+	 * which keeps the schedule it already had rather than treating a typo as a
+	 * request to remove a boundary (CODEX-REVIEW.md M-01).
+	 *
+	 * A date that does not exist, such as 2026-02-30, is rejected rather than
+	 * rolled forward into March, because a schedule silently shifting by a day
+	 * is worse than one that refuses the input.
+	 *
+	 * The whole string must be a date. Converting each dash-separated part with
+	 * intval() alone accepted "2026-08-01junk" as the first of August, because
+	 * intval stops at the first character it cannot read — a stored value that
+	 * looks nothing like a date then silently became a real boundary. Unpadded
+	 * parts are still accepted, so a hand-written 2026-8-1 keeps working.
 	 *
 	 * @param mixed $value Raw value.
 	 * @return string
@@ -186,13 +196,19 @@ class BOGO_Select_Settings {
 			return '';
 		}
 
-		$parts = array_map( 'intval', explode( '-', $value ) );
-
-		if ( 3 !== count( $parts ) || ! checkdate( $parts[1], $parts[2], $parts[0] ) ) {
+		if ( ! preg_match( '/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $value, $parts ) ) {
 			return '';
 		}
 
-		return sprintf( '%04d-%02d-%02d', $parts[0], $parts[1], $parts[2] );
+		$year  = (int) $parts[1];
+		$month = (int) $parts[2];
+		$day   = (int) $parts[3];
+
+		if ( ! checkdate( $month, $day, $year ) ) {
+			return '';
+		}
+
+		return sprintf( '%04d-%02d-%02d', $year, $month, $day );
 	}
 
 	/**

@@ -23,6 +23,8 @@ Docker, so it runs in CI rather than from `composer test`.
 | File | Covers |
 |---|---|
 | `SettingsTest.php` | Defaults, normalization, corrupt options, `sanitize()`, and the discount keys. |
+| `ScheduleTest.php` | The offer window: inclusive bounds, an unbounded side, date normalization, and that the schedule only ever narrows an offer. |
+| `AdminSettingsTest.php` | The settings screen's judgement: which schedules it refuses and what it keeps instead (M-01), who may save the option group (M-02), what the summary sentence counts (L-05), and the gift list it strips. |
 | `QualificationTest.php` | Buy counting, scopes, variations, repeat mode, filters, reward-key lookup. |
 | `AvailabilityTest.php` | Gift eligibility by type and scope, stock/backorder/sold-individually rules, cart-wide stock demand. |
 | `ChooserPagingTest.php` | Paging and search across both Get scopes — regression cover for F-02 — and the page-aware `bogo_select_choice_ids` filter (C-04). |
@@ -37,6 +39,7 @@ Docker, so it runs in CI rather than from `composer test`.
 | `VariableSelectionTest.php` | Awarding a variation: the reward pair, sibling swaps, the state signature, and validation. |
 | `VariableChooserTest.php` | The variable card: its selector, per-option availability, aggregate card state, and which card owns the selection. |
 | `VariableRenderCostTest.php` | How many product loads a page of variable cards costs, and that the variation memo is per request. |
+| `ChooserSearchCostTest.php` | How many product loads one gift search costs, that the memo does not change the order it returns, and that it does not outlive a cache flush (M-03). |
 | `CartValidationTest.php` | Self-healing cart, and a reward of an already-purchased product keeping its own line (D-020): stock revalidation (F-01), duplicate reward lines (F-04), suspension (F-03), quantity lock, $0 pricing, subtotal display (F-07). |
 
 ## What the integration job covers
@@ -68,6 +71,16 @@ they run in order.
 - Multi-currency, and currencies whose minor unit is not two digits. The
   assertions read `currency_minor_unit` rather than assuming, but only one
   currency is ever configured.
-- `WP_DEBUG` output.
+- Phone-viewport layout. The integration browser runs at 1280px, so the compact
+  chooser added in v2.2.0 has no automated check of its own.
+- A settings save through `options.php` under a real role. `AdminSettingsTest.php`
+  calls the same sanitize callback WordPress calls and asserts what it returns,
+  which is where the schedule rules live; what it cannot prove is the capability
+  check WordPress itself performs before calling it.
+
+`WP_DEBUG` is now covered, having been listed here as uncovered since v1.2.0.
+The integration job turns it on before installing the plugin and fails the build
+on any logged line naming a file of ours. Notices from WordPress and WooCommerce
+themselves are printed and ignored, since no change here can fix them.
 
 `CODEX-REVIEW.md` M-03 is otherwise covered.

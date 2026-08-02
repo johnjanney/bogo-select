@@ -386,6 +386,14 @@ an enabled offer has already ended or has not started yet — in both of those
 cases the storefront looks identical to the offer simply being off, which is
 exactly the confusion worth heading off.
 
+**Amended 2026-08-01.** "Refuses" was not true when this was written. The screen
+displayed the error and saved the reversed window anyway, because
+`add_settings_error()` draws a message and does not stop an option being written
+(`CODEX-REVIEW.md` M-01). It refuses now, keeping the schedule the store was
+already running, and the same is true of a date it cannot read. A past or future
+window is still only described, since both are schedules that say something
+true.
+
 ---
 
 ### Q-006 — Behaviour when the gift is also in the cart as a paid item — **Answered 2026-07-31**

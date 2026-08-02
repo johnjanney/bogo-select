@@ -281,7 +281,7 @@ requires `manage_woocommerce`.
 | Out-of-stock Get product selected. | Stock checked at selection time, on every validation pass thereafter, and again at checkout by WooCommerce's own validation. |
 | Gift and paid copies of one product exhaust its stock between them. | Availability counts total cart demand against the stock-managed product ID, not the free units alone. |
 | A gift swap is rejected mid-flight, leaving the customer with nothing. | Replacement adds before it removes; a rejected add leaves the original gift untouched. |
-| WooCommerce lifecycle behaviour (sessions, checkout, stock reduction) regresses silently. | Unit suite covers the pure logic; the WooCommerce integration layer still needs a staging pass before release. See `tests/README.md`. |
+| WooCommerce lifecycle behaviour (sessions, checkout, stock reduction) regresses silently. | Unit suite covers the pure logic; since v1.3.0 the CI integration job drives a real WordPress and WooCommerce, places an order, and asserts its line metadata and stock reduction. What that job still does not reach is listed in §8.6 and `tests/README.md`. |
 
 ---
 
@@ -423,9 +423,13 @@ placing a real order through the Store API checkout — after which it asserts t
 order's line metadata and the stock WooCommerce reduced. Cash on delivery is
 enabled in the fixture, which is what made order placement possible.
 
+Shipping joined that job in v2.1.0 and is no longer manual: a shipping fixture
+seeds a non-virtual product and a free-shipping threshold, and `shipping.test.mjs`
+runs in both reward modes.
+
 **Still manual before a release**, because CI does not cover them: third-party
 pricing plugins against the priority-20 hook (a deliberate trade, see D-016),
-shipping — every fixture product is virtual, so no shipping method is needed to
-reach checkout — and currencies whose minor unit is not two digits. The hydration
-path is also unexercised: WooCommerce did not preload a cart response in the
-tested configuration.
+weight-based shipping rates — WooCommerce's own flat rate cannot express one, so
+it would take a third-party method — and currencies whose minor unit is not two
+digits. The hydration path is also unexercised: WooCommerce did not preload a
+cart response in the tested configuration.

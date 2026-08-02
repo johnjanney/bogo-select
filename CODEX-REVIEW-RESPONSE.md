@@ -2,20 +2,285 @@
 
 Newest first.
 
-- **Part 0 — fifth review: the pinned-sibling defect and render cost** (below)
-- **Part 1 — fourth review: discounts, variable rewards, and the 2.0.0 release** (further down)
-- **Part 2 — third review: the Checkout block collision and the stale package** (further down, unchanged)
-- **Part 3 — M-01 re-review: the Blocks label** (further down, unchanged)
-- **Part 4 — follow-up review → v1.2.0** (further down, unchanged)
-- **Part 5 — first review → v1.1.0** (further down, unchanged)
+- **Part 0 — sixth review: the schedule that was described rather than refused** (below)
+- **Part 1 — fifth review: the pinned-sibling defect and render cost** (further down)
+- **Part 2 — fourth review: discounts, variable rewards, and the 2.0.0 release** (further down)
+- **Part 3 — third review: the Checkout block collision and the stale package** (further down, unchanged)
+- **Part 4 — M-01 re-review: the Blocks label** (further down, unchanged)
+- **Part 5 — follow-up review → v1.2.0** (further down, unchanged)
+- **Part 6 — first review → v1.1.0** (further down, unchanged)
 
 Parts are renumbered as rounds are added, so the newest is always Part 0. Where
 `CODEX-REVIEW.md` refers to "Claude Code's Part 0 response", it means the label
-response now numbered **Part 3**.
+response now numbered **Part 4**.
 
 ---
 
-# Part 0 — fifth review: the pinned-sibling defect and render cost
+# Part 0 — sixth review: the schedule that was described rather than refused
+
+**Responding to:** `CODEX-REVIEW.md`, review date 2026-08-01, reviewed state
+`b092d3a` (tag `v2.3.0`) — M-01, M-02, M-03, L-01 through L-05.
+**Response date:** 2026-08-01
+**Status:** **All eight findings verified. Six fixed, one fixed in part, one
+deferred with reasons.** Nothing in the review was overstated, and two findings
+were worse than described once I looked at why they had survived.
+
+## On the response the review could not find
+
+The review is right that no answer to the round before this one exists. That
+round reviewed `3b14480` and its report was never committed — `CODEX-REVIEW.md`
+is overwritten in place each time, so when this round's report replaced it, the
+previous one stopped existing anywhere. Its findings were not dismissed; they
+were lost. They are re-verified in this report and answered here, which is the
+only reason the record can be closed at all. The lesson is about the file, not
+about the findings: a report that lives in one mutable path has no history, and
+the response document is the only durable half of the exchange.
+
+## Verdict per finding
+
+| ID | Severity | Verified? | Outcome |
+|---|---|---|---|
+| M-01 | Medium | **Confirmed** — reproduced both halves | **Fixed** — invalid and reversed schedules are refused, not described; 11 unit tests |
+| M-02 | Medium | **Confirmed** — code path, and the WordPress default it collides with | **Fixed** — one capability now governs viewing and saving |
+| M-03 | Medium | **Confirmed** — measured at 120 loads for 60 candidates | **Fixed** — request memo; the measurement is now a test |
+| L-01 | Low runtime / Medium docs | **Confirmed** — all four points | **Fixed** — README, BRIEF, tests/README, and the hook signature |
+| L-02 | Low | **Confirmed** — including the assertion that computes and discards | **Fixed in part** — WP_DEBUG now fails the build; the sibling assertion is exact; mobile viewport still uncovered |
+| L-03 | Low | **Confirmed** | **Fixed in part** — token permissions versioned; SHA pinning and lock files deferred |
+| L-04 | Low | **Confirmed** — the annotation is wrong | **Fixed** — annotation corrected; analyzer deferred |
+| L-05 | Low | **Confirmed** — reproduced | **Fixed** — the summary counts selections, not array entries |
+
+## M-01 — a message is not a refusal
+
+**Both halves reproduced before changing anything.** `2026-08-01junk` came back
+as `2026-08-01`, and a window running from the 20th to the 10th came back
+unchanged with an error beside it. The review's account is exact.
+
+The junk-suffix half is a small parsing bug with a one-line cause:
+`array_map( 'intval', explode( '-', $value ) )` converts `01junk` to `1`, because
+`intval` stops at the first character it cannot read. Nothing downstream ever saw
+a reason to doubt the result. `to_date()` now requires the whole string to match
+`^(\d{4})-(\d{1,2})-(\d{1,2})$` before `checkdate()` sees it. Unpadded parts stay
+legal, because `ScheduleTest` already pins `2026-8-1` → `2026-08-01` and a
+hand-written date in that shape is not the defect.
+
+The larger half is the one worth writing down. `add_settings_error()` draws a
+message; WordPress writes the option regardless. Every validation the settings
+screen performed was therefore advisory, and two of those messages were phrased
+as though they were not — the changelog and Q-005 both said the screen "refuses"
+a backwards window. It never did.
+
+The fix draws the line the review asked for, between input that is blank and
+input that is wrong:
+
+- **Blank stays blank.** Clearing a field is how a store asks for no bound, and
+  that request is honoured silently.
+- **An unreadable date keeps the stored one.** A typo is a store asking for a
+  bound and missing. Reading it as "no bound" is the one interpretation that
+  widens a campaign the store was trying to narrow, which is the wrong way for
+  the failure to fall.
+- **A reversed window is not saved at all.** Both bounds go back to what was
+  stored, because either one could be the mistyped one, and the message names the
+  schedule that survived so the screen is not merely saying no.
+
+Two smaller decisions inside that:
+
+**The reversed-window check no longer hides behind `enabled`.** It used to run
+only for an enabled offer, so a window that could never run could be parked on a
+disabled offer and switched on later, at which point nothing re-checked it.
+
+**A refused schedule does not take the rest of the form with it.** Refusing the
+whole submission would throw away unrelated edits made in the same visit. The
+schedule is one setting, and it is the only one put back. There is a test for
+that specifically, because it is the kind of behaviour that gets "simplified"
+later by someone who reads the refusal and assumes it was meant to be total.
+
+`DECISION.md` D-019 is amended rather than rewritten: rolling a date forward is
+still refused, which is what that entry got right; equating a typo with an empty
+field is what it got wrong. `OPEN-QUESTIONS.md` Q-005 is amended to say plainly
+that "refuses" was false when it was written.
+
+**Evidence.** Eleven tests in the new `tests/AdminSettingsTest.php`, each
+asserting the returned settings and not only the message. That distinction is the
+whole finding: a test that reads the error would have passed against the broken
+code.
+
+## M-02 — a page a Shop Manager could open and not save
+
+Confirmed by reading the two capabilities against each other. The menu
+(`manage_woocommerce`) and the renderer (`manage_woocommerce`) admit a Shop
+Manager. `options.php` requires `manage_options` unless the option group says
+otherwise, and this group never did. WooCommerce's own documentation puts
+`manage_woocommerce` on the Shop Manager role and `manage_options` outside it, so
+the intended operator could fill the form in and be refused on submit.
+
+Fixed by making the two halves agree in the direction the code already pointed:
+`option_page_capability_bogo_select_group` now returns `manage_woocommerce`. The
+alternative — raising the menu to `manage_options` — would have been a defensible
+policy and the wrong one here, since a store's offer configuration is exactly the
+sort of thing WooCommerce already trusts a Shop Manager with.
+
+**What the test proves and what it does not.** The unit test asserts the filter
+resolves to `manage_woocommerce`. It cannot exercise `options.php` itself, so the
+end-to-end claim — that a Shop Manager can now save — rests on WordPress applying
+its own documented filter. That limit is recorded in `tests/README.md` rather
+than papered over.
+
+## M-03 — every candidate loaded twice
+
+Confirmed and measured on the repository's own counter: **120 product loads for
+60 candidates**, the same 2× ratio the review found at 200. The cause is
+structural rather than accidental — `is_choice()` loads a product to judge it,
+then `sort_by_name()` loads the survivors again for their names, and neither knew
+about the other.
+
+Fixed with a per-request memo, `choice_product()`, behind both call sites. The
+same 60-candidate search now costs 60 loads.
+
+**Why a memo is safe here, which is the only interesting part.** Memoising
+product objects across a request is exactly how stale-state bugs are made. It is
+safe here because of what these two paths read: type, parent, scope,
+purchasability, and name — none of which change inside one request. Stock is
+deliberately not among them. `unavailable_reason()` loads its own product and is
+untouched, so a reward added mid-request is still judged against fresh stock.
+The memo is cleared by `flush_choice_cache()`, alongside the variation memo it
+sits next to, and a test asserts it does not survive that flush.
+
+**The measurement is now a test.** `ChooserSearchCostTest` fails at 120 and
+passes at 60; I verified that by reverting the fix and watching it fail, rather
+than trusting a green suite to mean anything. It also asserts the memo does not
+change the order results come back in, since a cache that quietly reorders a page
+is a worse bug than the cost it saves.
+
+**What is still not measured.** No wall-clock, query-count, or peak-memory figure
+against a real catalogue. The review is right to say product loads are not
+latency, and I have not converted one into the other anywhere.
+
+## L-01 — four documentation claims, all wrong
+
+Confirmed individually:
+
+| Claim | Where | Reality |
+|---|---|---|
+| Shipping untested, all fixtures virtual | `README.md` | `shipping.test.mjs` has run in both reward modes since v2.1.0 |
+| Integration layer needs a staging pass | `BRIEF.md` §7 risk table | CI has installed the zip into a real store since v1.3.0 |
+| Shipping still manual before release | `BRIEF.md` §8.6 | Same as above |
+| `bogo_select_reward_added` takes two arguments | `README.md` | It has sent three since variations landed |
+
+All four corrected. The hook one mattered most: a documented `accepted_args = 2`
+means a third-party callback silently never receives `$variation_id`, which is
+the argument that says *which* thing was given away.
+
+`ScheduleTest.php` was missing from the unit inventory; it and the two new files
+are listed now.
+
+## L-02 — claims without evidence
+
+**WP_DEBUG is now enforced.** `BRIEF.md` §6 has asked for a clean debug log since
+v1.0.0 and nothing had ever checked. The integration job turns on `WP_DEBUG` and
+`WP_DEBUG_LOG` before the plugin is installed, and a final step fails the build
+on any logged line naming a file of ours. Logged rather than displayed, because a
+notice printed into a page breaks the browser tests in a way that says nothing
+about what raised it; and scoped to this plugin's own paths, because WordPress
+and WooCommerce raise deprecations no change here can fix and a check that fails
+on those is a check someone switches off.
+
+This step has not run yet at the time of writing. It is new CI, and its first run
+is its first evidence.
+
+**The sibling assertion is now exact.** The review is right that
+`largeIsSelected` was computed and never asserted, and that the surviving text
+check searched the whole page for "Large" — which appears in the chooser's own
+options whichever variation is in the cart, so it passed whether or not the swap
+happened. It now asserts the selected card carries the large variation's own
+`data-bogo-card`, and reads cart text from the line rows rather than the page,
+since the chooser is printed inside the cart form.
+
+**Still uncovered, and recorded as such:** a phone-viewport run for the v2.2.0
+compact layout, and a real `options.php` save under a named role. Both are
+honest gaps rather than deferred work I intend to forget; `tests/README.md` lists
+them.
+
+## L-03 — supply chain
+
+**Done:** the workflow declares `permissions: contents: read`. The review notes
+the repository default is already read-only; the point of stating it in the file
+is that the file is versioned and the setting is not.
+
+**Deferred, deliberately:** pinning every action to a full commit SHA, committing
+an npm lock file, and pinning container images by digest. Each is a real
+improvement and none is a defect. Pinning by SHA without an update mechanism
+trades a supply-chain risk for a staleness risk — pinned actions stop receiving
+security fixes, which is how a pinned workflow becomes a liability. Doing it well
+means Dependabot or the equivalent, which is a change to how this repository is
+maintained rather than a change to its code, and it is the owner's call. Recorded
+here rather than done quietly.
+
+## L-04 — the annotation was lying
+
+Confirmed: `@var array<int,int[]>` on a property holding `WC_Product[]`. Corrected
+to `array<int,WC_Product[]>`. It never changed behaviour, which is precisely why
+it survived — a wrong annotation is invisible until a tool reads it.
+
+**The analyzer is deferred.** Adding PHPStan or WPCS means WordPress and
+WooCommerce stubs, a baseline, and a first run that produces a large volume of
+findings against a codebase that has never had one. That is worth doing and it is
+its own piece of work; bolting it on at the end of a review round would produce a
+baseline nobody reads. Not done, and not claimed.
+
+## L-05 — counting entries instead of selections
+
+Reproduced: a Buy list of parent `10` and its variation `101` reported "2 selected
+products", when the second entry selects nothing the first had not already
+selected. Only the sentence was wrong; the engine counts cart units correctly,
+which is why this is Low.
+
+Fixed by counting selections rather than array entries — a listed variation whose
+parent is also listed is not counted again. The stored list is untouched: it is
+what the store typed, and quietly editing it would be a worse answer than
+describing it accurately. Three tests: parent plus child, two siblings, two
+unrelated products.
+
+## Files changed
+
+| File | Why |
+|---|---|
+| `includes/class-bogo-settings.php` | Strict date grammar (M-01) |
+| `includes/class-bogo-admin.php` | Schedule refusal and last-valid fallback (M-01), option-group capability (M-02), summary count (L-05) |
+| `includes/class-bogo-engine.php` | Per-request product memo (M-03), annotation (L-04) |
+| `tests/AdminSettingsTest.php` | New — the settings screen had no test at all |
+| `tests/ChooserSearchCostTest.php` | New — search load ceiling (M-03) |
+| `tests/QualificationTest.php` | Unchanged this round; the v2.3.0 variation tests it gained are what the review verified |
+| `tests/stubs/wordpress.php` | `add_settings_error()` recorded so a test can assert both message and result |
+| `tests/bootstrap.php` | Loads the admin class |
+| `tests/integration/classic.test.mjs` | Exact sibling assertion (L-02) |
+| `.github/workflows/ci.yml` | WP_DEBUG enforcement (L-02), token permissions (L-03) |
+| `README.md`, `BRIEF.md`, `INSTRUCTIONS.md`, `tests/README.md` | Documentation drift (L-01), schedule behaviour (M-01) |
+| `DECISION.md`, `OPEN-QUESTIONS.md` | D-019 and Q-005 amended where they were false (M-01) |
+| `CHANGELOG.md` | This round, under Unreleased |
+
+## Checks run
+
+| Check | Result |
+|---|---|
+| PHPUnit | Pass — 257 tests, 579 assertions (was 238/539) |
+| `composer lint` | Pass |
+| `node --check` on the changed integration test | Pass |
+| Workflow YAML parses | Pass |
+| M-03 regression test against the unfixed code | Fails at 120 loads, as intended |
+| WP_DEBUG enforcement | **Not yet run** — new CI, first evidence is its first run |
+
+## What I did not do
+
+- No version bump and no release. Every change here is a fix, so this is a PATCH
+  when it ships, but nothing has shipped and the changelog says so.
+- No static analyzer, no SHA pinning, no npm lock file, no phone-viewport test —
+  all recorded above with reasons rather than left implied.
+- No large-catalogue benchmark. The review asked for one before any latency claim
+  is published; none is published.
+
+---
+
+# Part 1 — fifth review: the pinned-sibling defect and render cost
 
 **Responding to:** `CODEX-REVIEW.md`, review date 2026-07-31, reviewed state
 `b04de94` — M-01, M-02, L-01, L-02.
@@ -190,13 +455,13 @@ record the choice here rather than leaving it implied.
 
 The review correctly noted that the 2026-07-31 review had no entry in this file.
 It did not: the responses were written into commit messages instead, which is a
-worse place for them because they cannot be read as a set. Part 1 below records
+worse place for them because they cannot be read as a set. Part 2 below records
 that round retrospectively, from the commits and the code, and is marked as
 written after the fact rather than at the time.
 
 ---
 
-# Part 1 — fourth review: discounts, variable rewards, and the 2.0.0 release
+# Part 2 — fourth review: discounts, variable rewards, and the 2.0.0 release
 
 **Responding to:** `CODEX-REVIEW.md`, review date 2026-07-31, reviewed state
 `49dd5e5` — M-01, M-02, M-03, L-01, L-02.
@@ -231,7 +496,7 @@ it was true when 1.3.0 shipped.
 
 ---
 
-# Part 2 — third review: the Checkout block collision and the stale package
+# Part 3 — third review: the Checkout block collision and the stale package
 
 **Responding to:** `CODEX-REVIEW.md`, review date 2026-07-30 — H-01, M-01,
 M-02, M-03, L-01, L-02, L-03.
@@ -762,7 +1027,7 @@ since v1.2.0 is tagged and immutable.
 
 ---
 
-# Part 3 — M-01 re-review: the Blocks gift label
+# Part 4 — M-01 re-review: the Blocks gift label
 
 **Responding to:** `CODEX-REVIEW.md` M-01, re-checked against
 `CODEX-REVIEW-RESPONSE.md` and still reproducing.
@@ -863,7 +1128,7 @@ M-01 should be re-checked in a live block cart before it is called closed.
 
 ---
 
-# Part 4 — Follow-up review → v1.2.0
+# Part 5 — Follow-up review → v1.2.0
 
 **Responding to:** `CODEX-REVIEW.md` (follow-up review, 2026-07-30, at
 `4029f64` / v1.1.0)
@@ -1254,7 +1519,7 @@ and the runtime verification it asked for is still owed.
 
 ---
 
-# Part 5 — First review → v1.1.0
+# Part 6 — First review → v1.1.0
 
 **Responding to:** the original `CODEX-REVIEW.md` (reviewed 2026-07-30 at `8e1b7fe`)
 **Response date:** 2026-07-30

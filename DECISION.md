@@ -512,10 +512,20 @@ Times of day were left out because no one asked for them and they would have
 forced exactly those questions.
 
 **Consequence.** A campaign cannot start or end partway through a day; a store
-needing that must still switch the offer manually. An invalid date — including
-one that does not exist, such as 2026-02-30 — is stored as no bound rather than
-rolled forward, because a schedule quietly shifting by a day is worse than one
-that ignores what it was given.
+needing that must still switch the offer manually.
+
+**Amended 2026-08-01** (`CODEX-REVIEW.md` M-01). This entry used to say an
+invalid date "is stored as no bound rather than rolled forward". Rolling forward
+is still refused — 2026-02-30 does not become the 2nd of March — but treating a
+typo as an empty field turned out to be the wrong half of that sentence. Empty
+means "no bound on this side" because a store asked for no bound. A date that
+could not be read is a store asking for a bound and missing, and reading it as
+the opposite silently widens a campaign. The two now part company at the
+settings screen: an unreadable date leaves the stored schedule alone and says
+so, and a window whose end precedes its start is refused outright rather than
+saved with a message beside it. Storage still normalises anything unreadable to
+an empty string, which is what a corrupt or hand-edited option row falls back
+to; the distinction lives where the intent is known.
 
 ---
 

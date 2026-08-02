@@ -28,6 +28,7 @@ class BOGO_Select_Admin {
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'add_menu' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_filter( 'option_page_capability_' . self::GROUP, array( $this, 'settings_capability' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue' ), 20 );
 		add_filter( 'plugin_action_links_' . BOGO_SELECT_BASENAME, array( $this, 'action_links' ) );
 	}
@@ -98,7 +99,13 @@ class BOGO_Select_Admin {
 	 * @return array
 	 */
 	public function sanitize( $raw ) {
-		$clean = BOGO_Select_Settings::sanitize( $raw );
+		// Read before sanitize(), which flushes the settings cache. options.php
+		// has not written the new row yet, so this is the schedule the store is
+		// running on now — what a rejected submission falls back to.
+		$stored = BOGO_Select_Settings::all();
+		$clean  = BOGO_Select_Settings::sanitize( $raw );
+
+		$clean = $this->keep_last_valid_schedule( $raw, $clean, $stored );
 
 		// A reward has to be something the customer can actually be given. Grouped
 		// and external products never are; a variable product needs at least one
@@ -162,21 +169,7 @@ class BOGO_Select_Admin {
 				);
 			}
 
-			// A window that ends before it begins can never run, and the fields
-			// give no other sign of it.
-			if ( '' !== $clean['start_date'] && '' !== $clean['end_date'] && $clean['end_date'] < $clean['start_date'] ) {
-				add_settings_error(
-					BOGO_Select_Settings::OPTION,
-					'bogo_select_backwards_window',
-					sprintf(
-						/* translators: 1: end date, 2: start date. */
-						__( 'The offer ends on %1$s, before it starts on %2$s, so it will never run. Swap the dates or clear one of them.', 'bogo-select' ),
-						$clean['end_date'],
-						$clean['start_date']
-					),
-					'error'
-				);
-			} elseif ( '' !== $clean['end_date'] && $clean['end_date'] < BOGO_Select_Engine::today() ) {
+			if ( '' !== $clean['end_date'] && $clean['end_date'] < BOGO_Select_Engine::today() ) {
 				// Enabled, but the window has already closed. Worth saying plainly:
 				// the storefront will look exactly as though the offer were off.
 				add_settings_error(
@@ -235,6 +228,114 @@ class BOGO_Select_Admin {
 		}
 
 		return $clean;
+	}
+
+	/**
+	 * Refuse a schedule that cannot mean what it says, keeping the stored one.
+	 *
+	 * add_settings_error() draws a message. It does not stop the option being
+	 * written, so the previous code showed "this window can never run" and then
+	 * saved that window anyway (CODEX-REVIEW.md M-01). Two submissions are
+	 * refused here rather than described:
+	 *
+	 * - A non-empty date that is not a date. Clearing a field is how a store
+	 *   says "no bound on this side", and a typo must not be read as that
+	 *   request — it would silently widen a campaign rather than narrow it.
+	 * - An end date before the start date, which can never run. Both bounds are
+	 *   put back, since either one of them could be the one that was mistyped.
+	 *
+	 * Everything else in the submission still saves. The schedule is a single
+	 * setting the store can correct on its own; refusing the whole form would
+	 * throw away unrelated edits made in the same visit.
+	 *
+	 * @param mixed $raw    Raw form input.
+	 * @param array $clean  Sanitized settings.
+	 * @param array $stored Settings as they are stored now.
+	 * @return array The settings to save.
+	 */
+	protected function keep_last_valid_schedule( $raw, $clean, $stored ) {
+		$raw = is_array( $raw ) ? $raw : array();
+
+		foreach ( array( 'start_date', 'end_date' ) as $field ) {
+			$submitted = isset( $raw[ $field ] ) && is_scalar( $raw[ $field ] ) ? trim( (string) $raw[ $field ] ) : '';
+
+			// Sanitization turns anything unreadable into an empty string. A
+			// submission that was not empty to begin with and is empty now is a
+			// date the store meant to set and mistyped.
+			if ( '' === $submitted || '' !== $clean[ $field ] ) {
+				continue;
+			}
+
+			$kept                = isset( $stored[ $field ] ) ? (string) $stored[ $field ] : '';
+			$clean[ $field ]     = $kept;
+			$replacement_message = '' === $kept
+				/* translators: 1: submitted value, 2: field name. */
+				? __( '“%1$s” is not a date the %2$s could be set to, so that side of the schedule is still unbounded. Dates are entered as YYYY-MM-DD.', 'bogo-select' )
+				/* translators: 1: submitted value, 2: field name, 3: the date that was kept. */
+				: __( '“%1$s” is not a date the %2$s could be set to, so it is unchanged at %3$s. Clear the field to remove the bound.', 'bogo-select' );
+
+			add_settings_error(
+				BOGO_Select_Settings::OPTION,
+				'bogo_select_invalid_date',
+				sprintf(
+					$replacement_message,
+					sanitize_text_field( $submitted ),
+					'start_date' === $field ? __( 'start date', 'bogo-select' ) : __( 'end date', 'bogo-select' ),
+					$kept
+				),
+				'error'
+			);
+		}
+
+		// A window that ends before it begins can never run, and the fields give
+		// no other sign of it.
+		if ( '' !== $clean['start_date'] && '' !== $clean['end_date'] && $clean['end_date'] < $clean['start_date'] ) {
+			add_settings_error(
+				BOGO_Select_Settings::OPTION,
+				'bogo_select_backwards_window',
+				sprintf(
+					/* translators: 1: end date, 2: start date, 3: the schedule that was kept instead. */
+					__( 'The offer would have ended on %1$s, before it started on %2$s, so it could never run. The schedule is unchanged: %3$s', 'bogo-select' ),
+					$clean['end_date'],
+					$clean['start_date'],
+					$this->schedule_sentence( $stored['start_date'], $stored['end_date'] )
+				),
+				'error'
+			);
+
+			$clean['start_date'] = $stored['start_date'];
+			$clean['end_date']   = $stored['end_date'];
+		}
+
+		return $clean;
+	}
+
+	/**
+	 * How a stored schedule reads when a rejected one has to name it.
+	 *
+	 * @param string $start Start date, or an empty string.
+	 * @param string $end   End date, or an empty string.
+	 * @return string
+	 */
+	protected function schedule_sentence( $start, $end ) {
+		$sentence = self::window_sentence( $start, $end );
+
+		return '' !== $sentence ? $sentence : __( 'the offer has no start or end date.', 'bogo-select' );
+	}
+
+	/**
+	 * Let anyone who can reach this screen save it.
+	 *
+	 * The menu and the renderer both ask for `manage_woocommerce`, which is the
+	 * capability a Shop Manager has and the one WooCommerce's own settings use.
+	 * options.php asks for `manage_options` unless told otherwise, so without
+	 * this a Shop Manager could open the page, fill it in, and be refused on
+	 * save (CODEX-REVIEW.md M-02). One capability now governs both halves.
+	 *
+	 * @return string
+	 */
+	public function settings_capability() {
+		return 'manage_woocommerce';
 	}
 
 	/**
@@ -571,12 +672,14 @@ class BOGO_Select_Admin {
 			return __( 'The offer is switched off. Nothing is shown on the storefront.', 'bogo-select' );
 		}
 
+		$buy_count = $this->distinct_buy_selections( $s['buy_products'] );
+
 		$buy_scope = 'all' === $s['buy_scope']
 			? __( 'any product', 'bogo-select' )
 			: sprintf(
 				/* translators: %d: number of products. */
-				_n( '%d selected product', '%d selected products', count( $s['buy_products'] ), 'bogo-select' ),
-				count( $s['buy_products'] )
+				_n( '%d selected product', '%d selected products', $buy_count, 'bogo-select' ),
+				$buy_count
 			);
 
 		$get_scope = 'all' === $s['get_scope']
@@ -604,5 +707,34 @@ class BOGO_Select_Admin {
 		$summary .= ' ' . self::window_sentence( $s['start_date'], $s['end_date'] );
 
 		return trim( $summary );
+	}
+
+	/**
+	 * How many things a Buy list actually selects.
+	 *
+	 * A listed variation whose parent is also listed selects nothing the parent
+	 * did not already select, so counting the raw array called one parent-wide
+	 * choice plus one redundant entry "2 selected products"
+	 * (CODEX-REVIEW.md L-05). The list is what the store typed, and is stored
+	 * as typed; only the sentence describing it is corrected.
+	 *
+	 * @param int[] $ids Buy list.
+	 * @return int
+	 */
+	protected function distinct_buy_selections( $ids ) {
+		$ids   = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+		$count = 0;
+
+		foreach ( $ids as $id ) {
+			$product = wc_get_product( $id );
+
+			if ( $product && $product->is_type( 'variation' ) && in_array( (int) $product->get_parent_id(), $ids, true ) ) {
+				continue;
+			}
+
+			++$count;
+		}
+
+		return $count;
 	}
 }

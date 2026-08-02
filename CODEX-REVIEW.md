@@ -1,71 +1,401 @@
 # Codex Repository Review
 
-**Review date:** 2026-07-31
+**Review date:** 2026-08-01
 
-**Reviewed state:** commit `b04de94` (`main`, same as `origin/main`; clean
-worktree before this report)
+**Reviewed state:** commit `b092d3a` (`main`, same as `origin/main`, tag
+`v2.3.0`). The worktree contained the prior edit to this report before this
+review. No runtime or test file had an uncommitted change.
 
-**Review scope:** all repository documents and runtime code, with special review
-of the changes after commit `49dd5e5`. The new work includes variable rewards,
-the 1.3.0 and 2.0.0 releases, and more integration tests for orders, coupons,
-classic templates, sale prices, and tax.
+**Review scope:** all repository documents, PHP and JavaScript runtime code,
+tests, CI configuration, build scripts, the v2.3.0 release archive, and the
+commits after the prior reviewed state `3b14480`. The review also checked
+`CODEX-REVIEW-RESPONSE.md` for a response to the prior findings.
 
 ## Overall assessment
 
-The plugin has good code quality and a strong security model. It now has useful
-integration tests against real WordPress and WooCommerce installations. The
-former release, compatibility, order, tax, coupon, sale-price, and classic-mode
-review findings are adequately fixed.
+Not all prior issues are resolved. The two Medium and four Low findings from the
+prior review remain open. The later releases do not change the affected schedule
+validation, Settings API capability, CI dependency, or static-analysis paths.
+No response to the review of commit `3b14480` was found in
+`CODEX-REVIEW-RESPONSE.md`.
 
-No Critical or High severity defect was found. One Medium functional defect was
-reproduced in the new variable-reward chooser. Two pinned sibling variations are
-both shown as selected. The customer then has no button to change from one to the
-other. There is also a Medium performance risk because one render can load each
-variation through four code paths. No catalogue benchmark was found.
+The newer work is otherwise useful and mostly correct:
 
-The plugin meets its main purpose for simple rewards and for a variable parent
-with a variation dropdown. It works on current classic cart and checkout pages,
-and on Cart and Checkout blocks, in the tested scenarios. The pinned-sibling
-defect prevents an unqualified statement that all supported variable-product
-configurations work.
+- v2.2.0 adds a compact mobile chooser layout.
+- v2.2.1 fixes the chooser after WooCommerce replaces the classic cart form. It
+  also enqueues the chooser script when the chooser is printed.
+- v2.3.0 lets the Buy list name one variation. The existing qualification
+  engine already supports this rule.
 
-## Sources and review method
+No Critical or High severity defect was found. Three Medium findings are open:
+
+1. Invalid or reversed schedule dates can still be saved with unsafe meaning.
+2. A Shop Manager can open the settings page but cannot save its settings.
+3. One broad All Products gift search can load 200 products twice before it
+   returns a 24-card page.
+
+Five Low findings concern documentation drift, missing or weak test evidence,
+CI and release-chain hardening, static analysis, and a false count in the new
+Buy-list summary. No exploitable privilege bypass, arbitrary reward award,
+injection path, or sensitive-data disclosure was found in the runtime code.
+
+## Evidence and method
 
 Verified facts in this report come from:
 
-- the repository at commit `b04de94`;
-- the 213-test PHPUnit suite;
-- a temporary regression test for two pinned sibling variations;
+- the repository at commit `b092d3a` and the diff from `3b14480`;
+- all six parts of `CODEX-REVIEW-RESPONSE.md`;
+- the local PHPUnit suite on PHP 8.1 and PHP 8.5: **238 tests and 539
+  assertions**, all passed;
 - PHP, JavaScript, and shell syntax checks;
-- Composer validation and advisory data;
-- the package parity check; and
-- the [GitHub Actions run for `b04de94`](https://github.com/johnjanney/bogo-select/actions/runs/30680432207),
-  which passed on WooCommerce 9.9.5 and the current WooCommerce release.
+- `composer validate --strict` and `composer audit --locked`;
+- the ZIP parity script and the local and published release digests;
+- focused reproductions for date sanitization, Buy-list summary output, and All
+  Products search load count;
+- repository-level GitHub Actions permission checks; and
+- the [passing GitHub Actions run for commit `b092d3a`](https://github.com/johnjanney/bogo-select/actions/runs/30723733964).
 
-Inferences are marked as such. If evidence was not present, this report says
-“Not found in documents.”
+The current CI run passed all jobs. Its `latest` lane installed WooCommerce
+10.9.4. The 9.9.5 compatibility-floor lane also passed. The
+[published v2.3.0 release](https://github.com/johnjanney/bogo-select/releases/tag/v2.3.0)
+contains `bogo-select-2.3.0.zip` with SHA-256
+`3ebf5050487015eac9a7c8215fb3aafa0d47c368faf4fb75f13ef75199ccae56`.
+That digest matches the local archive.
 
-## Status of the previous review
+Official WordPress, WooCommerce, and GitHub documentation supports the external
+platform statements. Inferences are identified as inferences. If evidence is
+absent, this report says “Not found in documents.”
 
-| Previous finding | Current status | Verification |
+## Status of Claude Code's response and the later updates
+
+The newest response section addresses the review of commit `b04de94`, not the
+review of commit `3b14480`
+([`CODEX-REVIEW-RESPONSE.md:18-40`](CODEX-REVIEW-RESPONSE.md#L18-L40)). A
+response to the two Medium and four Low findings in the prior report was **Not
+found in documents**.
+
+The later commits were checked directly:
+
+| Update | Status | Verification |
 |---|---|---|
-| M-01: release identity and stale package | **Fixed** | Versions 1.3.0 and 2.0.0 are tagged. The current header and constant both use 2.0.0. `dist/bogo-select-2.0.0.zip` matches all 14 runtime files. See [`bogo-select.php:3-24`](bogo-select.php#L3-L24). |
-| M-02: unsupported WooCommerce 7.0 claim | **Fixed by an explicit breaking change** | Version 2.0.0 requires WooCommerce 9.9. CI tests 9.9.5 and current. See [`CHANGELOG.md:52-73`](CHANGELOG.md#L52-L73) and [the two passing integration jobs](https://github.com/johnjanney/bogo-select/actions/runs/30680432207). |
-| M-03: incomplete percentage integration tests | **Fixed** | CI now tests discounted Cart and Checkout blocks, classic cart and checkout, coupons, tax, sale prices, order metadata, and stock reduction. See [`.github/workflows/ci.yml:165-331`](.github/workflows/ci.yml#L165-L331). |
-| L-01: `percent:100` stored as `free` | **Fixed** | `discount_snapshot()` now uses the configured type. A test covers the distinction. See [`includes/class-bogo-engine.php:308-325`](includes/class-bogo-engine.php#L308-L325). |
-| L-02: price-specific API and specification text | **Partly fixed** | The Store API text is price-neutral. The project brief is still not updated for the 1.3.0 features. See L-01 in this report. |
+| v2.2.0 mobile layout | **Implementation is coherent; direct mobile test not found** | The 600 px rule changes each card to a 64 px thumbnail row and keeps actions in the content column ([`assets/css/bogo-select.css:213-268`](assets/css/bogo-select.css#L213-L268)). CI uses a 1280 px browser viewport. A phone-viewport screenshot, layout assertion, or accessibility check was **Not found in documents**. |
+| v2.2.1 dead chooser after classic cart update | **Fixed** | The script now looks up the live slot on each use and delegates events from `document`, which survives a replaced cart form ([`assets/js/bogo-select.js:47-145`](assets/js/bogo-select.js#L47-L145) and [`assets/js/bogo-select.js:563-678`](assets/js/bogo-select.js#L563-L678)). The slot enqueues its own script ([`includes/class-bogo-frontend.php:151-179`](includes/class-bogo-frontend.php#L151-L179)). Unit tests and the classic browser test cover the two fixes ([`tests/FrontendTest.php:135-155`](tests/FrontendTest.php#L135-L155) and [`tests/integration/classic.test.mjs:204-254`](tests/integration/classic.test.mjs#L204-L254)). |
+| v2.3.0 Buy variation picker | **Implemented** | The Buy picker now uses `woocommerce_json_search_products_and_variations` ([`includes/class-bogo-admin.php:444-460`](includes/class-bogo-admin.php#L444-L460)). Qualification matches either the parent ID or exact variation ID ([`includes/class-bogo-engine.php:111-129`](includes/class-bogo-engine.php#L111-L129)). Two unit tests cover parent-wide and exact-variation counting ([`tests/QualificationTest.php:88-135`](tests/QualificationTest.php#L88-L135)). A real settings-page selection and save test was **Not found in documents**. |
 
-`CODEX-REVIEW-RESPONSE.md` has no response for the prior 2026-07-31 review. Its
-newest recorded response is dated 2026-07-30
-([`CODEX-REVIEW-RESPONSE.md:1-20`](CODEX-REVIEW-RESPONSE.md#L1-L20)). A written
-Claude response to the prior review was **Not found in documents**. The commits
-and code changes were reviewed directly instead.
+The v2.2.1 and v2.3.0 changes do not resolve any open finding from the prior
+report. The six prior findings are re-verified below.
 
 ## Current findings
 
-### M-01 — Pinned sibling variations are all shown as selected
+### M-01 — Schedule validation reports errors but saves invalid values
 
 **Severity:** Medium
+
+**Area:** Quality, security hardening, and purpose
+
+**Status:** Open; reproduced again at `b092d3a`
+
+#### Verified facts
+
+The date normalizer converts malformed non-empty dates to an empty string. An
+empty value means that the related schedule side has no limit
+([`includes/class-bogo-settings.php:170-195`](includes/class-bogo-settings.php#L170-L195)).
+It also converts each dash-separated part with `intval()` before it calls
+`checkdate()`. Thus, `2026-08-01junk` becomes the valid date `2026-08-01`.
+
+The admin sanitizer detects an end date that is earlier than the start date and
+calls `add_settings_error()`. It then returns both reversed dates unchanged
+([`includes/class-bogo-admin.php:146-178`](includes/class-bogo-admin.php#L146-L178)
+and [`includes/class-bogo-admin.php:235-237`](includes/class-bogo-admin.php#L235-L237)).
+
+A focused reproduction produced these results:
+
+| Submitted start/end | Returned start/end | Registered error |
+|---|---|---|
+| `2026-08-20` / `2026-08-10` | unchanged | `bogo_select_backwards_window` |
+| `2026-08-01junk` / `not-a-date` | `2026-08-01` / empty | none |
+
+The official [`add_settings_error()` reference](https://developer.wordpress.org/reference/functions/add_settings_error/)
+defines a displayed settings message. It does not cancel an option update. The
+changelog and open-question record say that the settings screen “refuses” a
+reversed window ([`CHANGELOG.md:112-121`](CHANGELOG.md#L112-L121) and
+[`OPEN-QUESTIONS.md:359-390`](OPEN-QUESTIONS.md#L359-L390)). That statement is
+false for the current code.
+
+`DECISION.md` D-019 separately says that a malformed date becomes an unbounded
+side ([`DECISION.md:496-519`](DECISION.md#L496-L519)). This describes the current
+behavior, but it does not make the behavior safe. Invalid input and intentionally
+blank input have different meanings and must not be merged.
+
+#### Impact and inference
+
+A reversed window is saved and can never run. A malformed date can silently
+remove a boundary, so a promotion can start early or run longer than the store
+intended. The HTML date field reduces normal typing errors. It does not protect
+against a crafted administrator request, an integration that writes the option,
+or damaged stored data. This is a business-rule failure. It is not an
+unauthenticated privilege escalation.
+
+#### Recommendation
+
+- Require the complete `YYYY-MM-DD` grammar before numeric conversion.
+- Keep blank input different from invalid non-empty input.
+- Preserve the last valid schedule, or disable the offer, when a submitted date
+  is malformed or the end is before the start.
+- Keep the visible error, but do not return the invalid values to `options.php`.
+- Add a real Settings API test that proves the stored option after malformed and
+  reversed submissions.
+- Make D-019, the changelog, and the settings behavior state one policy.
+
+### M-02 — Shop Managers can open settings but cannot save them
+
+**Severity:** Medium
+
+**Area:** Quality and purpose
+
+**Status:** Open; code path re-verified
+
+#### Verified facts
+
+The menu and page renderer require `manage_woocommerce`
+([`includes/class-bogo-admin.php:38-46`](includes/class-bogo-admin.php#L38-L46)
+and [`includes/class-bogo-admin.php:289-291`](includes/class-bogo-admin.php#L289-L291)).
+The form posts to `options.php`. The plugin does not change the option-group
+capability ([`includes/class-bogo-admin.php:52-61`](includes/class-bogo-admin.php#L52-L61)
+and [`includes/class-bogo-admin.php:303-306`](includes/class-bogo-admin.php#L303-L306)).
+
+The official [WordPress Settings API guide](https://developer.wordpress.org/plugins/settings/settings-api/)
+says that `options.php` requires `manage_options` by default. WordPress provides
+the official [`option_page_capability_{$option_page}` filter](https://developer.wordpress.org/reference/hooks/option_page_capability_option_page/)
+to change this requirement. The official [WooCommerce role guide](https://woocommerce.com/document/roles-capabilities/)
+says that Shop Managers have `manage_woocommerce` for WooCommerce settings and
+configuration. They do not normally have `manage_options`.
+
+#### Inference
+
+The matching `manage_woocommerce` checks for the menu and renderer show that
+Shop Manager access is probably intended. With standard roles, that user can
+open the page but WordPress rejects the save request. A real role-based test was
+**Not found in documents**. This mismatch denies intended access. It does not
+grant excess access.
+
+#### Recommendation
+
+Choose one policy and use it for both view and save:
+
+- If Shop Managers must configure offers, filter
+  `option_page_capability_bogo_select_group` to `manage_woocommerce`.
+- If only administrators must configure offers, require `manage_options` for
+  the menu and page renderer.
+- Add an integration test for one allowed role and one denied role.
+
+### M-03 — All Products search loads every candidate twice
+
+**Severity:** Medium on a large catalog with broad searches; Low on a small
+catalog
+
+**Area:** Performance and availability hardening
+
+**Status:** Open risk; product-load count reproduced, real latency not measured
+
+#### Verified facts
+
+An All Products search can inspect 200 matches by default
+([`includes/class-bogo-engine.php:941-965`](includes/class-bogo-engine.php#L941-L965)).
+The search path first passes all matches through `filter_choice_ids()` and
+`eligible_only()`. `is_choice()` loads each product
+([`includes/class-bogo-engine.php:1035-1056`](includes/class-bogo-engine.php#L1035-L1056)
+and [`includes/class-bogo-engine.php:1240-1321`](includes/class-bogo-engine.php#L1240-L1321)).
+It then calls `sort_by_name()`, which loads every accepted product again
+([`includes/class-bogo-engine.php:1196-1219`](includes/class-bogo-engine.php#L1196-L1219)).
+
+A focused reproduction used the repository's own `wc_get_product()` counter,
+200 eligible simple products, the All Products scope, the term `Gift`, and a
+24-card page. It returned 24 IDs from 200 matches after **400
+`wc_get_product()` calls**.
+
+The AJAX endpoint requires a valid public storefront nonce and a qualifying
+cart, and the 200-candidate cap bounds one request
+([`includes/class-bogo-ajax.php:205-251`](includes/class-bogo-ajax.php#L205-L251)).
+The browser sends a search 350 ms after each changed term
+([`assets/js/bogo-select.js:639-678`](assets/js/bogo-select.js#L639-L678)).
+
+A real-store database-query count, wall time, CPU profile, or peak-memory result
+for this path was **Not found in documents**. The reproduced number measures
+product factory calls, not database queries.
+
+#### Impact and inference
+
+On a large catalog, one broad search can create avoidable object creation and
+cache or database work before it renders only 24 cards. Because the endpoint is
+public for customers, repeated searches also add an avoidable application-level
+availability cost. The cap prevents an unbounded request, so this is not rated
+as a High severity denial-of-service vulnerability.
+
+#### Recommendation
+
+- Keep a request-local map of product ID to loaded product and reuse it for
+  eligibility, sorting, and card rendering.
+- Add a product-load ceiling test for All Products search, as already done for
+  variable-card rendering.
+- Measure wall time, queries, CPU time, and peak memory against a realistic
+  catalog with cold and warm object caches.
+- Consider a short result cache keyed by search term, scope, offer settings, and
+  catalog state if measurement shows that object reuse is not enough.
+
+### L-01 — Documents still disagree with the code and tests
+
+**Severity:** Low runtime risk; Medium maintenance risk
+
+**Area:** Quality and purpose
+
+**Status:** Open
+
+#### Verified facts
+
+- `shipping.test.mjs` runs in both free and discounted modes
+  ([`.github/workflows/ci.yml:300-325`](.github/workflows/ci.yml#L300-L325)). The
+  README still says that shipping is untested because all fixtures are virtual
+  ([`README.md:206-212`](README.md#L206-L212)).
+- The brief still says that WooCommerce lifecycle behavior needs a staging pass
+  and that shipping remains manual
+  ([`BRIEF.md:275-285`](BRIEF.md#L275-L285) and
+  [`BRIEF.md:419-430`](BRIEF.md#L419-L430)).
+- The unit-test inventory still omits `ScheduleTest.php`
+  ([`tests/README.md:21-40`](tests/README.md#L21-L40)).
+- The README documents `bogo_select_reward_added` with two accepted arguments,
+  but the action now sends `product_id`, `qty`, and `variation_id`
+  ([`README.md:184-192`](README.md#L184-L192) and
+  [`includes/class-bogo-ajax.php:176-184`](includes/class-bogo-ajax.php#L176-L184)).
+
+#### Recommendation
+
+- Correct the shipping and lifecycle statements.
+- Add `ScheduleTest.php` and the v2.2.1 classic-cart regression to the test
+  inventory.
+- Document the third reward-added hook argument and use `accepted_args = 3` in
+  the example.
+- Maintain one compatibility and coverage matrix, then link to it from the other
+  documents.
+
+### L-02 — Important acceptance and release claims lack direct evidence
+
+**Severity:** Low
+
+**Area:** Quality and verification
+
+**Status:** Open coverage gap
+
+#### Verified facts
+
+- The brief requires no PHP notices or warnings with `WP_DEBUG` enabled
+  ([`BRIEF.md:233-268`](BRIEF.md#L233-L268)). The test guide says this is not
+  covered ([`tests/README.md:59-71`](tests/README.md#L59-L71)). Passing evidence
+  was **Not found in documents**.
+- Schedule behavior is tested only with unit stubs. A real WordPress test of a
+  non-UTC timezone and a real settings save was **Not found in documents**.
+- The v2.2.0 mobile claim has no phone-viewport browser test or visual check.
+- The v2.3.0 Buy variation picker has engine tests, but no test opens the admin
+  picker, selects a variation, saves it, and proves the stored ID.
+- The pinned-sibling browser test calculates `largeIsSelected` but never asserts
+  it. Its final check searches all page text for `Large`, which can also occur in
+  chooser options ([`tests/integration/classic.test.mjs:182-200`](tests/integration/classic.test.mjs#L182-L200)).
+
+#### Recommendation
+
+- Enable `WP_DEBUG` and `WP_DEBUG_LOG` in integration CI and fail on plugin
+  notices, warnings, or deprecations.
+- Add one real admin and schedule scenario. Include the selected role, a non-UTC
+  timezone, valid boundaries, malformed input, and a reversed window.
+- Add a 600 px or narrower browser run for the compact chooser. Check focus,
+  labels, overflow, tap targets, and the four supported cart/checkout surfaces.
+- Make the sibling assertion select the exact card by `data-bogo-card` and check
+  the exact cart-line variation ID or attribute.
+
+### L-03 — CI and release dependencies can be more reproducible
+
+**Severity:** Low
+
+**Area:** Security and supply-chain hardening
+
+**Status:** Open hardening opportunity; no compromise found
+
+#### Verified facts
+
+The workflow uses movable action tags, including `actions/checkout@v5`,
+`shivammathur/setup-php@v2`, `actions/setup-node@v5`, and
+`actions/upload-artifact@v4`
+([`.github/workflows/ci.yml:18-54`](.github/workflows/ci.yml#L18-L54) and
+[`.github/workflows/ci.yml:359-370`](.github/workflows/ci.yml#L359-L370)).
+The repository allows all actions and does not require SHA pinning.
+
+The workflow has no `permissions` declaration. The repository's current default
+workflow token permission is read-only, so the effective token is already
+restricted at review time. The workflow still relies on external repository
+configuration that can change.
+
+The integration job creates an npm manifest at run time and installs Playwright
+without a committed lock file
+([`.github/workflows/ci.yml:159-163`](.github/workflows/ci.yml#L159-L163)). The
+Docker services use movable image tags
+([`tests/integration/docker-compose.yml:12-58`](tests/integration/docker-compose.yml#L12-L58)).
+
+The ZIP verifier compares 14 `.php`, `.js`, and `.css` runtime files, while the
+v2.3.0 archive contains 23 files. The build copies every file that is not on an
+exclude list ([`bin/build-zip.sh:51-100`](bin/build-zip.sh#L51-L100)), and the
+verifier ignores non-runtime extras ([`bin/verify-zip.sh:55-102`](bin/verify-zip.sh#L55-L102)).
+No unintended file was found in the current archive.
+
+The official [GitHub secure-use reference](https://docs.github.com/en/actions/reference/security/secure-use)
+says that a full commit SHA is the only immutable action reference and recommends
+minimum token permissions. GitHub also documents repository enforcement of
+[full-length action SHAs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository).
+
+#### Recommendation
+
+- Pin every action to a reviewed full commit SHA and keep its release tag in a
+  comment.
+- Add `permissions: contents: read` to the workflow so the policy is versioned
+  with the code.
+- Commit an npm lock file and use `npm ci`.
+- Pin integration container images by digest for release checks.
+- Build from an allowlist and verify every archive entry, not only three runtime
+  extensions.
+- Consider signed release tags or GitHub artifact attestations. The current tag
+  is annotated but unsigned; the published asset does have a verified matching
+  SHA-256 digest.
+
+### L-04 — Static checks do not cover coding standards or type consistency
+
+**Severity:** Low
+
+**Area:** Quality and maintainability
+
+**Status:** Open
+
+#### Verified facts
+
+CI checks syntax and runs PHPUnit. It does not run WordPress Coding Standards,
+PHPStan, Psalm, or an equivalent static analyzer
+([`.github/workflows/ci.yml:18-54`](.github/workflows/ci.yml#L18-L54)). A static
+analysis report was **Not found in documents**.
+
+The variation memo stores `WC_Product[]`, but its property annotation still says
+`array<int,int[]>` ([`includes/class-bogo-engine.php:30-35`](includes/class-bogo-engine.php#L30-L35)
+and [`includes/class-bogo-engine.php:718-759`](includes/class-bogo-engine.php#L718-L759)).
+This does not change runtime behavior. It gives tools and maintainers false type
+information.
+
+#### Recommendation
+
+- Change the property annotation to `array<int,WC_Product[]>`.
+- Add WordPress Coding Standards and a PHP static analyzer at a level that
+  supports PHP 7.4 and the WooCommerce types.
+- Add the checks to CI and increase strictness in small steps.
+
+### L-05 — The Buy-list summary can report a false product count
+
+**Severity:** Low
 
 **Area:** Quality and purpose
 
@@ -73,317 +403,152 @@ and code changes were reviewed directly instead.
 
 #### Verified facts
 
-The admin can put a variable parent in the Get list, or it can put one specific
-variation in the list. This is an explicit feature requirement
-([`PLAN-VARIABLE.md:26-45`](PLAN-VARIABLE.md#L26-L45)). It is also possible to
-put two specific variations from the same parent in the list.
+v2.3.0 defines these rules: a listed parent counts all its variations, a listed
+variation counts only itself, and listing both has the same meaning as listing
+the parent alone ([`CHANGELOG.md:16-27`](CHANGELOG.md#L16-L27)). The saved list
+keeps both IDs. The settings summary reports the raw array count
+([`includes/class-bogo-admin.php:569-580`](includes/class-bogo-admin.php#L569-L580)).
 
-Each pinned-variation card has a reward pair: parent product ID and variation ID.
-However, the selected-state comparison uses only the parent product ID:
+A focused reproduction listed parent `10` and its variation `101`. The summary
+said: `Buy 1 of 2 selected products`. Under the documented rule, this is one
+parent-wide selection plus one redundant entry, not two independent qualifying
+products.
 
-- `render_choices()` gets only `selected_product_id`
-  ([`includes/class-bogo-frontend.php:303-320`](includes/class-bogo-frontend.php#L303-L320));
-- `print_choice()` resolves the full card pair but compares only
-  `$card_product_id === $selected`
-  ([`includes/class-bogo-frontend.php:339-348`](includes/class-bogo-frontend.php#L339-L348)); and
-- a selected pinned-variation card is not a variable-parent card. It therefore
-  shows “Selected” and “Remove gift,” but it does not show “Change option” or
-  “Choose this instead”
-  ([`includes/class-bogo-frontend.php:408-428`](includes/class-bogo-frontend.php#L408-L428)).
+#### Impact and recommendation
 
-A temporary regression test configured variation 101 and variation 102 from
-parent 100. It selected variation 101 and rendered the chooser. The test expected
-one `is-selected` card. It failed because two cards had `is-selected`.
+The engine counts cart units correctly. Only the administrative summary is
+misleading. Either report “2 list entries,” or calculate a semantic count that
+does not count a child separately when its parent is also present. Add a summary
+test for parent only, variation only, and parent plus child.
 
-This defect also occurs if the Get list contains a variable parent and a pinned
-variation from that same parent. Both cards use the same parent ID for selected
-state.
+## Audit results
 
-The current unit tests do not cover this card layout. They cover one pinned
-variation, one variable-parent dropdown, and server-side sibling swaps
-([`tests/VariableChooserTest.php:103-111`](tests/VariableChooserTest.php#L103-L111),
-[`tests/VariableChooserTest.php:182-204`](tests/VariableChooserTest.php#L182-L204),
-and [`tests/VariableSelectionTest.php:102-112`](tests/VariableSelectionTest.php#L102-L112)).
+### Quality assurance audit
 
-#### Impact
+The code has clear boundaries for settings, qualification, cart mutation,
+classic AJAX, Store API updates, rendering, and admin work. Inputs are normalized
+at trust boundaries. Storefront output is escaped. The regression comments make
+the important WooCommerce hook and DOM-replacement rules clear.
 
-The chooser gives false status information. More importantly, it removes the
-control that the customer needs to select the sibling card. The server-side swap
-code works, but the UI cannot send the request.
+The v2.2.1 fix is strong. It fixes the lifetime error at the correct boundary:
+the document owns delegated handlers, and the current DOM owns the slot. The
+test proves that a click reaches the server after WooCommerce updates the cart.
+The v2.3.0 rule is also correctly wired from the admin picker to an existing
+engine rule.
 
-The same chooser markup is used for classic and block pages. The defect therefore
-affects classic cart, classic checkout, Cart block, and Checkout block when this
-configuration is used.
+Quality is reduced by the two open administrative defects, the false Buy-list
+summary, document drift, weak release-claim evidence, and the absence of static
+analysis. The suite is broad, but the real admin settings path is still the main
+blind spot.
 
-#### Recommendation
+### Performance audit
 
-Use the complete reward pair for selected state.
+The earlier variable-card fix remains effective. The request memo reuses loaded
+variation objects and rendered prices. The regression test holds the product-load
+ratio below twice the number of distinct products. The 200-candidate search cap
+and 24-card page size prevent unbounded single requests.
 
-- For a pinned variation card, compare both the parent product ID and the exact
-  variation ID.
-- For a simple product card, compare the product ID and require variation ID 0.
-- For a variable-parent card, mark the card selected only when the selected
-  variation belongs to that parent and is represented by that card.
-- Add tests for two pinned sibling variations and for a parent plus a pinned
-  child from the same parent.
-- Add one browser assertion that changes between pinned siblings. Run it in at
-  least one block surface and one classic surface.
+M-03 is the main new performance opportunity. The search path loads each
+candidate once for eligibility and again for sorting. The curated-list cache
+also remains O(N) on a cold build, and one variable-card page still reloads each
+parent once during rendering. These remaining costs are bounded or cached, but
+they are not measured on a real catalog.
 
-### M-02 — Variable-card rendering repeats variation enumeration and product loads
+A large-catalog wall-time, database-query, CPU, and peak-memory benchmark was
+**Not found in documents**. Do not convert the existing product-load counts into
+a latency claim.
 
-**Severity:** Medium on a catalogue with many large variable products; Low on a
-small catalogue
+### Detailed security audit
 
-**Area:** Performance
+No exploitable storefront vulnerability was found in the reviewed code.
 
-**Status:** Open risk; code path verified, runtime cost not measured
+- Classic AJAX mutations verify a nonce, normalize IDs, and call shared
+  server-side qualification, reward, variation-parent, stock, and quantity
+  validation before changing the cart
+  ([`includes/class-bogo-ajax.php:32-108`](includes/class-bogo-ajax.php#L32-L108)).
+- The Store API callback normalizes its input and uses the same selection
+  function as classic AJAX
+  ([`includes/class-bogo-blocks.php:228-266`](includes/class-bogo-blocks.php#L228-L266)).
+- The server checks that a submitted variation belongs to the submitted parent
+  ([`includes/class-bogo-engine.php:458-478`](includes/class-bogo-engine.php#L458-L478)).
+- Reward lines are marked on the server, revalidated with the cart, and repriced
+  from server-side settings. Browser input does not set the price or earned
+  quantity.
+- Product IDs are converted to integers. Customer-visible strings and HTML
+  attributes are escaped before output.
+- The admin settings form uses the WordPress nonce and option allowlist supplied
+  by the Settings API. M-01 is a validation-policy defect, not a stored-XSS path.
+- `composer audit --locked` found no known advisory in the locked development
+  dependencies. The release has no Composer runtime dependency.
 
-#### Verified facts
+M-02 denies access and does not widen access. M-03 is a bounded public-endpoint
+availability risk. L-03 contains the main supply-chain hardening work.
 
-The design document correctly calls variation enumeration the main performance
-risk and says to test it on a real catalogue
-([`PLAN-VARIABLE.md:149-153`](PLAN-VARIABLE.md#L149-L153) and
-[`PLAN-VARIABLE.md:293-296`](PLAN-VARIABLE.md#L293-L296)). The default chooser
-page can contain 24 cards
-([`includes/class-bogo-engine.php:782-794`](includes/class-bogo-engine.php#L782-L794)).
+### Purpose and compatibility audit
 
-For each variable card on an uncached render, the current path can call
-`wc_get_product()` for each child through these separate stages:
+The plugin accomplishes its stated core purpose in the tested scenarios. A
+store can configure one Buy-X/Get-Y offer. A customer can select or change one
+free or percentage-off reward. WooCommerce keeps the reward as a real cart and
+order line, so stock is reduced.
 
-1. `is_choice()` calls `offerable_variation_ids()` to decide if the parent can be
-   a card ([`includes/class-bogo-engine.php:367-383`](includes/class-bogo-engine.php#L367-L383)).
-2. `variation_options()` calls `offerable_variation_ids()` again
-   ([`includes/class-bogo-frontend.php:473-477`](includes/class-bogo-frontend.php#L473-L477)).
-3. `variation_options()` loads every accepted variation again to calculate stock,
-   labels, and availability
-   ([`includes/class-bogo-frontend.php:476-497`](includes/class-bogo-frontend.php#L476-L497)).
-4. The `<option>` loop loads every variation again to make its price markup
-   ([`includes/class-bogo-frontend.php:393-399`](includes/class-bogo-frontend.php#L393-L399)).
+Automated tests cover simple rewards, variable parents, pinned variations,
+discounts, sale prices, taxes, coupons, shipping, order metadata, stock
+reduction, and the four main cart and checkout surfaces. The current CI evidence
+supports these statements:
 
-WooCommerce object caching can reduce database work after the first load. It does
-not remove the repeated function calls, product checks, stock checks, price
-formatting, or the size of a selector with many options.
+| Surface | Mode | Result at `b092d3a` |
+|---|---|---|
+| Cart | WooCommerce Cart block | **Pass** on WooCommerce 9.9.5 and 10.9.4 |
+| Checkout | WooCommerce Checkout block | **Pass** on WooCommerce 9.9.5 and 10.9.4 |
+| Cart | Classic shortcode | **Pass**, including a post-update chooser click |
+| Checkout | Classic shortcode | **Pass**, including preservation of entered form data |
 
-#### Inference
+This evidence applies to the repository fixtures and tested versions. It is not
+proof for every theme or third-party extension.
 
-A page of 24 variable products with 100 variations each can cause about 9,600
-child-product retrieval calls from the four stages above, before other product
-lookups. This number is a code-path estimate. It is not a measured query count or
-latency result.
-
-A large-catalogue benchmark result was **Not found in documents**.
-
-#### Recommendation
-
-- Cache `offerable_variation_ids()` for the current request. Key it by parent ID.
-- Build each option once. Keep the variation object or its completed price markup
-  in the option data so later loops do not reload it.
-- Do not call `offerable_variation_ids()` once for eligibility and again for the
-  same card render when one result can be passed through.
-- Add a benchmark fixture with 24 variable parents and a realistic number of
-  variations. Record wall time, peak memory, query count, and product-load count.
-- If large selectors remain slow, add lazy option loading or a lower, documented
-  limit for variation options.
-
-### L-01 — Source-of-truth documents still describe the older product
-
-**Severity:** Low runtime risk; Medium documentation risk
-
-**Area:** Quality and stated purpose
-
-**Status:** Open
-
-#### Verified facts
-
-`BRIEF.md` says that it is amended only through 1.2.0
-([`BRIEF.md:1-4`](BRIEF.md#L1-L4)). Its purpose, requirements, settings table,
-customer flow, and acceptance criteria still describe only free rewards. It does
-not specify `get_discount_type`, `get_discount_value`, or the new variable-reward
-rules ([`BRIEF.md:11-17`](BRIEF.md#L11-L17),
-[`BRIEF.md:21-32`](BRIEF.md#L21-L32), and
-[`BRIEF.md:85-102`](BRIEF.md#L85-L102)). Section 3.1 stops at the 1.2.0 block
-work ([`BRIEF.md:71-81`](BRIEF.md#L71-L81)).
-
-The release-process text is also stale. It says the classic matrix, order
-placement, and stock reduction are still manual
-([`BRIEF.md:359-378`](BRIEF.md#L359-L378)). CI now automates all three.
-
-`README.md` has the same stale limitation. It says classic cart, classic
-checkout, stock reduction, and order placement are manual
-([`README.md:202-206`](README.md#L202-L206)). The current CI workflow and test
-scripts show that this is false.
-
-`tests/README.md` now explains the integration suite well, but its unit-test table
-does not list `DiscountPricingTest.php` or any of the four variable-product test
-files ([`tests/README.md:21-35`](tests/README.md#L21-L35)).
-
-#### Impact
-
-The code and the release notes state a wider purpose than the main specification.
-This makes efficacy reviews and future changes less reliable. It can also cause
-a maintainer to repeat work that CI already performs.
-
-#### Recommendation
-
-- Amend `BRIEF.md` through 2.0.0.
-- Add free/percentage settings, variable parent and pinned-variation behavior,
-  variable acceptance criteria, and the dynamic-pricing trade-off.
-- Rewrite section 8.6 to match the current real-store matrix.
-- Update the README limitation and the unit-test inventory.
-- Keep historical release notes unchanged. They correctly describe the state at
-  the time of each release.
-
-### L-02 — Real-browser classic coverage does not exercise a variable selector
-
-**Severity:** Low
-
-**Area:** Test completeness
-
-**Status:** Open coverage gap
-
-#### Verified facts
-
-The variable integration script chooses a variation through the Store API and
-checks its selector on the Cart and Checkout blocks
-([`tests/integration/variable.test.mjs:49-138`](tests/integration/variable.test.mjs#L49-L138)).
-The classic integration script uses a simple reward. It checks the admin-AJAX
-path, classic cart, and classic checkout, but it does not change a variation
-selector ([`tests/integration/classic.test.mjs:46-142`](tests/integration/classic.test.mjs#L46-L142)).
-
-The server selection function is shared between the classic and Store API paths
-([`includes/class-bogo-ajax.php:58-72`](includes/class-bogo-ajax.php#L58-L72)).
-The same chooser JavaScript reads the variation and sends it through the active
-transport ([`assets/js/bogo-select.js:510-519`](assets/js/bogo-select.js#L510-L519)).
-Unit tests cover the variable-parent selector and the selection pair. This is
-good structural evidence.
-
-A real-browser test of a variable reward on classic cart and classic checkout
-was **Not found in documents**.
-
-#### Recommendation
-
-Extend `classic.test.mjs` with a variable-parent fixture. Select one option on
-the classic cart. Confirm that the exact variation is in the cart, then change it
-on classic checkout without reloading or clearing entered checkout data.
+The main purpose gaps are administrative. M-01 can give a campaign the wrong
+schedule. M-02 can prevent the likely intended operator from saving it. L-05 can
+misstate the scope of the new variation-level Buy list. Open decisions for
+multiple simultaneous offers, category scoping, and more than one reward product
+per qualification remain outside the current product scope. Approval to add
+those features was **Not found in documents**.
 
 ## Verification results
 
 | Check | Result |
 |---|---|
-| Clean worktree before review | **Pass** |
-| `composer validate --strict` | **Pass** |
-| PHPUnit | **Pass — 213 tests, 471 assertions** |
-| Targeted pinned-sibling regression test | **Fail as expected — 2 selected cards, expected 1** |
-| PHP syntax outside `vendor` | **Pass** |
-| JavaScript syntax for storefront, admin, and integration scripts | **Pass** |
-| Shell syntax for the build and package verifier | **Pass** |
-| `composer audit --locked` | **Pass — no known advisories** |
-| `git diff --check` before this report | **Pass** |
-| `bash bin/verify-zip.sh` | **Pass — 2.0.0 ZIP matches 14 runtime files** |
-| Current GitHub Actions run | **Pass — all jobs passed** |
-| WooCommerce 9.9.5 real-store lane | **Pass** |
-| Current WooCommerce real-store lane | **Pass** |
+| Worktree runtime/test changes before review | Pass; none |
+| `composer validate --strict` | Pass |
+| `composer audit --locked` | Pass; no known advisories |
+| PHPUnit on PHP 8.1 | Pass; 238 tests, 539 assertions |
+| PHPUnit on PHP 8.5 | Pass; 238 tests, 539 assertions; one PHPUnit cache warning came from the Windows-to-WSL UNC stream, not plugin code |
+| PHP syntax outside `vendor` | Pass |
+| JavaScript syntax for runtime and integration files | Pass |
+| Shell syntax for build and verification scripts | Pass |
+| `git diff --check` before this report | Pass |
+| `bin/verify-zip.sh` | Pass; v2.3.0 ZIP matches 14 runtime files |
+| Local v2.3.0 ZIP SHA-256 | `3ebf5050487015eac9a7c8215fb3aafa0d47c368faf4fb75f13ef75199ccae56` |
+| Published v2.3.0 asset SHA-256 | Same as local ZIP |
+| Git tag | Annotated `v2.3.0` points to `b092d3a`; tag is unsigned |
+| Current GitHub Actions run | Pass for all jobs |
+| WooCommerce compatibility lanes | Pass on 9.9.5 and 10.9.4 |
+| Reversed-date reproduction | Error displayed; reversed dates returned unchanged |
+| Malformed-date reproduction | `2026-08-01junk` accepted as `2026-08-01`; invalid end became unbounded |
+| All Products search reproduction | 200 matches caused 400 product loads before a 24-ID page returned |
+| Buy summary reproduction | Parent plus child displayed as `2 selected products` |
 
-The temporary regression test was removed after it reproduced M-01. Only this
-report is changed in the worktree.
+## Recommended action order
 
-## Cart and checkout compatibility
-
-| Reward and surface | Result | Evidence and limit |
-|---|---|---|
-| Simple/free reward, Cart block | **Works in CI** | Store API, line price, quantity limit, label, chooser, and mounted block are checked. |
-| Simple/free reward, Checkout block | **Works in CI** | Chooser, order review, checkout form, label, and mounted block are checked. |
-| Discounted reward, Cart block | **Works in CI** | Discounted total, idempotence, label, and chooser are checked. |
-| Discounted reward, Checkout block | **Works in CI** | Discount label and chooser are checked on the rendered block. |
-| Variable-parent reward, Cart block | **Works in CI** | Exact variation pair, variation price, selector, and change control are checked. |
-| Variable-parent reward, Checkout block | **Works in CI** | Selector and selected state are checked. |
-| Discounted simple reward, classic cart | **Works in CI** | Real browser click uses admin-AJAX; price, label, row, and locked quantity are checked. |
-| Discounted simple reward, classic checkout | **Works in CI** | Checkout form, chooser, mode, and line label are checked. |
-| Variable-parent reward, classic cart/checkout | **Likely works, but not fully verified in a real browser** | Shared PHP and JavaScript paths plus unit tests support this inference. A classic browser run was not found. |
-| Two pinned sibling variations, any of the four surfaces | **Does not work correctly** | M-01 was reproduced in the shared chooser renderer. |
-
-Direct answer: the plugin works on WooCommerce cart and checkout pages in block
-and classic mode for the main tested configurations. A variable parent works in
-both block pages. Classic variable selection has strong code and unit-test
-evidence but lacks a real-browser test. Two pinned variations of the same parent
-do not work correctly on any surface.
-
-## Quality assessment
-
-### Code quality
-
-The code has clear class boundaries for settings, promotion rules, cart changes,
-rendering, classic AJAX, Blocks, and admin work. The product-and-variation pair
-is carried through cart selection, Store API state, state signatures, validation,
-and pricing. Server-side sibling swaps use the full pair correctly. Release
-packaging is deterministic and has a parity gate.
-
-The main quality defect is local to chooser selected-state logic. That code
-changes a two-part identity back into one product ID. The documentation also has
-several old statements that reduce its value as a specification.
-
-**Assessment:** good, with one Medium UI logic defect and documentation drift.
-
-### Performance
-
-The existing catalogue paging and search bounds remain reasonable. The new
-variable-card implementation avoids WooCommerce's large
-`get_available_variations()` array, which is a good choice. However, it repeats
-child enumeration and child-product loads during one render. This is the main
-performance risk.
-
-**Assessment:** acceptable for small and normal variable catalogues; not proved
-for a page with many high-variation products.
-
-### Security
-
-The variable-product work preserves the existing security model:
-
-- classic public AJAX requests use a nonce and sanitize IDs
-  ([`includes/class-bogo-ajax.php:35-47`](includes/class-bogo-ajax.php#L35-L47));
-- Store API data is sanitized
-  ([`includes/class-bogo-blocks.php:241-266`](includes/class-bogo-blocks.php#L241-L266));
-- the server verifies that a submitted variation belongs to the submitted parent
-  ([`includes/class-bogo-engine.php:399-419`](includes/class-bogo-engine.php#L399-L419));
-- the server independently verifies qualification, scope, product type,
-  purchasability, stock, and quantity before it adds the reward
-  ([`includes/class-bogo-ajax.php:69-108`](includes/class-bogo-ajax.php#L69-L108));
-- the client does not provide the discount or reward price; and
-- settings use WordPress admin controls and server-side sanitization.
-
-No authorization bypass, arbitrary-product award, arbitrary-discount input,
-injection path, or sensitive-data exposure was found. Composer reported no known
-advisories in the locked development dependencies at review time.
-
-**Assessment:** strong for the stated scope.
-
-### Efficacy against stated objectives
-
-The plugin implements one global Buy X/Get Y promotion with independent product
-scopes, configurable quantities, repeat mode, free or percentage pricing,
-customer choice, stock-bearing reward lines, cart revalidation, classic pages,
-and Blocks. Real integration tests now prove taxes, eligible and excluded
-coupons, sale prices, order metadata, and stock reduction.
-
-The variable-parent design is effective when the customer uses one dropdown on
-one parent card. The pinned-variation feature is effective for one pinned
-variation, but not for multiple sibling variations in the same list.
-
-**Assessment:** the main purpose is accomplished. M-01 is a real exception to
-the stated variable-product objective.
-
-## Recommendation
-
-Do not describe every supported variable-reward configuration as complete until
-M-01 is fixed.
-
-Before the next release:
-
-1. Fix selected-state comparison to use the full reward pair.
-2. Add sibling-card regression tests and one block/classic browser case.
-3. Remove repeated per-variation product loads or measure and document their
-   acceptable cost.
-4. Update `BRIEF.md`, `README.md`, and `tests/README.md` to match the current
-   product and CI matrix.
-5. Re-run the unit suite, the full real-store matrix, and the ZIP parity gate on
-   the exact release commit.
+1. Fix schedule rejection and add real Settings API regression tests (M-01).
+2. Choose and enforce one settings capability; test the role (M-02).
+3. Reuse loaded products in All Products search and add a load ceiling (M-03).
+4. Enable debug-log verification and add real admin, schedule, and mobile
+   scenarios (L-02).
+5. Correct the shipping, test inventory, and hook documentation (L-01).
+6. Pin CI dependencies, version token permissions, and verify the complete ZIP
+   allowlist (L-03).
+7. Correct type annotations and add coding-standard and static-analysis checks
+   (L-04).
+8. Correct the Buy-list summary count (L-05).
+9. Run a realistic large-catalog performance benchmark before publishing a
+   latency or database-query claim.

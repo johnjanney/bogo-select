@@ -30,9 +30,19 @@ class BOGO_Select_Engine {
 	/**
 	 * Per-request memo of each variable parent's offerable variations.
 	 *
-	 * @var array<int,int[]>
+	 * @var array<int,WC_Product[]>
 	 */
 	protected static $variations = array();
+
+	/**
+	 * Per-request memo of products loaded while building a page of choices.
+	 *
+	 * Holds `false` for an ID that has no product, which is what
+	 * wc_get_product() returns and what the callers already handle.
+	 *
+	 * @var array<int,WC_Product|false>
+	 */
+	protected static $choice_products = array();
 
 	/**
 	 * Whether the offer can run at all.
@@ -425,7 +435,7 @@ class BOGO_Select_Engine {
 	 */
 	public static function is_choice( $product_id ) {
 		$product_id = (int) $product_id;
-		$product    = wc_get_product( $product_id );
+		$product    = self::choice_product( $product_id );
 
 		if ( ! $product || ! self::is_offerable_type( $product ) ) {
 			return false;
@@ -1194,6 +1204,32 @@ class BOGO_Select_Engine {
 	}
 
 	/**
+	 * A product loaded once per request while a page of choices is built.
+	 *
+	 * A search asks about the same product twice over: once to decide it may be
+	 * offered, and again for the name it sorts by. Those two passes loaded every
+	 * candidate separately, so a 200-match search made 400 product loads to
+	 * render 24 cards (CODEX-REVIEW.md M-03).
+	 *
+	 * Only facts that cannot change inside one request are read through this —
+	 * type, parent, scope, purchasability, name. Stock is deliberately not among
+	 * them: self::unavailable_reason() loads its own product, so a reward added
+	 * mid-request is never judged against a stale copy.
+	 *
+	 * @param int $product_id Product ID.
+	 * @return WC_Product|false
+	 */
+	protected static function choice_product( $product_id ) {
+		$product_id = (int) $product_id;
+
+		if ( ! array_key_exists( $product_id, self::$choice_products ) ) {
+			self::$choice_products[ $product_id ] = wc_get_product( $product_id );
+		}
+
+		return self::$choice_products[ $product_id ];
+	}
+
+	/**
 	 * Order product IDs by product name.
 	 *
 	 * @param int[] $ids Product IDs.
@@ -1204,7 +1240,7 @@ class BOGO_Select_Engine {
 		$names = array();
 
 		foreach ( $ids as $id ) {
-			$product      = wc_get_product( $id );
+			$product      = self::choice_product( $id );
 			$names[ $id ] = $product ? $product->get_name() : '';
 		}
 
@@ -1397,6 +1433,8 @@ class BOGO_Select_Engine {
 	 */
 	public static function flush_choice_cache() {
 		self::$variations = array();
+
+		self::$choice_products = array();
 
 		self::$eligibility = null;
 

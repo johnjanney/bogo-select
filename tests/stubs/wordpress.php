@@ -79,6 +79,13 @@ class BOGO_Test_Env {
 	public static $transients = array();
 
 	/**
+	 * Messages raised through add_settings_error().
+	 *
+	 * @var array[]
+	 */
+	public static $settings_errors = array();
+
+	/**
 	 * Whether WC_Data_Store::load() answers, so the query fallback can be
 	 * exercised too.
 	 *
@@ -125,6 +132,7 @@ class BOGO_Test_Env {
 		self::$products           = array();
 		self::$notices            = array();
 		self::$transients         = array();
+		self::$settings_errors    = array();
 		self::$store_searches     = array();
 		self::$data_store         = true;
 		self::$reject_add_to_cart = '';
@@ -421,6 +429,48 @@ function update_option( $name, $value ) {
 	BOGO_Test_Env::$options[ $name ] = $value;
 
 	return true;
+}
+
+/**
+ * Record a settings-screen message.
+ *
+ * WordPress draws these after the option has already been written, which is the
+ * whole point of CODEX-REVIEW.md M-01: a message is not a refusal. Recording
+ * them lets a test assert both halves — what was said, and what was saved.
+ *
+ * @param string $setting Option name.
+ * @param string $code    Message code.
+ * @param string $message Message text.
+ * @param string $type    error|warning|info|success.
+ */
+function add_settings_error( $setting, $code, $message, $type = 'error' ) {
+	BOGO_Test_Env::$settings_errors[] = array(
+		'setting' => $setting,
+		'code'    => $code,
+		'message' => $message,
+		'type'    => $type,
+	);
+}
+
+/**
+ * Every settings message raised so far.
+ *
+ * @param string $setting Option name, or an empty string for all of them.
+ * @return array[]
+ */
+function get_settings_errors( $setting = '' ) {
+	if ( '' === $setting ) {
+		return BOGO_Test_Env::$settings_errors;
+	}
+
+	return array_values(
+		array_filter(
+			BOGO_Test_Env::$settings_errors,
+			function ( $error ) use ( $setting ) {
+				return $error['setting'] === $setting;
+			}
+		)
+	);
 }
 
 /**
