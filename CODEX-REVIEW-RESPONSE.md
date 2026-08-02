@@ -195,6 +195,10 @@ happened. It now asserts the selected card carries the large variation's own
 `data-bogo-card`, and reads cart text from the line rows rather than the page,
 since the chooser is printed inside the cart form.
 
+**Both remaining gaps were closed after 2.3.4**, and the phone one paid for
+itself immediately — see the addendum at the end of this part. The paragraph
+below is left as it was written.
+
 **Still uncovered, and recorded as such:** a phone-viewport run for the v2.2.0
 compact layout, and a real `options.php` save under a named role. Both are
 honest gaps rather than deferred work I intend to forget; `tests/README.md` lists
@@ -462,6 +466,50 @@ workflow with nothing watching it is worse than an unpinned one, and the next
 person should not have to work that out.
 
 L-03 is closed on those terms.
+
+## Addendum — L-02's two remaining gaps
+
+**The phone-viewport test found a defect on its first run**, which is the answer
+to whether it was worth writing. Every geometry assertion passed — the card is
+the cart-line row it was designed to be — and the buttons measured 21 CSS pixels
+tall, under the 24 WCAG 2.2 asks for and far under what a thumb wants. That had
+shipped in v2.2.0 and been in every release since. Four levels of static
+analysis, a coding standard, 257 unit tests and a browser suite had nothing to
+say about it, because none of them had ever rendered the chooser below 600px
+where its own rule applies. The controls now get a 44px minimum, "Remove gift"
+included.
+
+It is geometry rather than screenshots, because a screenshot proves a layout
+changed and says nothing about whether it changed correctly. It also taps a
+gift: a card can measure perfectly and be untappable with something invisible
+over it, and Playwright's actionability check is exactly that assertion.
+
+Two of its bounds are deliberately loose and say why in the file. Overflow is
+asserted against the chooser and its cards rather than the document, because a
+page-level check would fail on the theme's layout or WooCommerce's own blocks —
+neither this plugin's to fix, and a check that fails for someone else's reasons
+is one that gets switched off. And a variable card is allowed more height than a
+simple one, because it carries a label and a select; holding it to the same
+bound would be asserting that a control the customer needs does not exist.
+
+**The settings screen is now driven through `options.php` by a real role.** This
+is the regression test M-02 asked for and could not have been written against the
+unit suite: `AdminSettingsTest` calls the sanitize callback, and the capability
+check happens before WordPress ever reaches it. A Shop Manager signs in, opens
+the page, and saves — which before the fix answered "Sorry, you are not allowed
+to manage these items." An Editor is refused the page.
+
+The schedule refusals are re-checked there too, and deliberately by reading the
+form back rather than the message. The form is repopulated from the stored
+option, so what it shows is what was saved, and a screen that displays an error
+and stores the value anyway is precisely what M-01 turned out to be. The site
+runs on a non-UTC clock for it, with the dates computed by the store's own
+`current_time()`, so D-019's "whole days in the site's timezone" is exercised
+rather than asserted against a stub.
+
+What remains from this review is one item: the large-catalogue benchmark M-03
+asked for. No latency or query-count claim is published anywhere, which is the
+condition that made it safe to defer.
 
 ---
 

@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The settings screen is exercised through `options.php` under a real role**
+  (`CODEX-REVIEW.md` L-02, and the regression test M-02 asked for).
+  `AdminSettingsTest.php` calls the same sanitize callback WordPress calls, and
+  structurally cannot reach what happens before it: the nonce, the option
+  allowlist, and the capability check. That check was the whole of M-02 — a Shop
+  Manager could fill the form in and be refused on submit.
+
+  A Shop Manager now signs in, opens the page, saves a schedule, and the form is
+  read back to prove what was stored. An Editor is refused the page. A malformed
+  date and a reversed window are submitted and the previous schedule is shown to
+  have survived both — reading the form rather than the message, since a screen
+  that showed an error and stored the value anyway is exactly what M-01 was.
+
+  The site runs on a non-UTC clock for it, and the dates come from the store's
+  own `current_time()`, so `DECISION.md` D-019's "whole days in the site's
+  timezone" is exercised rather than assumed: an offer ending today is not
+  called expired, and one ending yesterday is.
+
 ## [2.3.5] — 2026-08-02
 
 A test written to close a gap, which then found something in it.

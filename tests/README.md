@@ -81,6 +81,7 @@ they run in order.
 | `shipping.test.mjs` | How a reward behaves against shipping, run once per mode: that a free reward adds weight but not order value and so cannot cross a free-shipping threshold, that a discounted one adds both, and that either joins the parcel. |
 | `tax.test.mjs` | Tax on a discounted reward, run once per display mode: that the line is taxed on what the customer pays rather than on the price it was discounted from, and that a tax-inclusive store still charges exactly half the shelf price. |
 | `coupon.test.mjs` | Coupons alongside a discounted reward: that an eligible coupon compounds on the already-reduced price, and that one excluding the reward leaves it alone while still discounting the rest of the cart. |
+| `setup-admin.php` + `admin.test.mjs` | The settings screen through `options.php` under a real role: that a Shop Manager can both open and save it (M-02), that a role without `manage_woocommerce` is refused, and that a malformed date and a reversed window are refused rather than stored (M-01) — read back from the repopulated form, which is what the option holds. Runs against a non-UTC site clock, so "whole days in the store's timezone" is exercised rather than assumed. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
 
 ## What neither suite covers
@@ -95,10 +96,6 @@ they run in order.
 - Multi-currency, and currencies whose minor unit is not two digits. The
   assertions read `currency_minor_unit` rather than assuming, but only one
   currency is ever configured.
-- A settings save through `options.php` under a real role. `AdminSettingsTest.php`
-  calls the same sanitize callback WordPress calls and asserts what it returns,
-  which is where the schedule rules live; what it cannot prove is the capability
-  check WordPress itself performs before calling it.
 
 `WP_DEBUG` is now covered, having been listed here as uncovered since v1.2.0.
 The integration job turns it on before installing the plugin and fails the build

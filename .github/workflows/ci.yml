@@ -415,6 +415,34 @@ jobs:
           MODE=incl PAID_ID="$PAID" REWARD_ID="$REWARD" REWARD_PRICE=20 \
             DISCOUNT_PERCENT=50 TAX_RATE=10 node tests/integration/tax.test.mjs
 
+      # Last, because it moves the site to a non-UTC timezone and enables the
+      # offer — both of which would change what every storefront scenario above
+      # is looking at. Everything before this has already run.
+      - name: Seed the admin users and a non-UTC clock
+        id: admin
+        run: |
+          C="docker compose -f tests/integration/docker-compose.yml exec -T cli"
+          OUT=$($C wp eval-file /integration/setup-admin.php | tail -1 | tr -d '\r')
+          echo "admin: $OUT"
+          for k in pass timezone today yesterday next_week; do
+            echo "$k=$(echo "$OUT" | python3 -c "import json,sys; print(json.load(sys.stdin)['$k'])")" >> "$GITHUB_OUTPUT"
+          done
+
+      # AdminSettingsTest calls the same sanitize callback WordPress calls, and
+      # structurally cannot reach the capability check options.php performs
+      # before it — which is all of M-02 (CODEX-REVIEW.md L-02).
+      - name: Run the settings-screen role test
+        env:
+          MANAGER_USER: bogo_shop_manager
+          EDITOR_USER: bogo_editor
+          ADMIN_PASS: ${{ steps.admin.outputs.pass }}
+          TIMEZONE: ${{ steps.admin.outputs.timezone }}
+          TODAY: ${{ steps.admin.outputs.today }}
+          YESTERDAY: ${{ steps.admin.outputs.yesterday }}
+          NEXT_WEEK: ${{ steps.admin.outputs.next_week }}
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: node tests/integration/admin.test.mjs
+
       # Only lines naming this plugin's own files fail the build. WordPress and
       # WooCommerce raise deprecations of their own that no change here can fix,
       # and failing on those would make the check something to switch off.
