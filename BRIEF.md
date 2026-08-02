@@ -350,7 +350,11 @@ has an immutable commit and a downloadable installer.
 git tag -a v<version> -m "BOGO Select for WooCommerce <version>"
 git push origin v<version>
 
-# 2. GitHub release, with the zip attached as an asset.
+# 2. Refuse to publish a tag CI did not pass. Waits for the run if it is
+#    still going, and fails if there is no run at all.
+bash bin/verify-ci.sh v<version>
+
+# 3. GitHub release, with the zip attached as an asset.
 gh release create v<version> dist/bogo-select-<version>.zip \
     --verify-tag \
     --title "BOGO Select for WooCommerce <version>" \
@@ -374,6 +378,14 @@ Rules:
   archive of every past version survives even if local `dist/` is lost.
 - Do not tag until §8.5 passes: the tag is immutable, so publishing a zip that
   disagrees with the tagged commit cannot be corrected in place.
+- **Do not publish until `bin/verify-ci.sh` passes.** v2.3.1 and v2.3.8 both went
+  out with a red run — one an integration failure introduced in the same release,
+  one a coding-standard failure — and both were found afterwards by hand. The
+  script exists because the manual check that should have caught them was worse
+  than useless: it asked for "the most recent run" moments after a push, which
+  is frequently the *previous* commit's, and answered green for the wrong commit.
+  Runs are matched by SHA, and a commit with no run at all is refused rather
+  than assumed fine.
 
 ### 8.5 Verify the zip before publishing it
 

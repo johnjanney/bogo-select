@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **A release gate that refuses to publish a tag CI did not pass.**
+  `bin/verify-ci.sh` resolves a tag to its commit, checks the tag on origin
+  points at the same commit, finds the CI run **for that SHA**, waits if it is
+  still going, and exits non-zero unless it concluded `success`. It is now step
+  2 of `BRIEF.md` §8.4, between pushing the tag and publishing the release.
+
+  Two tags had already gone out red. v2.3.1's integration lanes failed on an
+  assertion introduced in the same release; v2.3.8's coding-standard job failed
+  on a docblock. Both were found afterwards, by hand, and only because someone
+  went looking. The script was checked against both: it refuses each and names
+  the jobs that failed.
+
+  The manual check it replaces was worse than no check. It asked for "the most
+  recent run" moments after pushing, which is frequently the *previous*
+  commit's — so it could answer green for a commit that was never tested, in a
+  form that read as verification. Runs are matched by SHA and by nothing else,
+  and a commit with no run at all is refused rather than assumed fine, which is
+  what v1.0.0 would be: tagged before the pipeline existed.
+
 ### Fixed
 
 - **CI was red on the v2.3.8 tag, from a docblock the coding standard would not

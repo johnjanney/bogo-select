@@ -55,7 +55,7 @@ jobs:
         run: for f in assets/js/*.js; do node --check "$f"; done
 
       - name: Check build script syntax
-        run: bash -n bin/build-zip.sh bin/verify-zip.sh
+        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh
 
       - name: Check integration test syntax
         run: for f in tests/integration/*.mjs; do node --check "$f"; done
