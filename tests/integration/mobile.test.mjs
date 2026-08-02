@@ -61,11 +61,27 @@ const page = await context.newPage();
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(e.message));
 
-// A qualifying cart, in this browser's own session. Adding the item is not what
-// is under test.
+// A qualifying cart, in this browser's own session, built from an empty one.
+//
+// Emptying first is what makes this test re-runnable. It taps a gift partway
+// through, so a second run against the cart the first left behind starts with a
+// gift already chosen — and then measures a chooser where the card it expects to
+// carry a button is the one showing "Selected" instead. That is how it behaves
+// under the mutation harness, which runs it repeatedly, and a test that only
+// passes on a store nobody has touched is a test with a hidden precondition.
 await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
 await page.evaluate(async (paidId) => {
 	const nonce = (await fetch('/wp-json/wc/store/v1/cart')).headers.get('Nonce');
+	const cart = await (await fetch('/wp-json/wc/store/v1/cart')).json();
+
+	for (const item of cart.items || []) {
+		await fetch('/wp-json/wc/store/v1/cart/remove-item', {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json', Nonce: nonce },
+			body: JSON.stringify({ key: item.key }),
+		});
+	}
+
 	await fetch('/wp-json/wc/store/v1/cart/add-item', {
 		method: 'POST',
 		headers: { 'Content-Type': 'application/json', Nonce: nonce },
