@@ -35,6 +35,12 @@ which makes this a PATCH.
   which is the guard working — a batch of one is skipped, since priming it
   would cost a query to save none.
 
+  A third run on the same commit confirmed it: identical query counts on every
+  path, and wall times 14–29% lower across all six — uniformly lower, which is
+  a faster machine rather than jitter. That puts the between-runner noise at
+  roughly a quarter of the measurement, well inside the 2.9× the fix moved, and
+  is why the query counts are quoted rather than the seconds.
+
   Nothing downstream changed: the same products are loaded, by the same calls,
   in the same order. This is not fewer loads, it is the same loads costing
   fewer queries — which is why the unit suite's product-load counts are

@@ -567,10 +567,23 @@ Re-measured with the same script, same catalogue, same settings:
 
 **The query counts are the claim; the wall times are indication.** Queries are
 deterministic — the same catalogue and the same code produce the same count
-every time — while the two runs happened on different ephemeral runners and
-their seconds carry that noise. A 41× reduction on a broad search and 137× on
-the cold curated build are real; "2.9× faster" is what one pair of runs on one
-pair of machines showed.
+every time — while the runs happened on different ephemeral runners and their
+seconds carry that noise. A 41× reduction on a broad search and 137× on the
+cold curated build are real; "2.9× faster" is what one pair of runs on one pair
+of machines showed.
+
+**Confirmed by a third run**, on the same commit and the same inputs, which is
+what that distinction is for. Every query count came back identical — 15, 12,
+12, 12, 11, 15 — while every wall time came back 14–29% lower: 0.078s → 0.063s
+for the broad search, 0.150s → 0.116s for the cold curated build. Uniformly
+lower across all six paths, which is a faster machine rather than measurement
+jitter; the runner class was the same and the host was not.
+
+So the noise floor between runners is about a quarter of the measurement. The
+pre-fix to post-fix gap was 2.9×, comfortably outside that, so the improvement
+holds — but the reason to lead with 612 → 15 rather than with seconds is that
+the first is a statement about the code and the second is partly a statement
+about two machines.
 
 The single-SKU search is unchanged at 12 queries, which is the guard working: a
 batch of one is skipped, because priming it would cost a query to save none.
