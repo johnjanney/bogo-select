@@ -65,6 +65,7 @@ if command -v rsync >/dev/null 2>&1; then
 		--exclude 'bin/' \
 		--exclude 'tests/' \
 		--exclude 'vendor/' \
+		--exclude 'node_modules/' \
 		--exclude 'composer.json' \
 		--exclude 'composer.lock' \
 		--exclude 'phpunit.xml.dist' \
@@ -90,6 +91,7 @@ else
 		"${STAGE}/${SLUG}/bin" \
 		"${STAGE}/${SLUG}/tests" \
 		"${STAGE}/${SLUG}/vendor" \
+		"${STAGE}/${SLUG}/node_modules" \
 		"${STAGE}/${SLUG}/composer.json" \
 		"${STAGE}/${SLUG}/composer.lock" \
 		"${STAGE}/${SLUG}/phpunit.xml.dist" \

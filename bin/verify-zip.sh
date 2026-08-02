@@ -61,7 +61,7 @@ runtime_files() {
 	# $1: root directory to list, relative paths on stdout.
 	( cd "$1" && find . \
 		\( -path './.git' -o -path './.github' -o -path './dist' -o -path './bin' \
-		   -o -path './tests' -o -path './vendor' \) -prune -o \
+		   -o -path './tests' -o -path './vendor' -o -name 'node_modules' \) -prune -o \
 		-type f \( -name '*.php' -o -name '*.js' -o -name '*.css' \) -print ) \
 		| sed 's|^\./||' | sort
 }

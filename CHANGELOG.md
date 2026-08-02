@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.5] — 2026-08-02
+
+A test written to close a gap, which then found something in it.
+
+Most of this release is CI and tooling, and on its own none of it would have
+earned a version — `BRIEF.md` §8.1 gives the version to the plugin code. The
+phone-viewport test changed that by failing: the chooser's buttons were 21 CSS
+pixels tall on a phone, which is a real defect a real customer has been tapping
+at since 2.2.0. The fix for it is what makes this a PATCH rather than another
+entry under Unreleased.
+
 ### Changed
 
 - **Everything CI reaches for is pinned, and Dependabot watches the pins**
@@ -82,13 +93,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   WooCommerce's own blocks, neither of which this plugin can fix, and a check
   that fails for someone else's reasons is one that gets switched off. A real
   page-level overflow is still printed to the log.
-
-### Not released
-
-Everything under this heading is CI, tooling, and documentation. No file that
-ships to a store has changed since 2.3.4, so there is no version bump: `BRIEF.md`
-§8.1 gives the version to the plugin code, and the code is the same. This work
-rides along with the next change that touches it.
 
 ## [2.3.4] — 2026-08-02
 
@@ -884,7 +888,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...HEAD
+[2.3.5]: https://github.com/johnjanney/bogo-select/compare/v2.3.4...v2.3.5
 [2.3.4]: https://github.com/johnjanney/bogo-select/compare/v2.3.3...v2.3.4
 [2.3.3]: https://github.com/johnjanney/bogo-select/compare/v2.3.2...v2.3.3
 [2.3.2]: https://github.com/johnjanney/bogo-select/compare/v2.3.1...v2.3.2
