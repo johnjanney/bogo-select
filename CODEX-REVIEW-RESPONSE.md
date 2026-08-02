@@ -507,9 +507,62 @@ runs on a non-UTC clock for it, with the dates computed by the store's own
 `current_time()`, so D-019's "whole days in the site's timezone" is exercised
 rather than asserted against a stub.
 
-What remains from this review is one item: the large-catalogue benchmark M-03
-asked for. No latency or query-count claim is published anywhere, which is the
-condition that made it safe to defer.
+## Addendum — M-03's benchmark, and what it measured
+
+Run on a 4-core GitHub runner, WooCommerce 10.9.4 on PHP 8.2, 2,000 published
+simple products with 500 of them on the Get list, **no persistent object cache**
+— which is the case worth measuring, because it is what a store without Redis or
+Memcached has, and every web request there starts cold.
+
+| Path | Cold | Warm |
+|---|---|---|
+| All Products, search "Gift" (200-candidate ceiling) | 0.229s, **612 queries**, 0.13s CPU | 0.002s, 0 queries |
+| All Products, search one SKU | 0.019s, 12 queries | 0.001s, 0 queries |
+| All Products, browse page 1 | 0.034s, 81 queries | 0.000s, 0 queries |
+| All Products, browse page 20 | 0.034s, 81 queries | 0.000s, 0 queries |
+| Select Products, 500 curated, cold eligibility build | 0.484s, **1,508 queries**, 2 MB | 0.000s, 0 queries |
+| Select Products, search "Gift" | 0.527s, 1,512 queries | 0.002s, 0 queries |
+
+**The warm column is the memo and the transient working.** Zero queries on the
+second call, in every path. That is what 2.3.1's request memo bought, and it
+holds.
+
+**The cold column is the finding.** A broad All Products search costs about
+three queries per candidate — 200 candidates, 612 queries — because the memo
+stops the same product being loaded twice within a request and does nothing
+about the request being the first one. On a store with a persistent object cache
+these are absorbed; on a store without one, every distinct search term pays them
+again. The endpoint is public to any qualifying cart and debounced at 350ms per
+changed term.
+
+The 1,508-query curated build is less alarming than it looks, because a
+transient carries it: a store pays it once per ten minutes, or once after saving
+a product, rather than per request. It is the same three-queries-per-product
+shape, over 500 rather than 200.
+
+**What this does not say.** Nothing here is a claim about a real store: one
+runner, one PHP version, one catalogue shape, all products simple and
+published, and a database on the same host as the web server. The figures are
+per-call costs on a cold cache, which is the pessimistic end. They are recorded
+so the next decision can start from a number.
+
+**What it changes.** M-03's own recommendation ended "consider a short result
+cache keyed by search term, scope, offer settings, and catalog state if
+measurement shows that object reuse is not enough." The measurement shows
+exactly that — object reuse fixed the duplication and left the first load of
+each product untouched. The cheaper answer than a result cache is priming: one
+batched fetch for the candidate IDs before the eligibility loop, instead of
+letting each `wc_get_product()` find its own way to the database. That is a
+change to a hot path and is not made here; the benchmark exists so it can be
+made against numbers, and re-measured with the same script.
+
+The benchmark runs from its own workflow on `workflow_dispatch` rather than on
+push. Seeding a catalogue takes about a minute and the numbers are for reading,
+not for gating — a threshold on a shared runner would mostly measure the runner.
+
+M-03's code fix shipped in 2.3.1 and its regression test holds the product-load
+ratio. This closes the measurement it asked for before any latency claim is
+published.
 
 ---
 

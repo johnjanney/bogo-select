@@ -9,6 +9,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A large-catalogue benchmark, and the numbers from running it**
+  (`CODEX-REVIEW.md` M-03). It asked for wall time, database queries, CPU, and
+  peak memory measured before any latency claim is published, and was explicit
+  that the product-load counts the unit suite holds are not latency. These are
+  seconds, queries, and bytes; the loads stay where they were.
+
+  On 2,000 products with 500 curated, no persistent object cache: a broad All
+  Products search costs 0.23s and **612 queries** cold and 0 queries warm; the
+  curated list's cold eligibility build costs 0.48s and 1,508 queries, carried
+  by a transient so a store pays it once per ten minutes rather than per
+  request; browsing a page costs 0.03s and 81 queries.
+
+  The warm column is 2.3.1's request memo working — zero queries on the second
+  call, every path. The cold column is the finding: about three queries per
+  candidate, because the memo stops a product being loaded twice in a request
+  and does nothing about the request being the first. Recorded in
+  `CODEX-REVIEW-RESPONSE.md` with what it does and does not say, and with the
+  cheaper answer than the result cache M-03 floated — priming the batch — left
+  as a decision to make against numbers rather than a change made beside them.
+
+  Its own workflow, on `workflow_dispatch`. Seeding takes about a minute and
+  the numbers are for reading rather than gating; a threshold on a shared runner
+  would mostly measure the runner.
+
 - **The settings screen is exercised through `options.php` under a real role**
   (`CODEX-REVIEW.md` L-02, and the regression test M-02 asked for).
   `AdminSettingsTest.php` calls the same sanitize callback WordPress calls, and

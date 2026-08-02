@@ -84,6 +84,22 @@ they run in order.
 | `setup-admin.php` + `admin.test.mjs` | The settings screen through `options.php` under a real role: that a Shop Manager can both open and save it (M-02), that a role without `manage_woocommerce` is refused, and that a malformed date and a reversed window are refused rather than stored (M-01) — read back from the repopulated form, which is what the option holds. Runs against a non-UTC site clock, so "whole days in the store's timezone" is exercised rather than assumed. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
 
+## The benchmark
+
+`benchmark.php` measures what a page of choices costs on a large catalogue —
+wall time, database queries, CPU, and peak memory, each cold and warm. It runs
+from `.github/workflows/benchmark.yml` on `workflow_dispatch` rather than on
+push, because seeding a catalogue takes about a minute and the numbers are for
+reading rather than for gating: a threshold on a shared runner would mostly
+measure the runner.
+
+```bash
+gh workflow run Benchmark -f catalogue=2000 -f curated=500
+```
+
+The figures from the first run are recorded in `CODEX-REVIEW-RESPONSE.md`
+(Part 0, the M-03 addendum), along with what they do and do not say.
+
 ## What neither suite covers
 
 - Hook timing against third-party plugins (`woocommerce_before_calculate_totals`
