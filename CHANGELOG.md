@@ -52,6 +52,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the plugin writes no SQL; if it ever does, the answer is a deliberate pin to an
   LTS or a second lane rather than letting this drift back by accident.
 
+- **The compact chooser is checked at a phone width** (`CODEX-REVIEW.md` L-02).
+  The layout added in v2.2.0 applies below 600px and the integration browser
+  runs at 1280px, so every browser assertion ever made about the chooser was
+  made at a width where the rule does not apply. `mobile.test.mjs` renders both
+  carts at 390×844 and measures the boxes: the thumbnail capped and beside the
+  text rather than above it, the button under the name, no card running off the
+  side, and buttons meeting the WCAG 2.2 minimum target size.
+
+  Geometry rather than screenshots, because a screenshot proves a layout
+  changed and says nothing about whether it changed correctly. It also taps a
+  gift, since a card that measures perfectly and cannot be tapped — something
+  invisible over it — is the failure worth catching, and Playwright's
+  actionability check is exactly that assertion.
+
+  Overflow is asserted against the chooser and its cards rather than the
+  document. A page-level check would fail on the theme's layout or
+  WooCommerce's own blocks, neither of which this plugin can fix, and a check
+  that fails for someone else's reasons is one that gets switched off. A real
+  page-level overflow is still printed to the log.
+
 ### Not released
 
 Everything under this heading is CI, tooling, and documentation. No file that

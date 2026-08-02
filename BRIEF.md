@@ -427,6 +427,10 @@ Shipping joined that job in v2.1.0 and is no longer manual: a shipping fixture
 seeds a non-virtual product and a free-shipping threshold, and `shipping.test.mjs`
 runs in both reward modes.
 
+The compact phone layout joined it in the same round: `mobile.test.mjs` renders
+both carts at 390×844 and measures where the thumbnail, the name, and the button
+actually are, rather than photographing them.
+
 **Still manual before a release**, because CI does not cover them: third-party
 pricing plugins against the priority-20 hook (a deliberate trade, see D-016),
 weight-based shipping rates — WooCommerce's own flat rate cannot express one, so

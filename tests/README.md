@@ -75,6 +75,7 @@ they run in order.
 | `blocks.test.mjs` | Store API cart state and gift label, quantity limits, and the Cart and Checkout **blocks** rendering on a real page — that the chooser slot never takes the block root's `data-block-name`, and that each block leaves `is-loading`. |
 | `discount.test.mjs` | A percentage reward through the Store API: the discounted figure WooCommerce actually charges, that repeated recalculation does not compound it, and the discounted wording in the Cart block. |
 | `variable.test.mjs` | A variable reward: that the parent alone is refused, that the line is priced from the chosen variation rather than the parent's range, and that the cart renders one selector listing every variation. |
+| `mobile.test.mjs` | The compact chooser at 390×844: that each card is a row rather than a full-width image — thumbnail capped and beside the text, button under it — that no card runs off the side, that buttons meet the WCAG 2.2 minimum target size, and that a gift can actually be tapped at that width. Geometry rather than screenshots, on both the classic and block carts. |
 | `classic.test.mjs` | The shortcode cart and checkout, including a variable reward chosen over admin-ajax and a switch between two individually listed siblings: that the chooser arrives through the template hooks rather than the `render_block` filter, that choosing over admin-ajax works by clicking the button, that the reloaded cart shows the badge, discounted price, and locked quantity, and that the checkout slot is marked `checkout` rather than `classic` so it never reloads a part-filled form. |
 | `sale.test.mjs` | A reward already on sale, discounted again: that the reduction comes off the sale price rather than the regular one, with fixture prices chosen so the wrong answer cannot be mistaken for the right one. |
 | `shipping.test.mjs` | How a reward behaves against shipping, run once per mode: that a free reward adds weight but not order value and so cannot cross a free-shipping threshold, that a discounted one adds both, and that either joins the parcel. |
@@ -94,8 +95,6 @@ they run in order.
 - Multi-currency, and currencies whose minor unit is not two digits. The
   assertions read `currency_minor_unit` rather than assuming, but only one
   currency is ever configured.
-- Phone-viewport layout. The integration browser runs at 1280px, so the compact
-  chooser added in v2.2.0 has no automated check of its own.
 - A settings save through `options.php` under a real role. `AdminSettingsTest.php`
   calls the same sanitize callback WordPress calls and asserts what it returns,
   which is where the schedule rules live; what it cannot prove is the capability

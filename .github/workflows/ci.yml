@@ -347,6 +347,18 @@ jobs:
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/classic.test.mjs
 
+      # The compact layout added in v2.2.0 had never been rendered at a width
+      # where its rule applies — every other browser assertion here runs at
+      # 1280px (CODEX-REVIEW.md L-02). Runs after the classic fixture so it has
+      # both a classic cart and a block cart to measure.
+      - name: Run the phone-viewport test
+        env:
+          PAID_ID: ${{ steps.classic.outputs.paid }}
+          CART_PATH: /classic-cart/
+          BLOCK_CART_PATH: /cart/
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: node tests/integration/mobile.test.mjs
+
       # Q-004's shipping claim, which had never been checked because every other
       # fixture is virtual. Runs its own store setup twice, once per mode.
       - name: Shipping, free reward
