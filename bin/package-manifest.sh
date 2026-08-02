@@ -45,6 +45,7 @@ PACKAGE_EXCLUDES=(
 	'package-lock.json'
 	'.phpunit.result.cache'
 	'CODEX-REVIEW*.md'
+	'RELEASE-SUMMARY*.md'
 	'.DS_Store'
 	'Thumbs.db'
 	'*.swp'
