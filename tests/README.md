@@ -4,6 +4,7 @@
 composer install
 composer test          # or: ./vendor/bin/phpunit
 composer analyse       # PHPStan, level 9, no baseline
+bash bin/verify-tests.sh   # does the suite object to real defects?
 composer sniff         # WordPress Coding Standards
 composer lint          # php -l over everything outside vendor/
 ```
@@ -83,6 +84,24 @@ they run in order.
 | `coupon.test.mjs` | Coupons alongside a discounted reward: that an eligible coupon compounds on the already-reduced price, and that one excluding the reward leaves it alone while still discounting the rest of the cart. |
 | `setup-admin.php` + `admin.test.mjs` | The settings screen through `options.php` under a real role: that a Shop Manager can both open and save it (M-02), that a role without `manage_woocommerce` is refused, and that a malformed date and a reversed window are refused rather than stored (M-01) — read back from the repopulated form, which is what the option holds. Runs against a non-UTC site clock, so "whole days in the store's timezone" is exercised rather than assumed. |
 | `order.test.mjs` + `assert-order.php` | Placing a real order through the Store API checkout, then inspecting it: the reward line and its quantity, the discounted line total, `_bogo_select_free` and `_bogo_select_discount`, the visible label, and stock reduced by the awarded quantity. No browser — none of it is about rendering. |
+
+## Does the suite object to anything?
+
+`bin/verify-tests.sh` reintroduces eight defects this plugin actually had — a
+Buy list that stops matching a variation, a reversed schedule that saves anyway,
+a Shop Manager who cannot save, a search that loads every candidate twice — and
+requires the unit suite to fail on each. A mutation that survives is a hole:
+behaviour the changelog describes and nothing guards.
+
+It exists because a green suite says the tests agree with the code, not that
+they would object to different code. Those are separate claims, and v2.3.1
+shipped a browser assertion that passed on a negative true either way. On its
+first run this found that the v2.3.7 fix — refusing a non-scalar where a product
+ID belongs — had no test at all, and it had already shipped in a release.
+
+Not a substitute for a mutation testing tool. It is a fixed, curated set, chosen
+so each entry names a defect rather than a line number, and so a survivor tells
+you what is unguarded rather than that some percentage of mutants lived.
 
 ## The benchmark
 

@@ -40,6 +40,31 @@ jobs:
       - name: Run unit tests
         run: ./vendor/bin/phpunit
 
+  mutations:
+    name: The suite objects to real defects
+    runs-on: ubuntu-latest
+
+    # A green suite says the tests agree with the code, not that they would
+    # object to different code. This reintroduces defects this plugin actually
+    # had and requires the suite to fail on each (CODEX-REVIEW.md L-02 is the
+    # standing example of an assertion that agreed with itself for two
+    # releases). One PHP version is enough — whether a test notices a defect
+    # does not vary by interpreter.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Check the suite catches what it should
+        run: bash bin/verify-tests.sh
+
   static:
     name: Syntax and shell checks
     runs-on: ubuntu-latest
@@ -55,7 +80,7 @@ jobs:
         run: for f in assets/js/*.js; do node --check "$f"; done
 
       - name: Check build script syntax
-        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh
+        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh bin/verify-tests.sh
 
       - name: Check integration test syntax
         run: for f in tests/integration/*.mjs; do node --check "$f"; done

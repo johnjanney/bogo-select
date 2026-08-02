@@ -158,6 +158,49 @@ class SettingsTest extends TestCase {
 		$this->assertSame( BOGO_Select_Settings::defaults()['offer_title'], $clean['offer_title'] );
 	}
 
+	public function test_a_non_scalar_is_not_read_as_a_product_id() {
+		// absint() reaches for intval(), and intval() of a non-empty array is 1,
+		// so a nested array in a hand-edited option row used to name whatever
+		// product holds ID 1. Nothing guarded this until a mutation check went
+		// looking for what the suite would not notice.
+		$clean = BOGO_Select_Settings::sanitize(
+			array(
+				'buy_products' => array( 12, array( 7 ), 34 ),
+				'get_products' => array( array(), 'x', 20 ),
+			)
+		);
+
+		$this->assertSame( array( 12, 34 ), $clean['buy_products'] );
+		$this->assertSame( array( 20 ), $clean['get_products'] );
+	}
+
+	public function test_a_non_scalar_quantity_falls_back_rather_than_becoming_one() {
+		$clean = BOGO_Select_Settings::sanitize(
+			array(
+				'buy_qty' => array( 9 ),
+				'get_qty' => array( 'x' ),
+			)
+		);
+
+		// max( 1, 0 ) rather than max( 1, 1 ) — both are 1 here, so the check
+		// that matters is on to_id() itself, below.
+		$this->assertSame( 1, $clean['buy_qty'] );
+		$this->assertSame( 1, $clean['get_qty'] );
+	}
+
+	public function test_to_id_refuses_anything_that_is_not_a_scalar() {
+		$this->assertSame( 7, BOGO_Select_Settings::to_id( '7' ) );
+		$this->assertSame( 7, BOGO_Select_Settings::to_id( 7.9 ) );
+		$this->assertSame( 0, BOGO_Select_Settings::to_id( array( 7 ) ) );
+		$this->assertSame( 0, BOGO_Select_Settings::to_id( array() ) );
+		$this->assertSame( 0, BOGO_Select_Settings::to_id( null ) );
+	}
+
+	public function test_to_id_list_reduces_anything_to_whole_numbers() {
+		$this->assertSame( array( 12, 34 ), BOGO_Select_Settings::to_id_list( array( '12', array( 1 ), 34, 0 ) ) );
+		$this->assertSame( array(), BOGO_Select_Settings::to_id_list( 'not a list' ) );
+	}
+
 	public function test_sanitize_flushes_the_runtime_cache() {
 		$this->settings( array( 'buy_qty' => 5 ) );
 		$this->assertSame( 5, BOGO_Select_Settings::get( 'buy_qty' ) );

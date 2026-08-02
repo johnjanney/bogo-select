@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A check that the suite would object to a real defect**, and the hole it
+  found on its first run. `bin/verify-tests.sh` reintroduces eight defects this
+  plugin actually had — the Buy list ignoring a variation's own ID, a gift line
+  counting toward another gift, a reversed schedule saving anyway, a date read
+  with trailing junk, a Shop Manager unable to save, the summary counting list
+  entries, a search loading every candidate twice, an array becoming product 1 —
+  and requires the unit suite to fail on each.
+
+  It exists because a green suite says the tests agree with the code, not that
+  they would object to different code, and those are separate claims. v2.3.1
+  shipped a browser assertion that passed on a negative true either way, for two
+  releases.
+
+  Seven were caught. The eighth survived: **the v2.3.7 fix had no test**. That
+  release refused a non-scalar where a product ID belongs, and reverting it
+  changed nothing the suite noticed — behaviour described in a changelog and
+  guarded by nothing. Four tests cover it now.
+
+  It runs as its own CI job on one PHP version, since whether a test notices a
+  defect does not vary by interpreter.
+
 - **A release gate that refuses to publish a tag CI did not pass.**
   `bin/verify-ci.sh` resolves a tag to its commit, checks the tag on origin
   points at the same commit, finds the CI run **for that SHA**, waits if it is
