@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **CI was red on the v2.3.8 tag, from a docblock the coding standard would not
+  accept.** The level-9 work spelled a variation option's shape out inline, and
+  at 85 characters the standard's parameter alignment rule wanted the next line
+  indented to match it. The shape is named once on the class now and referred to
+  by that name in the three places that used it, which is shorter to read than
+  either the inline type or the alignment it demanded.
+
+  It reached the tag because the release checks ran `phpcs | tail -3`, and a
+  summary report's last three lines are a separator and a timing — the findings
+  above them were cut off, so a failing run read as a passing one. The same
+  shape of mistake as the archive that reported "87 runtime files verified".
+  Checks are read by exit code now, not by the tail of their output.
+
+  No runtime file changed and the published 2.3.8 archive is unaffected.
+
 ## [2.3.8] — 2026-08-02
 
 Level 9, and a correction to why 2.3.7 said it was out of reach.
