@@ -140,7 +140,9 @@ class BOGO_Select_Cart {
 	 * @return WC_Product|false
 	 */
 	protected static function line_product( $cart_item ) {
-		$id = ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : (int) $cart_item['product_id'];
+		$id = ! empty( $cart_item['variation_id'] )
+			? BOGO_Select_Settings::to_id( $cart_item['variation_id'] )
+			: BOGO_Select_Settings::to_id( $cart_item['product_id'] );
 
 		// wc_get_product() answers "no product" as either false or null depending
 		// on why. Every caller here asks the same yes-or-no question, so the two
@@ -326,7 +328,7 @@ class BOGO_Select_Cart {
 
 		return sprintf(
 			'<span class="bogo-select-locked-qty">%s</span>',
-			esc_html( (string) $cart_item['quantity'] )
+			esc_html( (string) BOGO_Select_Settings::to_id( $cart_item['quantity'] ) )
 		);
 	}
 
@@ -387,7 +389,7 @@ class BOGO_Select_Cart {
 			return $subtotal;
 		}
 
-		$qty = isset( $cart_item['quantity'] ) ? max( 1, (int) $cart_item['quantity'] ) : 1;
+		$qty = isset( $cart_item['quantity'] ) ? max( 1, BOGO_Select_Settings::to_id( $cart_item['quantity'] ) ) : 1;
 
 		return $this->reward_markup( $cart_item, $qty );
 	}

@@ -7,6 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Static analysis raised to level 9, and the reason 2.3.7 gave for stopping
+  was wrong.** That entry said the level was not worth taking, on two
+  conclusions that do not survive checking. Both are corrected here rather than
+  in place, since 2.3.7 shipped with them.
+
+  It said threading the settings shape through the admin sanitizer *made things
+  worse*, 41 findings becoming 80. It did not. The `@phpstan-import-type` line
+  had never reached the file — the script meant to add it aborted before
+  writing — so `BogoSettings` resolved to nothing and every read of it became
+  "access to an offset on an unknown class". With the import actually present,
+  the same change removes 21 findings.
+
+  It said the cart-item casts needed eighteen `is_scalar()` branches no cart
+  WooCommerce builds could reach. Most of them wanted a shape declared instead:
+  `state()` and `variation_options()` both build arrays with known keys and now
+  say so. The reads that genuinely come from a cart line — which any extension
+  may add to — go through the same `to_id()` helper as any other untrusted
+  value, which is shorter than the cast it replaced and refuses an array where
+  the cast would have produced 1.
+
+  Nothing was suppressed and there is still no baseline. What changed is that a
+  tool reporting more errors after a change is evidence about the change, and
+  it had been read as a verdict on it.
+
 ## [2.3.7] — 2026-08-02
 
 An array where an ID belonged.

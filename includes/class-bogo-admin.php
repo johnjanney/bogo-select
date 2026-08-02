@@ -9,6 +9,8 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Builds the WooCommerce → BOGO Select settings page.
+ *
+ * @phpstan-import-type BogoSettings from BOGO_Select_Settings
  */
 class BOGO_Select_Admin {
 
@@ -100,7 +102,7 @@ class BOGO_Select_Admin {
 	 * Sanitize submitted settings and warn about unusable choices.
 	 *
 	 * @param mixed $raw Raw form input.
-	 * @return array<string,mixed>
+	 * @return BogoSettings
 	 */
 	public function sanitize( $raw ) {
 		// Read before sanitize(), which flushes the settings cache. options.php
@@ -252,10 +254,10 @@ class BOGO_Select_Admin {
 	 * setting the store can correct on its own; refusing the whole form would
 	 * throw away unrelated edits made in the same visit.
 	 *
-	 * @param mixed               $raw    Raw form input.
-	 * @param array<string,mixed> $clean  Sanitized settings.
-	 * @param array<string,mixed> $stored Settings as they are stored now.
-	 * @return array<string,mixed> The settings to save.
+	 * @param mixed        $raw    Raw form input.
+	 * @param BogoSettings $clean  Sanitized settings.
+	 * @param BogoSettings $stored Settings as they are stored now.
+	 * @return BogoSettings The settings to save.
 	 */
 	protected function keep_last_valid_schedule( $raw, $clean, $stored ) {
 		$raw = is_array( $raw ) ? $raw : array();
@@ -672,7 +674,7 @@ class BOGO_Select_Admin {
 	/**
 	 * A plain-English summary of the saved offer.
 	 *
-	 * @param array<string,mixed> $s Settings.
+	 * @param BogoSettings $s Settings.
 	 * @return string
 	 */
 	protected function summary( $s ) {

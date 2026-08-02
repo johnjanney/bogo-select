@@ -318,6 +318,19 @@ class BOGO_Select_Settings {
 	}
 
 	/**
+	 * Normalise any value into a list of product IDs.
+	 *
+	 * The public face of to_id_array(), for callers outside this class that are
+	 * handed a list from a filter or a request and need it reduced the same way.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return list<int>
+	 */
+	public static function to_id_list( $value ) {
+		return self::to_id_array( $value );
+	}
+
+	/**
 	 * Normalise a list of product IDs.
 	 *
 	 * A list rather than an array: array_values() reindexes, and saying so is

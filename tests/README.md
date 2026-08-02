@@ -3,7 +3,7 @@
 ```bash
 composer install
 composer test          # or: ./vendor/bin/phpunit
-composer analyse       # PHPStan, level 8, no baseline
+composer analyse       # PHPStan, level 9, no baseline
 composer sniff         # WordPress Coding Standards
 composer lint          # php -l over everything outside vendor/
 ```
@@ -22,7 +22,7 @@ It analyses `includes/`, `bogo-select.php`, and `uninstall.php` — not `tests/`
 whose own stubs declare the same functions as the stub packages and would be
 reported as redeclaring every one of them. The level is raised in steps and
 there is no baseline: it sits where the code passes, so the number means
-something. Level 9 remains, unattempted.
+something. Level 9 is the maximum, and it is where the code sits.
 
 **PHPCS with the WordPress standard** (`.phpcs.xml.dist`) reads the same runtime
 code plus the tests. The shipped plugin passes the full standard with nothing

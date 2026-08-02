@@ -474,9 +474,12 @@ redeclaration.
   boundary, so there is one absent case to handle rather than two. Two helpers
   that end the request were also marked `never`, which is what stopped the
   analyser believing execution continued past them.
-- Level 9 remains and has not been attempted. It makes `mixed` explicit, and
-  against WordPress code `mixed` is frequently the honest type; read what it
-  reports before deciding whether the level is worth having.
+- **Level 9 since 2.3.8**, which is the maximum. It makes `mixed` explicit, and
+  reaching it was mostly a matter of declaring shapes that were already true —
+  the settings row, the chooser's state array, a variation option — rather than
+  guarding against values that could not occur. Where a value genuinely is
+  untrusted, such as a cart line any extension may add to, it is read through
+  the same normaliser as request input rather than cast.
 
 **PHPCS with the WordPress standard** (`.phpcs.xml.dist`, `composer sniff`) runs
 in the same job and covers the tests as well as the shipped code. It overlaps

@@ -403,7 +403,7 @@ class BOGO_Select_Engine {
 	 * @return string
 	 */
 	protected static function format_percent( $percent ) {
-		$percent  = (float) $percent;
+		$percent  = is_scalar( $percent ) ? (float) $percent : 0.0;
 		$decimals = 0;
 
 		if ( round( $percent, 2 ) !== round( $percent ) ) {
@@ -1366,7 +1366,7 @@ class BOGO_Select_Engine {
 	 * @return int[]
 	 */
 	protected static function filter_choice_ids( $ids, $context = array() ) {
-		$ids = array_values( array_unique( array_filter( array_map( 'absint', (array) $ids ) ) ) );
+		$ids = BOGO_Select_Settings::to_id_list( $ids );
 
 		$context = wp_parse_args(
 			$context,
@@ -1598,7 +1598,7 @@ class BOGO_Select_Engine {
 	public static function selected_product_id( $cart = null ) {
 		$cart_item = self::selected_reward_item( $cart );
 
-		return $cart_item ? (int) $cart_item['product_id'] : 0;
+		return $cart_item ? BOGO_Select_Settings::to_id( $cart_item['product_id'] ) : 0;
 	}
 
 	/**
@@ -1614,7 +1614,7 @@ class BOGO_Select_Engine {
 	public static function selected_variation_id( $cart = null ) {
 		$cart_item = self::selected_reward_item( $cart );
 
-		return $cart_item && ! empty( $cart_item['variation_id'] ) ? (int) $cart_item['variation_id'] : 0;
+		return $cart_item && ! empty( $cart_item['variation_id'] ) ? BOGO_Select_Settings::to_id( $cart_item['variation_id'] ) : 0;
 	}
 
 	/**
@@ -1648,7 +1648,7 @@ class BOGO_Select_Engine {
 	 * of free units, or had its gift removed elsewhere on the page.
 	 *
 	 * @param WC_Cart|null $cart Cart to inspect.
-	 * @return array<string,mixed>
+	 * @return array{active: bool, qualifies: bool, reward_quantity: int, selected_product_id: int, selected_variation_id: int, signature: string}
 	 */
 	public static function state( $cart = null ) {
 		$cart   = self::resolve_cart( $cart );

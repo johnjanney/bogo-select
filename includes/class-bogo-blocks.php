@@ -423,7 +423,7 @@ class BOGO_Select_Blocks {
 			return $value;
 		}
 
-		return max( 1, (int) $cart_item['quantity'] );
+		return max( 1, BOGO_Select_Settings::to_id( $cart_item['quantity'] ) );
 	}
 
 	/**
@@ -440,7 +440,9 @@ class BOGO_Select_Blocks {
 			return false;
 		}
 
-		$uri = esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) );
+		$uri = isset( $_SERVER['REQUEST_URI'] ) && is_string( $_SERVER['REQUEST_URI'] )
+			? esc_url_raw( wp_unslash( $_SERVER['REQUEST_URI'] ) )
+			: '';
 
 		return false !== strpos( $uri, '/wc/store/' );
 	}

@@ -453,7 +453,7 @@ class BOGO_Select_Frontend {
 					<select class="bogo-select__variation" data-bogo-variation="1"
 						id="bogo-select-variation-<?php echo esc_attr( (string) $product_id ); ?>">
 						<?php foreach ( $options as $option ) : ?>
-							<option value="<?php echo esc_attr( $option['id'] ); ?>"
+							<option value="<?php echo esc_attr( (string) $option['id'] ); ?>"
 								data-price="<?php echo esc_attr( $option['price'] ); ?>"
 								<?php disabled( true, (bool) $option['reason'] ); ?>
 								<?php selected( $selected_variation, $option['id'] ); ?>>
@@ -530,7 +530,7 @@ class BOGO_Select_Frontend {
 	 * @param WC_Product $parent     Variable parent.
 	 * @param int        $reward_qty Units on offer.
 	 * @param string     $exclude    Cart item key to leave out of stock demand.
-	 * @return array<int,array<string,mixed>> Each with id, label, and reason.
+	 * @return list<array{id: int, product: WC_Product, price: string, reason: string, label: string}>
 	 */
 	protected static function variation_options( $parent, $reward_qty, $exclude = '' ) {
 		$options = array();
@@ -569,7 +569,7 @@ class BOGO_Select_Frontend {
 	 * given — the parent reporting itself out of stock is a summary, not the
 	 * whole story.
 	 *
-	 * @param array<int,array<string,mixed>> $options Variation options.
+	 * @param list<array{id: int, product: WC_Product, price: string, reason: string, label: string}> $options Variation options.
 	 * @return string Empty when at least one variation is available.
 	 */
 	protected static function variable_reason( $options ) {
@@ -592,9 +592,9 @@ class BOGO_Select_Frontend {
 	 * The customer's current choice when there is one, otherwise the first that
 	 * can actually be given.
 	 *
-	 * @param array<int,array<string,mixed>> $options  Variation options.
-	 * @param int                            $selected Currently chosen variation ID.
-	 * @return array<string,mixed>|null
+	 * @param list<array{id: int, product: WC_Product, price: string, reason: string, label: string}> $options  Variation options.
+	 * @param int $selected Currently chosen variation ID.
+	 * @return array{id: int, product: WC_Product, price: string, reason: string, label: string}|null
 	 */
 	protected static function default_option( $options, $selected = 0 ) {
 		foreach ( $options as $option ) {

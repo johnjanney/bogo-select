@@ -15,26 +15,26 @@ parameters:
     # 8 checks what happens to a null, which is how three functions came to fold
     # wc_get_product()'s two ways of saying "no product" into one.
     #
-    # 9 was attempted and is not taken. It makes `mixed` explicit, and it found
-    # real things on the way: a settings row whose type was never stated, and
-    # request input that absint() would have turned into product 1. Those are
-    # fixed and the level is still 8, because the 40 it still reports are of a
-    # different kind.
+    # 9 makes `mixed` explicit. It was abandoned once at 40 remaining findings,
+    # on two conclusions that were both wrong, and the record is kept here
+    # because the way they were wrong is the useful part.
     #
-    # Eighteen are `(int) $cart_item['product_id']` and its like. A WooCommerce
-    # cart item is an array any extension may add to, so its values genuinely
-    # are `mixed`, and the cast is the correct handling rather than the problem.
-    # Satisfying the rule means an is_scalar() guard at each of them, which is
-    # eighteen branches that cannot be reached by any cart WooCommerce builds.
+    # The first was that threading the settings shape through the admin
+    # sanitizer made things worse — the count went from 41 to 80. It did not.
+    # The `@phpstan-import-type` line had never reached the file, so the type
+    # name resolved to nothing and every read of it became "access to an offset
+    # on an unknown class". With the import present, the same change removes 21
+    # findings.
     #
-    # The rest need the settings shape threaded through the admin sanitizer,
-    # which was tried: declaring it made the count go up, because every
-    # intermediate step then has to preserve a shape it is in the middle of
-    # editing. That is the analyser asking the code to be shaped around it.
+    # The second was that the cart-item casts needed eighteen unreachable
+    # is_scalar() branches. Most wanted a shape declared instead — state() and
+    # variation_options() both build known arrays and now say so — and the
+    # genuine cart-line reads go through the same to_id() helper as any other
+    # untrusted value, which is shorter than the cast it replaced.
     #
-    # So: not a baseline, not a suppression, and not level 9. If it is
-    # attempted again, the cart-item eighteen are the question to answer first.
-    level: 8
+    # The lesson is not about PHPStan. A tool reporting more errors after a
+    # change is evidence about the change, and it was read as a verdict on it.
+    level: 9
 
     # The plugin still supports 7.4, so the analyser must judge it as 7.4 even
     # when it runs on a newer PHP in CI.
