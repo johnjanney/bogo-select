@@ -328,10 +328,21 @@ before.
 
 **Nothing is suppressed.** No baseline file, no `@phpstan-ignore`. The level
 sits where the code actually passes, which is the only way the number means
-anything. Level 6 is the next step and needs 80 annotations across 9 files —
-every `array` in a docblock saying what it holds, every method declaring a
-return type. None of them is a defect, and it is worth its own pass rather than
-being bundled here.
+anything.
+
+**Level 6 followed in 2.3.3**, as its own pass. All 80 annotations were written:
+34 methods declaring `void` and 46 arrays saying what they hold. Three are array
+shapes rather than `array<string,mixed>`, and those are the ones that earn
+something beyond documentation — `get_choice_page()` and the two methods behind
+it now declare
+`array{ids: int[], page: int, pages: int, total: int}`, which the analyser checks
+against what they actually return. A key added, renamed, or dropped there is now
+an error rather than a surprise at the far end of the chooser. The remaining 43
+are honestly `array<string,mixed>`: a settings row and a WooCommerce cart item
+are open-ended, and inventing a shape for either would document a guess.
+
+Nothing else changed. No defect was found at level 6, which is what the earlier
+paragraph predicted and worth confirming rather than assuming.
 
 **Still not added: WordPress Coding Standards.** PHPStan and WPCS overlap
 hardly at all — one checks types, the other formatting and WordPress-specific

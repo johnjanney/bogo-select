@@ -6,13 +6,12 @@ parameters:
     # baseline at any step: the level is only allowed to say something true
     # about the code, so it stays where the code actually passes.
     #
-    # 5 checks argument types against the WordPress and WooCommerce stubs, which
-    # is where the first pass found everything it found. The next step is 6,
-    # which additionally requires every `array` in a docblock to say what it
-    # holds and every method to declare a return type: 80 annotations across 9
-    # files, none of them a defect. Worth doing on its own, not as a footnote to
-    # this one.
-    level: 5
+    # 5 checks argument types against the WordPress and WooCommerce stubs. 6
+    # additionally requires every `array` in a docblock to say what it holds and
+    # every method to declare a return type — 80 annotations, none of which was
+    # a defect, done as their own pass in 2.3.3. The next step is 7, which
+    # checks that union types are narrowed before they are used.
+    level: 6
 
     # The plugin still supports 7.4, so the analyser must judge it as 7.4 even
     # when it runs on a newer PHP in CI.

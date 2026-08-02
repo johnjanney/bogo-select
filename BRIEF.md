@@ -439,7 +439,9 @@ cart response in the tested configuration.
 Since 2.3.1 the runtime code is analysed by PHPStan (`phpstan.neon.dist`,
 `composer analyse`, and the `analyse` job) against the WordPress and WooCommerce
 stub packages, judged as PHP 7.4 — the compatibility floor — while running on a
-current PHP.
+current PHP. `tests/` is not analysed: its own stubs declare the same functions
+as the stub packages, and analysing both reports every one of them as a
+redeclaration.
 
 - **The level is raised in steps and there is no baseline.** A baseline records
   what the code got wrong and then stops mentioning it, which turns the level
@@ -448,5 +450,10 @@ current PHP.
   WooCommerce optimistically. A `method_exists()` guard against an older release,
   or a check that a filter really returned an array, is not dead code, and an
   analyser that calls it redundant is inviting a regression.
-- Level 6 is the next step. It requires 80 type annotations across 9 files and
-  finds no defect; it is a pass of its own, not a footnote to another change.
+- **Level 6 since 2.3.3.** Every `array` in a docblock says what it holds and
+  every method declares a return type. Three of them are array shapes rather
+  than `array<string,mixed>`, and those the analyser verifies against what the
+  method actually returns — a page of gift choices is
+  `array{ids: int[], page: int, pages: int, total: int}` and cannot drift from
+  that silently.
+- Level 7 is the next step: it checks that union types are narrowed before use.

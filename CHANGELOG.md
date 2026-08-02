@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Static analysis raised to level 6**, which is the step 2.3.2 named as next.
+  Every `array` in a docblock now says what it holds and every method declares a
+  return type: 34 `void` declarations and 46 array types, still with no baseline
+  and nothing suppressed. No defect was found — that was the prediction, and it
+  held.
+
+  Three of the array types are shapes rather than `array<string,mixed>`, and
+  those are the ones worth more than documentation. `get_choice_page()` and the
+  two methods behind it declare
+  `array{ids: int[], page: int, pages: int, total: int}`, which the analyser
+  checks against what they actually return, so a key added, renamed, or dropped
+  is an error rather than something the chooser discovers later. The other 43
+  are honestly open-ended: a settings row and a WooCommerce cart item have no
+  fixed shape, and inventing one would document a guess.
+
 ## [2.3.2] — 2026-08-02
 
 An analyser, and the twelve findings it was wrong about.

@@ -35,6 +35,8 @@ class BOGO_Select_Admin {
 
 	/**
 	 * Add the submenu page under WooCommerce.
+	 *
+	 * @return void
 	 */
 	public function add_menu() {
 		add_submenu_page(
@@ -49,6 +51,8 @@ class BOGO_Select_Admin {
 
 	/**
 	 * Register the option with the Settings API.
+	 *
+	 * @return void
 	 */
 	public function register_settings() {
 		register_setting(
@@ -96,7 +100,7 @@ class BOGO_Select_Admin {
 	 * Sanitize submitted settings and warn about unusable choices.
 	 *
 	 * @param mixed $raw Raw form input.
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public function sanitize( $raw ) {
 		// Read before sanitize(), which flushes the settings cache. options.php
@@ -248,10 +252,10 @@ class BOGO_Select_Admin {
 	 * setting the store can correct on its own; refusing the whole form would
 	 * throw away unrelated edits made in the same visit.
 	 *
-	 * @param mixed $raw    Raw form input.
-	 * @param array $clean  Sanitized settings.
-	 * @param array $stored Settings as they are stored now.
-	 * @return array The settings to save.
+	 * @param mixed               $raw    Raw form input.
+	 * @param array<string,mixed> $clean  Sanitized settings.
+	 * @param array<string,mixed> $stored Settings as they are stored now.
+	 * @return array<string,mixed> The settings to save.
 	 */
 	protected function keep_last_valid_schedule( $raw, $clean, $stored ) {
 		$raw = is_array( $raw ) ? $raw : array();
@@ -342,6 +346,7 @@ class BOGO_Select_Admin {
 	 * Load select2 and our admin assets on this screen only.
 	 *
 	 * @param string $hook Current admin page hook.
+	 * @return void
 	 */
 	public function enqueue( $hook ) {
 		if ( 'woocommerce_page_' . self::SLUG !== $hook ) {
@@ -370,8 +375,8 @@ class BOGO_Select_Admin {
 	/**
 	 * Add a Settings link on the Plugins screen.
 	 *
-	 * @param array $links Existing links.
-	 * @return array
+	 * @param string[] $links Existing links.
+	 * @return string[]
 	 */
 	public function action_links( $links ) {
 		$url = admin_url( 'admin.php?page=' . self::SLUG );
@@ -386,6 +391,8 @@ class BOGO_Select_Admin {
 
 	/**
 	 * Render the settings page.
+	 *
+	 * @return void
 	 */
 	public function render() {
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
@@ -632,6 +639,7 @@ class BOGO_Select_Admin {
 	 * @param int[]  $selected    Selected product IDs.
 	 * @param string $placeholder Placeholder text.
 	 * @param string $action      WooCommerce AJAX search action backing the field.
+	 * @return void
 	 */
 	protected function product_select( $name, $id, $selected, $placeholder, $action = 'woocommerce_json_search_products' ) {
 		?>
@@ -664,7 +672,7 @@ class BOGO_Select_Admin {
 	/**
 	 * A plain-English summary of the saved offer.
 	 *
-	 * @param array $s Settings.
+	 * @param array<string,mixed> $s Settings.
 	 * @return string
 	 */
 	protected function summary( $s ) {

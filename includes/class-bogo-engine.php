@@ -912,12 +912,12 @@ class BOGO_Select_Engine {
 	 * Both scopes are paged: "Select Products" over the configured list, "All
 	 * Products" over the catalogue, so no eligible product is unreachable.
 	 *
-	 * @param array $args {
+	 * @param array<string,mixed> $args {
 	 *     @type string $search   Search term matched against name and SKU.
 	 *     @type int    $page     One-based page number.
 	 *     @type int    $per_page Page size. Defaults to self::choices_per_page().
 	 * }
-	 * @return array {
+	 * @return array{ids: int[], page: int, pages: int, total: int} {
 	 *     @type int[] $ids   Product IDs on this page.
 	 *     @type int   $page  Page actually returned.
 	 *     @type int   $pages Total number of pages.
@@ -991,7 +991,7 @@ class BOGO_Select_Engine {
 	 * @param string $search   Search term.
 	 * @param int    $page     Page number.
 	 * @param int    $per_page Page size.
-	 * @return array
+	 * @return array{ids: int[], page: int, pages: int, total: int}
 	 */
 	protected static function page_selected_choices( $search, $page, $per_page ) {
 		$configured = array_values( array_unique( array_filter( array_map( 'absint', (array) BOGO_Select_Settings::get( 'get_products' ) ) ) ) );
@@ -1051,7 +1051,7 @@ class BOGO_Select_Engine {
 	 * @param string $search   Search term.
 	 * @param int    $page     Page number.
 	 * @param int    $per_page Page size.
-	 * @return array
+	 * @return array{ids: int[], page: int, pages: int, total: int}
 	 */
 	protected static function page_all_choices( $search, $page, $per_page ) {
 		$context = array(
@@ -1287,8 +1287,8 @@ class BOGO_Select_Engine {
 	/**
 	 * Normalise, filter, and eligibility-check a list of candidate gift IDs.
 	 *
-	 * @param mixed $ids     Raw ID list.
-	 * @param array $context Page context: scope, search, page, per_page.
+	 * @param mixed               $ids     Raw ID list.
+	 * @param array<string,mixed> $context Page context: scope, search, page, per_page.
 	 * @return int[]
 	 */
 	protected static function filter_choice_ids( $ids, $context = array() ) {
@@ -1441,6 +1441,8 @@ class BOGO_Select_Engine {
 	 * Called when the settings change and when any product is saved or
 	 * deleted, so a gift that stops being purchasable leaves the chooser
 	 * without waiting for the cache to expire.
+	 *
+	 * @return void
 	 */
 	public static function flush_choice_cache() {
 		self::$variations = array();
@@ -1463,7 +1465,7 @@ class BOGO_Select_Engine {
 	/**
 	 * Whether a cart item is a BOGO gift line.
 	 *
-	 * @param array $cart_item Cart item.
+	 * @param array<string,mixed> $cart_item Cart item.
 	 * @return bool
 	 */
 	public static function is_reward_item( $cart_item ) {
@@ -1541,7 +1543,7 @@ class BOGO_Select_Engine {
 	 * The cart line holding the current reward.
 	 *
 	 * @param WC_Cart|null $cart Cart to inspect.
-	 * @return array|null
+	 * @return array<string,mixed>|null
 	 */
 	protected static function selected_reward_item( $cart = null ) {
 		$cart = self::resolve_cart( $cart );
@@ -1565,7 +1567,7 @@ class BOGO_Select_Engine {
 	 * of free units, or had its gift removed elsewhere on the page.
 	 *
 	 * @param WC_Cart|null $cart Cart to inspect.
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function state( $cart = null ) {
 		$cart   = self::resolve_cart( $cart );

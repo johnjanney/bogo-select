@@ -20,14 +20,14 @@ class BOGO_Select_Settings {
 	/**
 	 * Runtime cache of the parsed settings array.
 	 *
-	 * @var array|null
+	 * @var array<string,mixed>|null
 	 */
 	protected static $cache = null;
 
 	/**
 	 * Default values for every setting.
 	 *
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function defaults() {
 		return array(
@@ -51,7 +51,7 @@ class BOGO_Select_Settings {
 	/**
 	 * All settings, merged over the defaults and type-cast.
 	 *
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function all() {
 		if ( null !== self::$cache ) {
@@ -115,6 +115,8 @@ class BOGO_Select_Settings {
 
 	/**
 	 * Clear the runtime cache. Used after a save.
+	 *
+	 * @return void
 	 */
 	public static function flush() {
 		self::$cache = null;
@@ -124,7 +126,7 @@ class BOGO_Select_Settings {
 	 * Sanitize a raw settings array coming from the settings form.
 	 *
 	 * @param mixed $raw Raw input.
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function sanitize( $raw ) {
 		$raw   = is_array( $raw ) ? $raw : array();

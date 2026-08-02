@@ -100,6 +100,8 @@ function bogo_select_dependency_problem() {
  * restores the offer exactly as it was. On WordPress 6.5+ the `Requires
  * Plugins` header means this state is rarely reachable — WordPress deactivates
  * dependents itself.
+ *
+ * @return void
  */
 function bogo_select_missing_wc_notice() {
 	if ( ! current_user_can( 'activate_plugins' ) ) {

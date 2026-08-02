@@ -59,6 +59,8 @@ class BOGO_Select_Cart {
 	 *
 	 * Used by the choose endpoint, which must hold two gift lines briefly while
 	 * it swaps one for the other. Always pair with self::resume().
+	 *
+	 * @return void
 	 */
 	public static function suspend() {
 		self::$suspended++;
@@ -66,6 +68,8 @@ class BOGO_Select_Cart {
 
 	/**
 	 * Resume validation after a suspension.
+	 *
+	 * @return void
 	 */
 	public static function resume() {
 		self::$suspended = max( 0, self::$suspended - 1 );
@@ -78,6 +82,7 @@ class BOGO_Select_Cart {
 	 * before discounts existed.
 	 *
 	 * @param WC_Cart $cart Cart being calculated.
+	 * @return void
 	 */
 	public function set_reward_price( $cart ) {
 		if ( ! $cart instanceof WC_Cart ) {
@@ -116,7 +121,7 @@ class BOGO_Select_Cart {
 	 * rather than discounted, even though the priority-20 hook ordering runs
 	 * after such plugins (DECISION.md D-016).
 	 *
-	 * @param array $cart_item Cart item.
+	 * @param array<string,mixed> $cart_item Cart item.
 	 * @return float Zero when the product cannot be loaded, which leaves the line
 	 *               free until the next validation pass removes it.
 	 */
@@ -131,7 +136,7 @@ class BOGO_Select_Cart {
 	 *
 	 * The variation where there is one, since that is what carries the price.
 	 *
-	 * @param array $cart_item Cart item.
+	 * @param array<string,mixed> $cart_item Cart item.
 	 * @return WC_Product|false
 	 */
 	protected static function line_product( $cart_item ) {
@@ -147,6 +152,7 @@ class BOGO_Select_Cart {
 	 * unavailable, and resizes it when the earned quantity has changed.
 	 *
 	 * @param mixed $context Hook argument; ignored except when it is a cart.
+	 * @return void
 	 */
 	public function validate( $context = null ) {
 		if ( $this->validating || self::$suspended > 0 ) {
@@ -183,6 +189,7 @@ class BOGO_Select_Cart {
 	 *
 	 * @param WC_Cart  $cart Cart being validated.
 	 * @param string[] $keys Every gift line key found in the cart.
+	 * @return void
 	 */
 	protected function run_validation( $cart, $keys ) {
 		$key = array_shift( $keys );
@@ -296,9 +303,9 @@ class BOGO_Select_Cart {
 	 * The customer may still remove the line; they may not change its size
 	 * (DECISION.md D-007).
 	 *
-	 * @param string $html      Quantity HTML.
-	 * @param string $cart_item_key Cart item key.
-	 * @param array  $cart_item Cart item.
+	 * @param string              $html          Quantity HTML.
+	 * @param string              $cart_item_key Cart item key.
+	 * @param array<string,mixed> $cart_item     Cart item.
 	 * @return string
 	 */
 	public function lock_quantity( $html, $cart_item_key, $cart_item = array() ) {
@@ -315,9 +322,9 @@ class BOGO_Select_Cart {
 	/**
 	 * Append a "Free (BOGO)" or "50% off (BOGO)" badge to the reward's name.
 	 *
-	 * @param string $name      Product name HTML.
-	 * @param array  $cart_item Cart item.
-	 * @param string $cart_item_key Cart item key.
+	 * @param string              $name          Product name HTML.
+	 * @param array<string,mixed> $cart_item     Cart item.
+	 * @param string              $cart_item_key Cart item key.
 	 * @return string
 	 */
 	public function label_name( $name, $cart_item, $cart_item_key = '' ) {
@@ -340,9 +347,9 @@ class BOGO_Select_Cart {
 	/**
 	 * Show the gift's unit price as the offer prices it, usual price struck through.
 	 *
-	 * @param string $price     Price HTML.
-	 * @param array  $cart_item Cart item.
-	 * @param string $cart_item_key Cart item key.
+	 * @param string              $price         Price HTML.
+	 * @param array<string,mixed> $cart_item     Cart item.
+	 * @param string              $cart_item_key Cart item key.
 	 * @return string
 	 */
 	public function label_price( $price, $cart_item, $cart_item_key = '' ) {
@@ -359,9 +366,9 @@ class BOGO_Select_Cart {
 	 * The struck-through figure covers the whole line, not one unit — eight $10
 	 * gifts strike through $80.
 	 *
-	 * @param string $subtotal  Subtotal HTML.
-	 * @param array  $cart_item Cart item.
-	 * @param string $cart_item_key Cart item key.
+	 * @param string              $subtotal      Subtotal HTML.
+	 * @param array<string,mixed> $cart_item     Cart item.
+	 * @param string              $cart_item_key Cart item key.
 	 * @return string
 	 */
 	public function label_subtotal( $subtotal, $cart_item, $cart_item_key = '' ) {
@@ -382,8 +389,8 @@ class BOGO_Select_Cart {
 	 * tax-inclusive store shows a tax-inclusive number — multiplying the raw
 	 * price here would not.
 	 *
-	 * @param array $cart_item Cart item.
-	 * @param int   $qty       Units the displayed price should cover.
+	 * @param array<string,mixed> $cart_item Cart item.
+	 * @param int                 $qty       Units the displayed price should cover.
 	 * @return string
 	 */
 	protected function reward_markup( $cart_item, $qty ) {
@@ -418,8 +425,9 @@ class BOGO_Select_Cart {
 	 *
 	 * @param WC_Order_Item_Product $item          Order line item.
 	 * @param string                $cart_item_key Cart item key.
-	 * @param array                 $values        Cart item values.
+	 * @param array<string,mixed>   $values        Cart item values.
 	 * @param WC_Order              $order         Order.
+	 * @return void
 	 */
 	public function add_order_item_meta( $item, $cart_item_key, $values, $order ) {
 		if ( ! BOGO_Select_Engine::is_reward_item( $values ) ) {
@@ -448,6 +456,7 @@ class BOGO_Select_Cart {
 	 * @param WC_Cart $cart    Cart.
 	 * @param string  $key     Cart item key.
 	 * @param string  $message Customer-facing explanation.
+	 * @return void
 	 */
 	protected function drop( $cart, $key, $message ) {
 		$cart->remove_cart_item( $key );
@@ -458,6 +467,7 @@ class BOGO_Select_Cart {
 	 * Add a front-end notice, if notices are available in this request.
 	 *
 	 * @param string $message Message.
+	 * @return void
 	 */
 	protected function notice( $message ) {
 		if ( ! function_exists( 'wc_add_notice' ) || ! WC()->session ) {

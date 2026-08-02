@@ -31,6 +31,8 @@ class BOGO_Select_Ajax {
 
 	/**
 	 * Add the chosen gift to the cart at the earned quantity.
+	 *
+	 * @return void
 	 */
 	public function choose() {
 		check_ajax_referer( 'bogo-select', 'nonce' );
@@ -216,6 +218,8 @@ class BOGO_Select_Ajax {
 
 	/**
 	 * Return one page of gift options as rendered cards.
+	 *
+	 * @return void
 	 */
 	public function choices() {
 		check_ajax_referer( 'bogo-select', 'nonce' );
@@ -265,6 +269,8 @@ class BOGO_Select_Ajax {
 
 	/**
 	 * Remove the current gift from the cart.
+	 *
+	 * @return void
 	 */
 	public function remove() {
 		check_ajax_referer( 'bogo-select', 'nonce' );
@@ -298,6 +304,8 @@ class BOGO_Select_Ajax {
 	 * page, so the chooser has to be able to catch up on demand: a customer who
 	 * has just crossed the qualifying threshold needs it to appear, and one who
 	 * has dropped below it needs it to go away.
+	 *
+	 * @return void
 	 */
 	public function refresh() {
 		check_ajax_referer( 'bogo-select', 'nonce' );
@@ -321,8 +329,8 @@ class BOGO_Select_Ajax {
 	/**
 	 * The current chooser markup and offer state, for a JSON response.
 	 *
-	 * @param array $extra Fields to merge in.
-	 * @return array
+	 * @param array<string,mixed> $extra Fields to merge in.
+	 * @return array<string,mixed>
 	 */
 	protected function chooser_payload( $extra = array() ) {
 		return array_merge(
@@ -338,6 +346,7 @@ class BOGO_Select_Ajax {
 	 * Send a failure response and stop.
 	 *
 	 * @param string $message Customer-facing message.
+	 * @return void
 	 */
 	protected function fail( $message ) {
 		wp_send_json_error( array( 'message' => $message ) );
@@ -348,6 +357,7 @@ class BOGO_Select_Ajax {
 	 *
 	 * @param WC_Product $product Chosen product.
 	 * @param int        $qty     Free units awarded.
+	 * @return void
 	 */
 	protected function succeed( $product, $qty ) {
 		wp_send_json_success(

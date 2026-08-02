@@ -3,7 +3,7 @@
 ```bash
 composer install
 composer test          # or: ./vendor/bin/phpunit
-composer analyse       # PHPStan, level 5, no baseline
+composer analyse       # PHPStan, level 6, no baseline
 composer lint          # php -l over everything outside vendor/
 ```
 
@@ -21,7 +21,7 @@ It analyses `includes/`, `bogo-select.php`, and `uninstall.php` — not `tests/`
 whose own stubs declare the same functions as the stub packages and would be
 reported as redeclaring every one of them. The level is raised in steps and
 there is no baseline: it sits where the code passes, so the number means
-something. Level 6 is next and wants 80 type annotations, none of them a defect.
+something. Level 7 is next.
 
 **The integration job** (`.github/workflows/ci.yml` → `integration`) installs the
 built zip into a real WordPress with WooCommerce — the compatibility floor and

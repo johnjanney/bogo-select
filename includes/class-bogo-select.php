@@ -61,6 +61,8 @@ class BOGO_Select {
 
 	/**
 	 * Load translations.
+	 *
+	 * @return void
 	 */
 	public function load_textdomain() {
 		load_plugin_textdomain( 'bogo-select', false, dirname( BOGO_SELECT_BASENAME ) . '/languages' );

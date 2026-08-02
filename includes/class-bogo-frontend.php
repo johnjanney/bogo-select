@@ -45,6 +45,8 @@ class BOGO_Select_Frontend {
 	 * because WooCommerce identifies them by page ID. A cart or checkout block
 	 * dropped on some other page enqueues these from the block renderer
 	 * instead.
+	 *
+	 * @return void
 	 */
 	public function enqueue() {
 		if ( ! function_exists( 'is_cart' ) || ! ( is_cart() || is_checkout() ) ) {
@@ -65,6 +67,8 @@ class BOGO_Select_Frontend {
 	 *
 	 * Safe to call more than once, and late enough to be called while a block
 	 * is rendering.
+	 *
+	 * @return void
 	 */
 	public static function enqueue_assets() {
 		if ( wp_script_is( 'bogo-select', 'enqueued' ) ) {
@@ -122,6 +126,8 @@ class BOGO_Select_Frontend {
 	 * The slot is printed even when the cart does not currently qualify: in a
 	 * block cart the customer can cross the threshold without a page load, and
 	 * the JavaScript fills the empty slot when they do.
+	 *
+	 * @return void
 	 */
 	public function render_chooser() {
 		echo self::slot_html( 'classic' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped fragments.
@@ -129,6 +135,8 @@ class BOGO_Select_Frontend {
 
 	/**
 	 * Print the chooser slot above the classic checkout form.
+	 *
+	 * @return void
 	 */
 	public function render_checkout_chooser() {
 		echo self::slot_html( 'checkout' ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Built from escaped fragments.
@@ -194,6 +202,8 @@ class BOGO_Select_Frontend {
 	 * Only one chooser belongs on a page, and the guard that enforces that is
 	 * per-process — which is fine for a page load, and wrong for anything that
 	 * renders several in one process, such as the unit suite or WP-CLI.
+	 *
+	 * @return void
 	 */
 	public static function forget_slot() {
 		self::$slot_rendered = false;
@@ -213,6 +223,8 @@ class BOGO_Select_Frontend {
 
 	/**
 	 * Render the chooser panel.
+	 *
+	 * @return void
 	 */
 	protected static function print_chooser() {
 		if ( ! BOGO_Select_Engine::is_active() ) {
@@ -372,6 +384,7 @@ class BOGO_Select_Frontend {
 	 * @param int $reward_qty Units on offer.
 	 * @param int $owner      Product ID of the card that owns the selection, or 0.
 	 * @param int $selected   Currently chosen product ID, parent for a variation.
+	 * @return void
 	 */
 	protected static function print_choice( $product_id, $reward_qty, $owner, $selected ) {
 		$product = wc_get_product( $product_id );
@@ -517,7 +530,7 @@ class BOGO_Select_Frontend {
 	 * @param WC_Product $parent     Variable parent.
 	 * @param int        $reward_qty Units on offer.
 	 * @param string     $exclude    Cart item key to leave out of stock demand.
-	 * @return array[] Each with id, label, and reason.
+	 * @return array<int,array<string,mixed>> Each with id, label, and reason.
 	 */
 	protected static function variation_options( $parent, $reward_qty, $exclude = '' ) {
 		$options = array();
@@ -556,7 +569,7 @@ class BOGO_Select_Frontend {
 	 * given — the parent reporting itself out of stock is a summary, not the
 	 * whole story.
 	 *
-	 * @param array[] $options Variation options.
+	 * @param array<int,array<string,mixed>> $options Variation options.
 	 * @return string Empty when at least one variation is available.
 	 */
 	protected static function variable_reason( $options ) {
@@ -579,9 +592,9 @@ class BOGO_Select_Frontend {
 	 * The customer's current choice when there is one, otherwise the first that
 	 * can actually be given.
 	 *
-	 * @param array[] $options  Variation options.
-	 * @param int     $selected Currently chosen variation ID.
-	 * @return array|null
+	 * @param array<int,array<string,mixed>> $options  Variation options.
+	 * @param int                            $selected Currently chosen variation ID.
+	 * @return array<string,mixed>|null
 	 */
 	protected static function default_option( $options, $selected = 0 ) {
 		foreach ( $options as $option ) {
@@ -601,6 +614,8 @@ class BOGO_Select_Frontend {
 
 	/**
 	 * Print a short notice on shop and product pages when the cart qualifies.
+	 *
+	 * @return void
 	 */
 	public function maybe_render_notice() {
 		if ( 'yes' !== BOGO_Select_Settings::get( 'show_notice' ) ) {

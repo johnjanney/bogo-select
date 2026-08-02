@@ -112,8 +112,8 @@ class BOGO_Select_Blocks {
 	/**
 	 * Put the chooser slot in front of the Cart or Checkout block.
 	 *
-	 * @param string $content Rendered block HTML.
-	 * @param array  $block   Parsed block.
+	 * @param string              $content Rendered block HTML.
+	 * @param array<string,mixed> $block   Parsed block.
 	 * @return string
 	 */
 	public function inject_chooser( $content, $block ) {
@@ -137,6 +137,8 @@ class BOGO_Select_Blocks {
 
 	/**
 	 * Register the plugin's Store API extension data and update callback.
+	 *
+	 * @return void
 	 */
 	public function register_store_api() {
 		if ( self::$store_api_registered ) {
@@ -170,7 +172,7 @@ class BOGO_Select_Blocks {
 	/**
 	 * Offer state carried on every Store API cart response.
 	 *
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function store_api_data() {
 		$state = BOGO_Select_Engine::state();
@@ -188,7 +190,7 @@ class BOGO_Select_Blocks {
 	/**
 	 * Schema for the data above.
 	 *
-	 * @return array
+	 * @return array<string,mixed>
 	 */
 	public static function store_api_schema() {
 		return array(
@@ -234,8 +236,9 @@ class BOGO_Select_Blocks {
 	 * needed. Selection itself goes through the same code the classic AJAX
 	 * endpoint uses, so both modes obey the same rules.
 	 *
-	 * @param array $data Posted data: action, and product_id for a choice.
+	 * @param array<string,mixed> $data Posted data: action, and product_id for a choice.
 	 * @throws Exception When the gift cannot be given.
+	 * @return void
 	 */
 	public static function store_api_update( $data ) {
 		$cart = function_exists( 'WC' ) && WC()->cart ? WC()->cart : null;
@@ -279,9 +282,9 @@ class BOGO_Select_Blocks {
 	 * empty `display` is what previously blanked the row on the versions that
 	 * prefer it.
 	 *
-	 * @param array $item_data Item metadata.
-	 * @param array $cart_item Cart item.
-	 * @return array
+	 * @param array<int,array<string,mixed>> $item_data Item metadata.
+	 * @param array<string,mixed>            $cart_item Cart item.
+	 * @return array<int,array<string,mixed>>
 	 */
 	public function item_data( $item_data, $cart_item ) {
 		if ( ! BOGO_Select_Engine::is_reward_item( $cart_item ) || ! self::is_store_api_context() ) {
@@ -305,9 +308,9 @@ class BOGO_Select_Blocks {
 	/**
 	 * Note that a Store API response has started being built.
 	 *
-	 * @param mixed           $response Response so far.
-	 * @param array           $handler  Route handler.
-	 * @param WP_REST_Request $request  Request being served.
+	 * @param mixed               $response Response so far.
+	 * @param array<string,mixed> $handler  Route handler.
+	 * @param WP_REST_Request     $request  Request being served.
 	 * @return mixed
 	 */
 	public function open_rest_scope( $response, $handler = array(), $request = null ) {
@@ -321,9 +324,9 @@ class BOGO_Select_Blocks {
 	/**
 	 * Note that a Store API response has finished being built.
 	 *
-	 * @param mixed           $response Response.
-	 * @param array           $handler  Route handler.
-	 * @param WP_REST_Request $request  Request being served.
+	 * @param mixed               $response Response.
+	 * @param array<string,mixed> $handler  Route handler.
+	 * @param WP_REST_Request     $request  Request being served.
 	 * @return mixed
 	 */
 	public function close_rest_scope( $response, $handler = array(), $request = null ) {
@@ -340,10 +343,10 @@ class BOGO_Select_Blocks {
 	 * WooCommerce only runs this filter for its own hydration of `/wc/store`
 	 * paths, so reaching it is itself the signal.
 	 *
-	 * @param mixed           $result  Short-circuit result, if any.
-	 * @param WP_REST_Request $request Request being served.
-	 * @param string          $path    Store API path.
-	 * @param array           $handler Route handler.
+	 * @param mixed               $result  Short-circuit result, if any.
+	 * @param WP_REST_Request     $request Request being served.
+	 * @param string              $path    Store API path.
+	 * @param array<string,mixed> $handler Route handler.
 	 * @return mixed
 	 */
 	public function open_hydration_scope( $result = null, $request = null, $path = '', $handler = array() ) {
@@ -355,9 +358,9 @@ class BOGO_Select_Blocks {
 	/**
 	 * Note that a preloaded Store API response has finished being built.
 	 *
-	 * @param mixed           $response Response.
-	 * @param array           $handler  Route handler.
-	 * @param WP_REST_Request $request  Request being served.
+	 * @param mixed               $response Response.
+	 * @param array<string,mixed> $handler  Route handler.
+	 * @param WP_REST_Request     $request  Request being served.
 	 * @return mixed
 	 */
 	public function close_hydration_scope( $response, $handler = array(), $request = null ) {
@@ -395,9 +398,9 @@ class BOGO_Select_Blocks {
 	/**
 	 * Gift lines are not resizable in the block cart.
 	 *
-	 * @param bool       $editable  Whether the quantity may be edited.
-	 * @param WC_Product $product   Product.
-	 * @param array      $cart_item Cart item.
+	 * @param bool                $editable  Whether the quantity may be edited.
+	 * @param WC_Product          $product   Product.
+	 * @param array<string,mixed> $cart_item Cart item.
 	 * @return bool
 	 */
 	public function quantity_editable( $editable, $product = null, $cart_item = array() ) {
@@ -410,9 +413,9 @@ class BOGO_Select_Blocks {
 	 * Both bounds use the same callback: for a gift there is exactly one
 	 * permitted quantity, and it is the one validation has already settled on.
 	 *
-	 * @param int        $value     Quantity bound.
-	 * @param WC_Product $product   Product.
-	 * @param array      $cart_item Cart item.
+	 * @param int                 $value     Quantity bound.
+	 * @param WC_Product          $product   Product.
+	 * @param array<string,mixed> $cart_item Cart item.
 	 * @return int
 	 */
 	public function quantity_bound( $value, $product = null, $cart_item = array() ) {
@@ -447,6 +450,7 @@ class BOGO_Select_Blocks {
 	 *
 	 * @param string $message Customer-facing message.
 	 * @throws Exception Always.
+	 * @return void
 	 */
 	protected static function error( $message ) {
 		$route_exception = '\Automattic\WooCommerce\StoreApi\Exceptions\RouteException';
