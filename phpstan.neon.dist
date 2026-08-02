@@ -15,10 +15,25 @@ parameters:
     # 8 checks what happens to a null, which is how three functions came to fold
     # wc_get_product()'s two ways of saying "no product" into one.
     #
-    # 9 is the remaining step. It makes `mixed` explicit, and against WordPress
-    # code `mixed` is often the honest type — a hook argument really can be
-    # anything. It has not been attempted; read what it reports before raising
-    # the level, and do not raise it by adding a baseline.
+    # 9 was attempted and is not taken. It makes `mixed` explicit, and it found
+    # real things on the way: a settings row whose type was never stated, and
+    # request input that absint() would have turned into product 1. Those are
+    # fixed and the level is still 8, because the 40 it still reports are of a
+    # different kind.
+    #
+    # Eighteen are `(int) $cart_item['product_id']` and its like. A WooCommerce
+    # cart item is an array any extension may add to, so its values genuinely
+    # are `mixed`, and the cast is the correct handling rather than the problem.
+    # Satisfying the rule means an is_scalar() guard at each of them, which is
+    # eighteen branches that cannot be reached by any cart WooCommerce builds.
+    #
+    # The rest need the settings shape threaded through the admin sanitizer,
+    # which was tried: declaring it made the count go up, because every
+    # intermediate step then has to preserve a shape it is in the middle of
+    # editing. That is the analyser asking the code to be shaped around it.
+    #
+    # So: not a baseline, not a suppression, and not level 9. If it is
+    # attempted again, the cart-item eighteen are the question to answer first.
     level: 8
 
     # The plugin still supports 7.4, so the analyser must judge it as 7.4 even

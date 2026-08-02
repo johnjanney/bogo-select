@@ -9,6 +9,28 @@ defined( 'ABSPATH' ) || exit;
 
 /**
  * Reads and writes the single plugin option.
+ *
+ * The shape below is not aspiration: `all()` normalises every key on the way
+ * out, so a corrupt or hand-edited row cannot produce anything else. That is
+ * what makes it safe to state, and what lets callers stop treating a setting as
+ * something that could be any type at all.
+ *
+ * @phpstan-type BogoSettings array{
+ *     buy_products: list<int<1, max>>,
+ *     get_products: list<int<1, max>>,
+ *     repeat: string,
+ *     show_notice: string,
+ *     get_scope: string,
+ *     enabled: string,
+ *     offer_title: string,
+ *     buy_qty: int<1, max>,
+ *     get_qty: int<1, max>,
+ *     start_date: string,
+ *     end_date: string,
+ *     get_discount_type: string,
+ *     get_discount_value: float,
+ *     buy_scope: string
+ * }
  */
 class BOGO_Select_Settings {
 
@@ -20,14 +42,14 @@ class BOGO_Select_Settings {
 	/**
 	 * Runtime cache of the parsed settings array.
 	 *
-	 * @var array<string,mixed>|null
+	 * @var BogoSettings|null
 	 */
 	protected static $cache = null;
 
 	/**
 	 * Default values for every setting.
 	 *
-	 * @return array<string,mixed>
+	 * @return BogoSettings
 	 */
 	public static function defaults() {
 		return array(
@@ -51,7 +73,12 @@ class BOGO_Select_Settings {
 	/**
 	 * All settings, merged over the defaults and type-cast.
 	 *
-	 * @return array<string,mixed>
+	 * Built as one array rather than by amending the merged one, so that every
+	 * key is visibly normalised in the same place. A key added to defaults() and
+	 * forgotten here is now a hole in the declared shape rather than a value
+	 * that quietly reaches a caller in whatever type the database held it.
+	 *
+	 * @return BogoSettings
 	 */
 	public static function all() {
 		if ( null !== self::$cache ) {
@@ -62,22 +89,22 @@ class BOGO_Select_Settings {
 		$stored = is_array( $stored ) ? $stored : array();
 		$values = wp_parse_args( $stored, self::defaults() );
 
-		$values['enabled']            = self::to_bool_string( $values['enabled'] );
-		$values['repeat']             = self::to_bool_string( $values['repeat'] );
-		$values['show_notice']        = self::to_bool_string( $values['show_notice'] );
-		$values['offer_title']        = (string) $values['offer_title'];
-		$values['buy_qty']            = max( 1, absint( $values['buy_qty'] ) );
-		$values['get_qty']            = max( 1, absint( $values['get_qty'] ) );
-		$values['start_date']         = self::to_date( $values['start_date'] );
-		$values['end_date']           = self::to_date( $values['end_date'] );
-		$values['get_discount_type']  = self::to_discount_type( $values['get_discount_type'] );
-		$values['get_discount_value'] = self::to_percent( $values['get_discount_value'] );
-		$values['buy_scope']          = self::to_scope( $values['buy_scope'] );
-		$values['get_scope']          = self::to_scope( $values['get_scope'] );
-		$values['buy_products']       = self::to_id_array( $values['buy_products'] );
-		$values['get_products']       = self::to_id_array( $values['get_products'] );
-
-		self::$cache = $values;
+		self::$cache = array(
+			'enabled'            => self::to_bool_string( $values['enabled'] ),
+			'offer_title'        => (string) $values['offer_title'],
+			'buy_qty'            => max( 1, absint( $values['buy_qty'] ) ),
+			'get_qty'            => max( 1, absint( $values['get_qty'] ) ),
+			'start_date'         => self::to_date( $values['start_date'] ),
+			'end_date'           => self::to_date( $values['end_date'] ),
+			'get_discount_type'  => self::to_discount_type( $values['get_discount_type'] ),
+			'get_discount_value' => self::to_percent( $values['get_discount_value'] ),
+			'buy_scope'          => self::to_scope( $values['buy_scope'] ),
+			'buy_products'       => self::to_id_array( $values['buy_products'] ),
+			'get_scope'          => self::to_scope( $values['get_scope'] ),
+			'get_products'       => self::to_id_array( $values['get_products'] ),
+			'repeat'             => self::to_bool_string( $values['repeat'] ),
+			'show_notice'        => self::to_bool_string( $values['show_notice'] ),
+		);
 
 		return self::$cache;
 	}
@@ -85,9 +112,22 @@ class BOGO_Select_Settings {
 	/**
 	 * A single setting value.
 	 *
+	 * The return type is stated per key rather than left as `mixed`. Every value
+	 * has passed through the normaliser in all() by the time it is handed out,
+	 * so this describes what a caller actually receives — and saves each of them
+	 * casting a value that is already the right type. An unrecognised key falls
+	 * through to $default, which is the one case that stays genuinely unknown.
+	 *
 	 * @param string $key     Setting key.
 	 * @param mixed  $default Fallback when the key is unknown.
 	 * @return mixed
+	 *
+	 * @phpstan-return (
+	 *     $key is 'buy_qty'|'get_qty' ? int<1, max> : (
+	 *     $key is 'get_discount_value' ? float : (
+	 *     $key is 'buy_products'|'get_products' ? list<int<1, max>> : (
+	 *     $key is 'enabled'|'offer_title'|'start_date'|'end_date'|'get_discount_type'|'buy_scope'|'get_scope'|'repeat'|'show_notice' ? string :
+	 *     mixed ))))
 	 */
 	public static function get( $key, $default = null ) {
 		$all = self::all();
@@ -126,7 +166,7 @@ class BOGO_Select_Settings {
 	 * Sanitize a raw settings array coming from the settings form.
 	 *
 	 * @param mixed $raw Raw input.
-	 * @return array<string,mixed>
+	 * @return BogoSettings
 	 */
 	public static function sanitize( $raw ) {
 		$raw   = is_array( $raw ) ? $raw : array();
@@ -136,11 +176,11 @@ class BOGO_Select_Settings {
 		$clean['repeat']      = isset( $raw['repeat'] ) && 'yes' === $raw['repeat'] ? 'yes' : 'no';
 		$clean['show_notice'] = isset( $raw['show_notice'] ) && 'yes' === $raw['show_notice'] ? 'yes' : 'no';
 
-		$title                = isset( $raw['offer_title'] ) ? sanitize_text_field( wp_unslash( $raw['offer_title'] ) ) : '';
+		$title                = isset( $raw['offer_title'] ) ? self::to_text( $raw['offer_title'] ) : '';
 		$clean['offer_title'] = '' !== $title ? $title : self::defaults()['offer_title'];
 
-		$clean['buy_qty'] = isset( $raw['buy_qty'] ) ? max( 1, absint( $raw['buy_qty'] ) ) : 1;
-		$clean['get_qty'] = isset( $raw['get_qty'] ) ? max( 1, absint( $raw['get_qty'] ) ) : 1;
+		$clean['buy_qty'] = isset( $raw['buy_qty'] ) ? max( 1, self::to_id( $raw['buy_qty'] ) ) : 1;
+		$clean['get_qty'] = isset( $raw['get_qty'] ) ? max( 1, self::to_id( $raw['get_qty'] ) ) : 1;
 
 		$clean['start_date'] = isset( $raw['start_date'] ) ? self::to_date( $raw['start_date'] ) : '';
 		$clean['end_date']   = isset( $raw['end_date'] ) ? self::to_date( $raw['end_date'] ) : '';
@@ -253,10 +293,38 @@ class BOGO_Select_Settings {
 	}
 
 	/**
-	 * Normalise a list of product IDs.
+	 * A submitted value as a whole number, or zero.
+	 *
+	 * Request data is not necessarily scalar: `product_id[]=7` arrives as an
+	 * array, and absint() reaches for intval(), which answers 1 for any
+	 * non-empty array. Every ID taken from a request goes through here so that
+	 * a shape nobody asked for becomes nothing rather than product 1.
 	 *
 	 * @param mixed $value Raw value.
-	 * @return int[]
+	 * @return int
+	 */
+	public static function to_id( $value ) {
+		return is_scalar( $value ) ? absint( $value ) : 0;
+	}
+
+	/**
+	 * A submitted value as plain text, or an empty string.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return string
+	 */
+	public static function to_text( $value ) {
+		return is_scalar( $value ) ? sanitize_text_field( wp_unslash( (string) $value ) ) : '';
+	}
+
+	/**
+	 * Normalise a list of product IDs.
+	 *
+	 * A list rather than an array: array_values() reindexes, and saying so is
+	 * what lets the settings shape promise one.
+	 *
+	 * @param mixed $value Raw value.
+	 * @return list<int<1, max>>
 	 */
 	protected static function to_id_array( $value ) {
 		if ( is_string( $value ) ) {
@@ -267,8 +335,18 @@ class BOGO_Select_Settings {
 			return array();
 		}
 
-		$ids = array_map( 'absint', $value );
-		$ids = array_filter( $ids );
+		$ids = array();
+
+		foreach ( $value as $item ) {
+			// absint() reaches for intval(), and intval() of an array is 1 — so a
+			// nested array in a hand-edited option row used to become product 1
+			// rather than nothing. Anything that is not a scalar is not an ID.
+			$id = self::to_id( $item );
+
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
 
 		return array_values( array_unique( $ids ) );
 	}

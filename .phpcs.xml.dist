@@ -72,6 +72,24 @@
 	</rule>
 
 	<!--
+		The plugin's own sanitizers. to_id() reduces anything to a whole number
+		and to_text() unslashes and reduces anything to plain text — both refuse
+		non-scalars outright, which is more than absint() does. The sniff has no
+		way to know that, so it is told, in the same way manage_woocommerce is
+		declared rather than the capability sniff being switched off.
+	-->
+	<rule ref="WordPress.Security.ValidatedSanitizedInput">
+		<properties>
+			<property name="customSanitizingFunctions" type="array">
+				<element value="to_id"/>
+			</property>
+			<property name="customUnslashingSanitizingFunctions" type="array">
+				<element value="to_text"/>
+			</property>
+		</properties>
+	</rule>
+
+	<!--
 		The Store API answers in JSON, and the message thrown here is carried in
 		it rather than printed into a page. Escaping it would put HTML entities
 		into a JSON string — an apostrophe reaching the customer as &#039; — so

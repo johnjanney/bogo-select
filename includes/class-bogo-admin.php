@@ -476,7 +476,7 @@ class BOGO_Select_Admin {
 						<td>
 							<input type="number" min="1" step="1" class="small-text" id="bogo-buy-qty"
 								name="<?php echo esc_attr( $o ); ?>[buy_qty]"
-								value="<?php echo esc_attr( $s['buy_qty'] ); ?>" />
+								value="<?php echo esc_attr( (string) $s['buy_qty'] ); ?>" />
 							<p class="description"><?php esc_html_e( 'How many qualifying units must be in the cart. Quantities are added up across the whole cart.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
@@ -487,7 +487,7 @@ class BOGO_Select_Admin {
 						<td>
 							<input type="number" min="1" step="1" class="small-text" id="bogo-get-qty"
 								name="<?php echo esc_attr( $o ); ?>[get_qty]"
-								value="<?php echo esc_attr( $s['get_qty'] ); ?>" />
+								value="<?php echo esc_attr( (string) $s['get_qty'] ); ?>" />
 							<p class="description"><?php esc_html_e( 'How many units the customer receives of the gift they choose.', 'bogo-select' ); ?></p>
 						</td>
 					</tr>
@@ -514,7 +514,7 @@ class BOGO_Select_Admin {
 						<td>
 							<input type="number" min="0" max="100" step="0.01" class="small-text" id="bogo-discount-value-field"
 								name="<?php echo esc_attr( $o ); ?>[get_discount_value]"
-								value="<?php echo esc_attr( $s['get_discount_value'] ); ?>" />
+								value="<?php echo esc_attr( (string) $s['get_discount_value'] ); ?>" />
 							<span class="description">%</span>
 							<p class="description"><?php esc_html_e( 'Taken off the reward\'s usual price. 100% is the same as giving it away.', 'bogo-select' ); ?></p>
 						</td>

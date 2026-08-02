@@ -7,6 +7,52 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A value that is not a scalar is no longer read as product 1.** `absint()`
+  reaches for `intval()`, and `intval()` of a non-empty array is 1 — so an
+  array arriving where an ID was expected became a reference to whatever
+  product holds ID 1, rather than nothing. That was reachable from a
+  hand-edited option row (`buy_products` holding a nested array) and from a
+  request sending `product_id[]=7` instead of `product_id=7`. Everything that
+  turns submitted data into an ID now checks it is a scalar first — in the
+  settings normaliser through a shared helper, and at the request boundaries
+  as a visible guard beside the `absint( wp_unslash() )` the coding standard
+  recognises.
+
+  Found by attempting PHPStan level 9, which is the level that objects to
+  `mixed` being passed around. The objection was right about these.
+
+### Changed
+
+- **The settings row has a declared shape, and it is checked.** `all()`
+  normalises all fourteen keys on the way out, so what a caller receives has
+  always been a known type — nothing said so, and every reader cast the value
+  again to be sure. The shape is now stated, `get()` returns a type per key,
+  and `all()` builds one array rather than amending a merged one, so a key
+  added to the defaults and forgotten in the normaliser is a hole the analyser
+  reports instead of a value that reaches a caller in whatever type the
+  database held.
+
+  Stating it immediately found three places passing an `int` or a `float` to
+  `esc_attr()`, which expects a string. That is the same class of thing level 5
+  found a year of releases ago, and it was invisible while the type was
+  `mixed`.
+
+- **Level 9 was attempted and is not taken**, with the reasoning recorded in
+  `phpstan.neon.dist` rather than left as a shrug. After the fixes above it
+  still reports 40, of which 18 are `(int) $cart_item['product_id']` and its
+  like: a WooCommerce cart item is an array any extension may add to, so its
+  values genuinely are `mixed` and the cast is the correct handling rather than
+  the defect. Satisfying the rule means an `is_scalar()` guard at each, which
+  is 18 branches no cart WooCommerce builds can reach. The remainder needs the
+  settings shape threaded through the admin sanitizer — which was tried, and
+  made the count go **up**, because every intermediate step then has to
+  preserve a shape it is in the middle of editing.
+
+  The level stays where the code passes with no baseline and nothing
+  suppressed, which is the same rule it has been held to since 2.3.2.
+
 ## [2.3.6] — 2026-08-02
 
 The measurement, and what it turned out to be worth.

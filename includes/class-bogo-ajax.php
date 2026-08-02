@@ -43,8 +43,10 @@ class BOGO_Select_Ajax {
 			$this->fail( __( 'Your cart is not available. Please refresh the page.', 'bogo-select' ) );
 		}
 
-		$product_id   = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
-		$variation_id = isset( $_POST['variation_id'] ) ? absint( wp_unslash( $_POST['variation_id'] ) ) : 0;
+		// is_scalar() before absint(), because absint() reaches for intval() and
+		// intval() of an array is 1 — so product_id[]=7 used to name product 1.
+		$product_id   = isset( $_POST['product_id'] ) && is_scalar( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+		$variation_id = isset( $_POST['variation_id'] ) && is_scalar( $_POST['variation_id'] ) ? absint( wp_unslash( $_POST['variation_id'] ) ) : 0;
 
 		$result = self::select_gift( $cart, $product_id, $variation_id );
 
@@ -246,8 +248,8 @@ class BOGO_Select_Ajax {
 			);
 		}
 
-		$search = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
-		$page   = isset( $_POST['page'] ) ? absint( wp_unslash( $_POST['page'] ) ) : 1;
+		$search = isset( $_POST['search'] ) && is_scalar( $_POST['search'] ) ? sanitize_text_field( (string) wp_unslash( $_POST['search'] ) ) : '';
+		$page   = isset( $_POST['page'] ) && is_scalar( $_POST['page'] ) ? absint( wp_unslash( $_POST['page'] ) ) : 1;
 
 		$results = BOGO_Select_Engine::get_choice_page(
 			array(

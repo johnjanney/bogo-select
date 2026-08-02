@@ -247,9 +247,9 @@ class BOGO_Select_Blocks {
 			self::error( __( 'Your cart is not available. Please refresh the page.', 'bogo-select' ) );
 		}
 
-		$action       = isset( $data['action'] ) ? sanitize_key( $data['action'] ) : '';
-		$product_id   = isset( $data['product_id'] ) ? absint( $data['product_id'] ) : 0;
-		$variation_id = isset( $data['variation_id'] ) ? absint( $data['variation_id'] ) : 0;
+		$action       = isset( $data['action'] ) ? sanitize_key( BOGO_Select_Settings::to_text( $data['action'] ) ) : '';
+		$product_id   = isset( $data['product_id'] ) ? BOGO_Select_Settings::to_id( $data['product_id'] ) : 0;
+		$variation_id = isset( $data['variation_id'] ) ? BOGO_Select_Settings::to_id( $data['variation_id'] ) : 0;
 
 		if ( 'remove' === $action ) {
 			BOGO_Select_Ajax::clear_gift( $cart );
