@@ -91,6 +91,13 @@ $bogo_admin_settings['end_date']   = $bogo_admin_next_week;
 // offer that would otherwise be running — which is the behaviour under test.
 $bogo_admin_settings['enabled'] = 'yes';
 
+// Quantities as well as dates, because this fixture is re-run to put the store
+// back after admin.test.mjs has driven the form. That test saves a Buy quantity
+// of 3 on its way past, and a scenario adding one item to a cart would then
+// find an offer that does not qualify and no chooser to measure.
+$bogo_admin_settings['buy_qty'] = 1;
+$bogo_admin_settings['get_qty'] = 1;
+
 update_option( 'bogo_select_settings', $bogo_admin_settings );
 
 echo wp_json_encode(

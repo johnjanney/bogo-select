@@ -119,13 +119,18 @@ for i in "${!NAMES[@]}"; do
 
 	printf '  %-46s' "${cmd##*/}"
 
-	if eval "${cmd}" >/dev/null 2>&1; then
+	# Output is captured rather than discarded: a baseline that fails without
+	# saying why costs a full CI round-trip to diagnose, and this script exists
+	# to run in CI.
+	if baseline_out="$( eval "${cmd}" 2>&1 )"; then
 		echo "pass"
 	else
 		echo "FAIL"
 		echo >&2
 		echo "error: ${cmd} fails before any mutation is applied." >&2
 		echo "       Nothing below would mean anything. Fix that first." >&2
+		echo >&2
+		echo "${baseline_out}" | tail -30 >&2
 		exit 1
 	fi
 done
