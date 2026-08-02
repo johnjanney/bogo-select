@@ -21,6 +21,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   went looking. The script was checked against both: it refuses each and names
   the jobs that failed.
 
+  `.github/workflows/release-gate.yml` runs the same script on
+  `release: published`, so a release cut by any route — the web UI, a direct
+  `gh release create`, someone else's hands — is checked even though the
+  process step was skipped. It reports and does not unpublish: v2.3.8's red run
+  was a docblock alignment in a comment, and withdrawing a sound archive over
+  that would have been the larger harm. What to do about a red release is a
+  judgement, and the workflow's job is to make sure it is offered rather than
+  missed.
+
   The manual check it replaces was worse than no check. It asked for "the most
   recent run" moments after pushing, which is frequently the *previous*
   commit's — so it could answer green for a commit that was never tested, in a

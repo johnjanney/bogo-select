@@ -1,0 +1,60 @@
+name: Release gate
+
+# The backstop behind bin/verify-ci.sh.
+#
+# That script is a step in the release process, which means it protects a
+# release cut by following the release process. This fires on the event itself,
+# so a release published by any route — the web UI, a direct `gh release
+# create`, someone else's hands — is still checked against the CI run for the
+# commit its tag points at.
+#
+# It reports rather than intervenes. It does not unpublish, and the reason is
+# concrete: v2.3.8's red run was a docblock alignment in a comment, and
+# withdrawing a sound archive over that would have been the larger harm. What
+# to do about a red release is a judgement, and this workflow's job is to make
+# sure the judgement is actually offered to someone.
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to check
+        required: true
+
+permissions:
+  contents: read
+  # Reading another workflow's runs needs this; contents alone cannot see them.
+  actions: read
+
+jobs:
+  verify:
+    name: CI passed on the released tag
+    runs-on: ubuntu-latest
+
+    steps:
+      # Full history and tags, because the check resolves a tag to a commit and
+      # compares it with what origin has.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Check the tag's CI run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # The run is already finished by the time a release is published, so
+          # this only covers the gap between a tag push and its run appearing.
+          BOGO_CI_WAIT: '300'
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          echo "Released tag: ${TAG}"
+          bash bin/verify-ci.sh "${TAG}"
+
+      - name: Say what a failure means
+        if: failure()
+        env:
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          echo "::error title=Released tag did not pass CI::${TAG} is published and its CI run did not succeed. Decide whether to withdraw it or supersede it with a PATCH — tags are never moved (BRIEF.md §8.4)."
+          exit 1

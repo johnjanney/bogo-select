@@ -378,6 +378,13 @@ Rules:
   archive of every past version survives even if local `dist/` is lost.
 - Do not tag until §8.5 passes: the tag is immutable, so publishing a zip that
   disagrees with the tagged commit cannot be corrected in place.
+- **`.github/workflows/release-gate.yml` checks the same thing on the event.**
+  The script protects a release cut by following this process; the workflow
+  fires on `release: published`, so one cut any other way is still checked. It
+  reports and does not unpublish — v2.3.8's red run was a docblock alignment,
+  and withdrawing a sound archive over that would have been the larger harm.
+  What to do about a red release is a judgement; the workflow exists so the
+  judgement is offered rather than missed.
 - **Do not publish until `bin/verify-ci.sh` passes.** v2.3.1 and v2.3.8 both went
   out with a red run — one an integration failure introduced in the same release,
   one a coding-standard failure — and both were found afterwards by hand. The
