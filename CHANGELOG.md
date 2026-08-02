@@ -7,6 +7,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A page of gift choices is fetched in one batch instead of one product at a
+  time** (`CODEX-REVIEW.md` M-03). The benchmark below found a broad All
+  Products search costing 612 database queries against 2,000 products — about
+  three per candidate, because each `wc_get_product()` found its own way to the
+  post row, its meta, and its `product_type` and `product_visibility` terms.
+  2.3.1's request memo stops the same product being loaded twice inside a
+  request and does nothing about the request being the first one, which on a
+  store without a persistent object cache is every request.
+
+  `_prime_post_caches()` now asks for all of it once, before the eligibility
+  loop starts. Re-measured on the same catalogue: **612 queries → 15** for a
+  broad search, **1,508 → 11** for the curated list's cold eligibility build,
+  **81 → 12** for browsing a page. A single-SKU search is unchanged at 12,
+  which is the guard working — a batch of one is skipped, since priming it
+  would cost a query to save none.
+
+  Nothing downstream changed: the same products are loaded, by the same calls,
+  in the same order. This is not fewer loads, it is the same loads costing
+  fewer queries — which is why the unit suite's product-load counts are
+  untouched, and why the cost needed a benchmark to see at all.
+
+  M-03 floated a result cache keyed by search term and catalogue state if
+  object reuse turned out not to be enough. This is the cheaper answer to the
+  same measurement: no new cache to invalidate, no key to get wrong, nothing to
+  go stale.
+
 ### Added
 
 - **A large-catalogue benchmark, and the numbers from running it**
@@ -22,12 +50,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   request; browsing a page costs 0.03s and 81 queries.
 
   The warm column is 2.3.1's request memo working — zero queries on the second
-  call, every path. The cold column is the finding: about three queries per
+  call, every path. The cold column was the finding: about three queries per
   candidate, because the memo stops a product being loaded twice in a request
-  and does nothing about the request being the first. Recorded in
-  `CODEX-REVIEW-RESPONSE.md` with what it does and does not say, and with the
-  cheaper answer than the result cache M-03 floated — priming the batch — left
-  as a decision to make against numbers rather than a change made beside them.
+  and does nothing about the request being the first. That is now fixed — see
+  below — and both sets of numbers are recorded in `CODEX-REVIEW-RESPONSE.md`
+  with what they do and do not say.
 
   Its own workflow, on `workflow_dispatch`. Seeding takes about a minute and
   the numbers are for reading rather than gating; a threshold on a shared runner

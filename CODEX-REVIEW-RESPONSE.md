@@ -546,15 +546,40 @@ published, and a database on the same host as the web server. The figures are
 per-call costs on a cold cache, which is the pessimistic end. They are recorded
 so the next decision can start from a number.
 
-**What it changes.** M-03's own recommendation ended "consider a short result
+**What it changed.** M-03's own recommendation ended "consider a short result
 cache keyed by search term, scope, offer settings, and catalog state if
-measurement shows that object reuse is not enough." The measurement shows
+measurement shows that object reuse is not enough." The measurement showed
 exactly that — object reuse fixed the duplication and left the first load of
-each product untouched. The cheaper answer than a result cache is priming: one
-batched fetch for the candidate IDs before the eligibility loop, instead of
-letting each `wc_get_product()` find its own way to the database. That is a
-change to a hot path and is not made here; the benchmark exists so it can be
-made against numbers, and re-measured with the same script.
+each product untouched. The cheaper answer than a result cache turned out to be
+priming: `_prime_post_caches()` over the candidate IDs before the eligibility
+loop, so the loads that follow read from a cache WordPress has just filled
+rather than each finding its own way to the database.
+
+Re-measured with the same script, same catalogue, same settings:
+
+| Path | Queries before | Queries after | Wall before | Wall after |
+|---|---|---|---|---|
+| All Products, search "Gift" | 612 | **15** | 0.229s | 0.078s |
+| All Products, browse a page | 81 | **12** | 0.034s | 0.021s |
+| Select Products, 500 curated, cold build | 1,508 | **11** | 0.484s | 0.150s |
+| Select Products, search "Gift" | 1,512 | **15** | 0.527s | 0.159s |
+| All Products, search one SKU | 12 | 12 | 0.019s | 0.021s |
+
+**The query counts are the claim; the wall times are indication.** Queries are
+deterministic — the same catalogue and the same code produce the same count
+every time — while the two runs happened on different ephemeral runners and
+their seconds carry that noise. A 41× reduction on a broad search and 137× on
+the cold curated build are real; "2.9× faster" is what one pair of runs on one
+pair of machines showed.
+
+The single-SKU search is unchanged at 12 queries, which is the guard working: a
+batch of one is skipped, because priming it would cost a query to save none.
+
+Nothing downstream changed. The same products are loaded by the same calls in
+the same order, so `ChooserSearchCostTest`'s product-load ratio is untouched —
+this is not fewer loads, it is the same loads costing fewer queries. That is
+also why the unit suite could not have caught the cost, and why the benchmark
+had to exist first.
 
 The benchmark runs from its own workflow on `workflow_dispatch` rather than on
 push. Seeding a catalogue takes about a minute and the numbers are for reading,
