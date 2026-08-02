@@ -21,6 +21,13 @@
 # - Every mutation must match its file exactly once. A pattern that has drifted
 #   is an error, not a hole.
 #
+# A survivor is a result to look into rather than a verdict. It means either the
+# assertion cannot tell the difference — a hole — or the mutation did not change
+# anything, which is a fault in the mutation. The first attempt at the row-layout
+# one narrowed grid-template-columns and survived, because grid-template-areas
+# still declared two columns and the layout stood; dropping the grid entirely is
+# the version that asks the question.
+#
 # Takes the test files to cover, because the integration scenarios share one
 # store and reconfigure it as they go: the storefront mutations have to run while
 # the classic fixture's offer is in place, and the settings-screen ones after the
@@ -80,8 +87,8 @@ mutation \
 mutation \
 	"a gift card stops being a row on a phone (v2.2.0)" \
 	"assets/css/bogo-select.css" \
-	'		grid-template-columns: 64px minmax(0, 1fr);' \
-	'		grid-template-columns: 1fr;' \
+	'		display: grid;' \
+	'		display: block;' \
 	"node tests/integration/mobile.test.mjs"
 
 mutation \
