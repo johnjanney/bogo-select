@@ -73,6 +73,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and a commit with no run at all is refused rather than assumed fine, which is
   what v1.0.0 would be: tagged before the pipeline existed.
 
+- **The 2.3.x line summarised in Simplified Technical English, and kept out of
+  the archive.** `RELEASE-SUMMARY-2.3.x-STE.md` restates 2.3.1 to 2.3.8 in
+  ASD-STE100: one section per release, a limited vocabulary, and short
+  sentences. The entries below are each written at the length their release
+  deserved, which is the right form for the record and the wrong one for a
+  reader who wants to know what eight patch releases did. It adds nothing to
+  them, and where the two disagree this file is right — including 2.3.8's
+  correction of the two claims 2.3.7 shipped with, which the summary repeats as
+  a correction rather than quietly fixing in its 2.3.7 section.
+
+  It does not ship. `'RELEASE-SUMMARY*.md'` is in `PACKAGE_EXCLUDES` beside
+  `CODEX-REVIEW*.md`, because the archive already carries this changelog, and a
+  second shorter account of the same releases gives a store two documents that
+  can disagree — with the summary the one that goes stale first. A pattern
+  rather than a filename, so the exclusion holds for the next summary without
+  anyone remembering it.
+
+  It would otherwise have shipped, and that is the manifest working as written
+  rather than an oversight. The list names what stays out and packages
+  everything else, so a new runtime file is packaged **and** verified without
+  being named anywhere — which is the property that stopped the build and the
+  verifier drifting apart. The cost is the other direction: a document meant for
+  the repository alone has to be excluded on purpose. Checked by reading the
+  list rather than by trusting the edit — the manifest returns the same 23 files
+  as before the summary landed, and `bin/verify-zip-check.sh` still catches all
+  six ways an archive can be wrong.
+
 ### Fixed
 
 - **CI was red on the v2.3.8 tag, from a docblock the coding standard would not
@@ -148,12 +175,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Not released
 
-Everything above is the release process, its safety nets, and comment text. The
-only shipped file that changed is a docblock — the `VariationOption` alias
-replacing an inline shape — and `BRIEF.md` §8.1 gives the version to the plugin
-code rather than to what is written about it. So there is no bump: a 2.3.9
-archive would differ from 2.3.8 in comments and its own version header, and
-§8.4 makes tags permanent, so an unnecessary one cannot be withdrawn.
+Everything above is the release process, its safety nets, comment text, and one
+document the archive does not carry. The only shipped file that changed is a
+docblock — the `VariationOption` alias replacing an inline shape — and
+`BRIEF.md` §8.1 gives the version to the plugin code rather than to what is
+written about it. So there is no bump: a 2.3.9 archive would differ from 2.3.8
+in comments and its own version header, and §8.4 makes tags permanent, so an
+unnecessary one cannot be withdrawn.
 
 This rides along with the next change that alters what the plugin does.
 
