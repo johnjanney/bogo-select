@@ -54,6 +54,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   No runtime file changed and the published 2.3.8 archive is unaffected.
 
+### Not released
+
+Everything above is the release process, its safety nets, and comment text. The
+only shipped file that changed is a docblock — the `VariationOption` alias
+replacing an inline shape — and `BRIEF.md` §8.1 gives the version to the plugin
+code rather than to what is written about it. So there is no bump: a 2.3.9
+archive would differ from 2.3.8 in comments and its own version header, and
+§8.4 makes tags permanent, so an unnecessary one cannot be withdrawn.
+
+This rides along with the next change that alters what the plugin does.
+
 ## [2.3.8] — 2026-08-02
 
 Level 9, and a correction to why 2.3.7 said it was out of reach.
