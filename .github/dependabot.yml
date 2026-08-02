@@ -8,6 +8,11 @@
 # pinning it maintains should be reconsidered rather than left to rot.
 version: 2
 
+# docker-compose is a beta ecosystem. The stable `docker` one reads Dockerfiles
+# and Kubernetes manifests only, and this repository has neither — its
+# containers are declared in tests/integration/docker-compose.yml.
+enable-beta-ecosystems: true
+
 updates:
   # Pinned to SHAs in .github/workflows/ci.yml, with the version in a comment
   # beside each. Dependabot updates both together, so the comment stays true.
@@ -56,7 +61,11 @@ updates:
   # one CI job and are never published or deployed, so what matters is being
   # told when a newer WordPress or MariaDB appears — which is the same signal
   # that keeps the compatibility matrix honest.
-  - package-ecosystem: docker
+  #
+  # If this beta ecosystem is ever withdrawn, the containers stop being watched
+  # and nothing else here notices. That is the one gap in the arrangement, and
+  # it is a small one: the images are rebuilt from scratch every run.
+  - package-ecosystem: docker-compose
     directory: /tests/integration
     schedule:
       interval: weekly
