@@ -30,6 +30,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   It runs as its own CI job on one PHP version, since whether a test notices a
   defect does not vary by interpreter.
 
+- **The same check for the browser assertions**, which is the half that matters
+  more: the browser layer is where the vacuous assertion actually shipped.
+  `bin/verify-browser-tests.sh` runs inside the integration job, reusing the
+  stack it has already built, and copies each mutated file straight into the
+  installed plugin — standing up WordPress per mutation is not affordable.
+
+  Five defects: the phone layout's touch targets shrinking back to what they
+  were before 2.3.5, a gift card ceasing to be a row, the chooser's listeners
+  leaving the document as they were before 2.2.1, and the two settings-screen
+  refusals M-01 and M-02 turn on.
+
+  Every target test runs **before** its mutation and must pass. Without that a
+  broken stack would report every mutation as caught, which is the most
+  flattering possible way for a check like this to be useless.
+
 - **A release gate that refuses to publish a tag CI did not pass.**
   `bin/verify-ci.sh` resolves a tag to its commit, checks the tag on origin
   points at the same commit, finds the CI run **for that SHA**, waits if it is

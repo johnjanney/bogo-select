@@ -80,7 +80,7 @@ jobs:
         run: for f in assets/js/*.js; do node --check "$f"; done
 
       - name: Check build script syntax
-        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh bin/verify-tests.sh
+        run: bash -n bin/build-zip.sh bin/verify-zip.sh bin/verify-ci.sh bin/verify-tests.sh bin/verify-browser-tests.sh
 
       - name: Check integration test syntax
         run: for f in tests/integration/*.mjs; do node --check "$f"; done
@@ -467,6 +467,34 @@ jobs:
           NEXT_WEEK: ${{ steps.admin.outputs.next_week }}
           WC_VERSION: ${{ matrix.woocommerce }}
         run: node tests/integration/admin.test.mjs
+
+      # Reuses the stack the steps above already built: standing up WordPress
+      # per mutation is not affordable, and copying a mutated file into the
+      # installed plugin is. One lane only — whether an assertion can tell a
+      # defect apart does not vary by WooCommerce version.
+      - name: Check the browser assertions catch what they should
+        if: matrix.woocommerce == 'latest'
+        env:
+          PAID_ID: ${{ steps.classic.outputs.paid }}
+          REWARD_ID: ${{ steps.classic.outputs.reward }}
+          REWARD_PRICE: 24
+          VARIABLE_ID: ${{ steps.classic.outputs.variable }}
+          SMALL_ID: ${{ steps.classic.outputs.small }}
+          LARGE_ID: ${{ steps.classic.outputs.large }}
+          LARGE_PRICE: 50
+          DISCOUNT_PERCENT: 50
+          CART_PATH: /classic-cart/
+          CHECKOUT_PATH: /classic-checkout/
+          BLOCK_CART_PATH: /cart/
+          MANAGER_USER: bogo_shop_manager
+          EDITOR_USER: bogo_editor
+          ADMIN_PASS: ${{ steps.admin.outputs.pass }}
+          TIMEZONE: ${{ steps.admin.outputs.timezone }}
+          TODAY: ${{ steps.admin.outputs.today }}
+          YESTERDAY: ${{ steps.admin.outputs.yesterday }}
+          NEXT_WEEK: ${{ steps.admin.outputs.next_week }}
+          WC_VERSION: ${{ matrix.woocommerce }}
+        run: bash bin/verify-browser-tests.sh
 
       # Only lines naming this plugin's own files fail the build. WordPress and
       # WooCommerce raise deprecations of their own that no change here can fix,

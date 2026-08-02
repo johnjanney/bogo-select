@@ -99,9 +99,22 @@ shipped a browser assertion that passed on a negative true either way. On its
 first run this found that the v2.3.7 fix — refusing a non-scalar where a product
 ID belongs — had no test at all, and it had already shipped in a release.
 
-Not a substitute for a mutation testing tool. It is a fixed, curated set, chosen
-so each entry names a defect rather than a line number, and so a survivor tells
-you what is unguarded rather than that some percentage of mutants lived.
+`bin/verify-browser-tests.sh` does the same for the integration suite, which is
+the half that matters more — the browser layer is where the vacuous assertion
+actually shipped. It runs inside the integration job, reusing the stack that job
+has already built, because standing up WordPress per mutation is not affordable
+and copying a mutated file into the installed plugin is. Five defects: the phone
+layout's touch targets shrinking back, a gift card ceasing to be a row, the
+chooser's listeners leaving the document, and two the settings screen turns on.
+
+Every target test is run **before** its mutation and required to pass. Without
+that, a broken stack would report every mutation as caught, which is the most
+flattering possible way for a check like this to be useless.
+
+Neither is a substitute for a mutation testing tool. They are fixed, curated
+sets, chosen so each entry names a defect rather than a line number, and so a
+survivor tells you what is unguarded rather than that some percentage of mutants
+lived.
 
 ## The benchmark
 
