@@ -8,6 +8,93 @@ question is answered, move it to **Resolved** with the answer and the date.
 
 ## Open
 
+### Q-012 — Should the plugin report on BOGO sales?
+
+**Raised:** 2026-08-03
+
+The plugin records what it did to a cart and never reports on it. A merchant
+asking how the offer is performing has to open orders one at a time. Two figures
+were asked for: how many orders contain a reward, and what those orders are worth
+in total — order volume and order value, rather than what the promotion costs.
+
+**Working assumption:** no reporting, as today. Nothing is blocked. The reward is
+already legible on the admin order screen through its visible label, and the
+hidden flag is queryable by anything that wants it.
+
+**What the orders already hold.** `add_order_item_meta()` stamps every reward
+line at checkout — `class-bogo-cart.php:445-464`, on
+`woocommerce_checkout_create_order_line_item` at `:54`:
+
+- `_bogo_select_free` is `yes`, the hidden flag, kept under that name even for a
+  discounted line because it is a persisted key that existing queries rely on;
+- `_bogo_select_discount` is `free` or `percent:50`, the offer's terms frozen at
+  the moment of the order, so a line can explain its own pricing after the
+  settings change beneath it;
+- a visible label for the order screen, emails, and packing slips.
+
+The consequence worth noting is that a report would be retroactive. Both figures
+can be computed for every BOGO order the store has ever taken, not only for
+orders placed after the feature ships.
+
+**What they do not hold.** No order-level meta, so orders can only be found by
+scanning line items. No flag on the qualifying Buy lines, so there is no
+purchase-side attribution. Nothing records that a cart qualified and declined, so
+a redemption rate cannot be computed. No funnel — chooser opens and abandoned
+selections would need instrumenting at the AJAX endpoints
+(`class-bogo-ajax.php:22-29`), which is a separate question carrying its own
+consent implications. And the offer has no stable ID (Q-007), so all history is
+"the offer" over time.
+
+**What it would take.** For these two figures specifically, less than a general
+reporting feature would.
+
+- **An order-level flag.** Stamping one on the order in the same hook collapses
+  the query. Under HPOS — declared at `bogo-select.php:44` — `wc_orders` carries
+  status, creation date, and total in the same table the meta join lands on, so
+  both figures come from one query rather than from a scan of
+  `woocommerce_order_itemmeta` followed by a second lookup whose table depends on
+  whether HPOS is on.
+- **A backfill for that flag.** Past orders have the line meta and not the order
+  meta, so a one-time batched pass would find them by the former and stamp the
+  latter. This is the first thing that would actually need `bogo_select_version`,
+  which is written at activation (`bogo-select.php:145`) and never afterwards
+  compared against `BOGO_SELECT_VERSION`. There is no upgrade routine to hang a
+  backfill on yet.
+- **A decision about which orders count.** Paid statuses only, by
+  `wc_get_is_paid_statuses()`, is the defensible default; pending, failed, and
+  cancelled orders should not inflate either figure.
+- **A decision about what revenue means.** `get_total()` is gross. It includes
+  tax and shipping, and it includes every non-reward line in the order. That is
+  the right figure for the question asked, but the label has to say so: "revenue
+  from orders containing a reward" is true, and "BOGO revenue" will be read as
+  attributable when it is not.
+- **Cache invalidation the plugin has no hooks for.** Nothing in `includes/`
+  listens to an order's status, so a refunded or cancelled order would sit in a
+  cached total until the transient expired. `woocommerce_order_status_changed`
+  would be a new dependency.
+- **A summary panel rather than a dashboard.** Two to four figures and a date
+  range fit above the existing settings form (`BOGO_Select_Admin::render`,
+  `class-bogo-admin.php:316`) without a chart library or a second page.
+
+Two edge cases belong on the page rather than in the query. Orders created in
+wp-admin or through the REST API never pass through
+`woocommerce_checkout_create_order_line_item`, so they are never flagged. And
+`repeat` scales the reward quantity rather than adding lines
+(`class-bogo-engine.php:198`), so counting distinct orders is correct today and
+stays correct if Q-009 ever allows a second reward product.
+
+**Needed:** whether these two figures are the whole ask or the first pair of
+many. That answer decides whether this is a panel over order meta or the start of
+a reporting surface, and only the second would justify the custom table and the
+migration infrastructure that does not exist yet. Also needed: whether the
+non-BOGO comparison belongs beside them. The same aggregate over orders without a
+reward gives an average order value to read the BOGO one against, which is the
+comparison the question is reaching for — but it is correlation and not lift,
+since larger baskets are what qualify for the offer to begin with, and the page
+would have to say so.
+
+---
+
 ### Q-010 — Should Buy and Get support product categories?
 
 **Raised:** 2026-07-31
