@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.10] — 2026-08-17
+
+Compatibility metadata only. No functional change: every runtime file in the
+archive is byte-identical to 2.3.9 except `bogo-select.php`, which differs in
+the version string and the `WC tested up to` header. The README and this
+changelog change with it and nothing else in the archive does. Upgrading changes
+nothing a customer can see.
+
+### Changed
+
+- **`WC tested up to` advanced from 10.9 to 11.0**, and the README's tested-with
+  row from 10.9.4 to 11.0.1. The header was not wrong so much as behind: the
+  integration matrix has been running against WooCommerce `latest` all along, so
+  the plugin was claiming less than it had evidence for. WordPress.org shows that
+  field to people deciding whether a plugin is current, and understating it is
+  its own kind of inaccuracy.
+
+  The claim is made on the same terms 1.2.1 set, which declined to advance this
+  header without a matrix to justify it. Run `32071013547` installed
+  **WooCommerce 11.0.1** and exercised the plugin **from the built zip** rather
+  than from source, in a real browser: the block integration test, classic cart
+  and checkout, the coupon and discounted-reward and variable-reward lanes, the
+  phone viewport, the settings-screen role test, a real order placed and its
+  metadata and stock asserted, and a step that fails the run on any PHP notice
+  from the plugin. The 9.9.5 compatibility floor passed in the same run.
+
+  Only the tested ceiling moves. `WC requires at least` stays at 9.9 and the
+  floor lane still runs, so nothing about the supported range narrows.
+
 ## [2.3.9] — 2026-08-17
 
 A price the browser stopped parsing twice, and the release machinery that had
@@ -1299,7 +1328,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.9...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.10...HEAD
+[2.3.10]: https://github.com/johnjanney/bogo-select/compare/v2.3.9...v2.3.10
 [2.3.9]: https://github.com/johnjanney/bogo-select/compare/v2.3.8...v2.3.9
 [2.3.8]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...v2.3.8
 [2.3.7]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...v2.3.7
