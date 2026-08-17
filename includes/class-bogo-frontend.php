@@ -419,11 +419,13 @@ class BOGO_Select_Frontend {
 
 			// Quote the option the customer is looking at, not the parent, whose
 			// price is the low end of a range and need not be any variation's.
-			$priced = self::default_option( $options, $selected_variation );
-			$priced = $priced ? $priced['product'] : $product;
+			$default   = self::default_option( $options, $selected_variation );
+			$priced    = $default ? $default['product'] : $product;
+			$priced_id = $default ? $default['id'] : 0;
 		} else {
 			$options      = array();
 			$priced       = $product;
+			$priced_id    = 0;
 			$other_demand = BOGO_Select_Engine::stock_demand( null, $product, $exclude );
 			$reason       = BOGO_Select_Engine::unavailable_reason( $product, $reward_qty, $other_demand );
 		}
@@ -446,7 +448,24 @@ class BOGO_Select_Frontend {
 			<div class="bogo-select__info">
 				<span class="bogo-select__name"><?php echo esc_html( $product->get_name() ); ?></span>
 				<span class="bogo-select__price" data-bogo-price="1">
-					<?php echo wp_kses_post( self::price_markup( $priced ) ); ?>
+					<?php
+					// Every option's figure is rendered here and filtered once, and the
+					// selector only changes which one is shown. Carrying the markup on the
+					// option for the script to reinstate would hand it to the browser as an
+					// attribute and parse it back into HTML unfiltered (CodeQL
+					// js/xss-through-dom).
+					?>
+					<?php if ( $is_variable && $options ) : ?>
+						<?php foreach ( $options as $option ) : ?>
+							<span class="bogo-select__price-option"
+								data-bogo-price-for="<?php echo esc_attr( (string) $option['id'] ); ?>"
+								<?php echo $option['id'] === $priced_id ? '' : 'hidden'; ?>>
+								<?php echo wp_kses_post( $option['price'] ); ?>
+							</span>
+						<?php endforeach; ?>
+					<?php else : ?>
+						<?php echo wp_kses_post( self::price_markup( $priced ) ); ?>
+					<?php endif; ?>
 				</span>
 				<?php if ( $is_variable && $options ) : ?>
 					<label class="bogo-select__variation-label" for="bogo-select-variation-<?php echo esc_attr( (string) $product_id ); ?>">
@@ -456,7 +475,6 @@ class BOGO_Select_Frontend {
 						id="bogo-select-variation-<?php echo esc_attr( (string) $product_id ); ?>">
 						<?php foreach ( $options as $option ) : ?>
 							<option value="<?php echo esc_attr( (string) $option['id'] ); ?>"
-								data-price="<?php echo esc_attr( $option['price'] ); ?>"
 								<?php disabled( true, (bool) $option['reason'] ); ?>
 								<?php selected( $selected_variation, $option['id'] ); ?>>
 								<?php echo esc_html( $option['label'] ); ?>

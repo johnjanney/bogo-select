@@ -123,6 +123,13 @@
 	margin-right: 0.35em;
 }
 
+/* The card holds a figure per variation and shows the one being quoted. Stated
+   here because a theme that gives spans a display of their own would otherwise
+   override the browser's own handling of [hidden] and show the whole set. */
+.bogo-select__price-option[hidden] {
+	display: none;
+}
+
 .bogo-select__reason {
 	font-size: 0.8em;
 	opacity: 0.75;

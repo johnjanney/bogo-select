@@ -183,7 +183,29 @@ class VariableChooserTest extends TestCase {
 
 		// The selector moves the quoted figure without a round trip, so each
 		// option has to carry its own.
-		$this->assertSame( 2, substr_count( $html, 'data-price=' ) );
+		$this->assertSame( 2, substr_count( $html, 'data-bogo-price-for=' ) );
+		$this->assertStringContainsString( '20.00', $html );
+		$this->assertStringContainsString( '35.00', $html );
+
+		// Only the figure being quoted is on show; the script reveals another by
+		// unhiding it rather than by writing markup back into the card.
+		$this->assertSame( 1, substr_count( $html, 'hidden>' ) );
+	}
+
+	public function test_no_option_carries_price_markup_for_the_script_to_reinstate() {
+		$this->offering(
+			array(
+				101 => array( 'price' => 20.0 ),
+				102 => array( 'price' => 35.0 ),
+			)
+		);
+
+		$html = $this->grid();
+
+		// Price markup handed over on an attribute would be parsed back into HTML
+		// by the browser, past the filter the server ran it through
+		// (CodeQL js/xss-through-dom).
+		$this->assertStringNotContainsString( 'data-price=', $html );
 	}
 
 	public function test_the_chosen_variation_is_preselected_and_can_be_changed() {
