@@ -61,7 +61,7 @@ as a real line item at its reward price — so stock is still reduced.
 | WordPress | 6.0 or later |
 | WooCommerce | 9.9 or later |
 | PHP | 7.4 or later |
-| Tested with | WooCommerce 9.9.5 and 10.9.4 — classic cart and checkout, plus the Cart and Checkout blocks verified in a browser |
+| Tested with | WooCommerce 9.9.5 and 11.0.1 — classic cart and checkout, plus the Cart and Checkout blocks verified in a browser |
 
 ## Installation
 

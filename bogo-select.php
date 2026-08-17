@@ -3,7 +3,7 @@
  * Plugin Name:       BOGO Select for WooCommerce
  * Plugin URI:        https://github.com/johnjanney/bogo-select
  * Description:       Buy X, Get Y — the customer chooses their reward from a list you control, free or at a percentage off. Variable products let them pick the size or colour, and the offer can run to a schedule. The reward is a real cart line, so inventory is still reduced.
- * Version:           2.3.9
+ * Version:           2.3.10
  * Author:            John Janney
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
@@ -13,14 +13,14 @@
  * Requires PHP:      7.4
  * Requires Plugins:  woocommerce
  * WC requires at least: 9.9
- * WC tested up to:   10.9
+ * WC tested up to:   11.0
  *
  * @package BOGO_Select
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'BOGO_SELECT_VERSION', '2.3.9' );
+define( 'BOGO_SELECT_VERSION', '2.3.10' );
 define( 'BOGO_SELECT_MIN_WC', '9.9' );
 define( 'BOGO_SELECT_FILE', __FILE__ );
 define( 'BOGO_SELECT_PATH', plugin_dir_path( __FILE__ ) );
