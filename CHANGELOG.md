@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.9] — 2026-08-17
+
+A price the browser stopped parsing twice, and the release machinery that had
+been waiting for something to ride out with.
+
+The shipped change is one CodeQL finding. A variation's price travelled to the
+browser as markup on an attribute and the selector wrote it back with
+`innerHTML`, so the figure was parsed into HTML a second time — past the filter
+the server had already run over it. Nothing a customer can type reaches that
+markup, so this is a PATCH and not an emergency; what it corrects is that the
+same string had a filtered path and an unfiltered one and only one was checked.
+
+Everything else here is the release process and its safety nets, accumulated
+since 2.3.8 and held back because tooling does not bump a version on its own
+(`BRIEF.md` §8.1). This is the release they ride out with.
+
 ### Added
 
 - **A check that the suite would object to a real defect**, and the hole it
@@ -198,18 +214,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `.bogo-select__price-option[hidden]` is stated in the stylesheet because a
   theme that gives spans a display of their own would otherwise defeat the
   browser's handling of `hidden` and show every variation's price at once.
-
-### Not released
-
-Most of the above is the release process, its safety nets, comment text, and one
-document the archive does not carry, none of which `BRIEF.md` §8.1 would bump
-the version for.
-
-The security entry is not in that class. It changes three shipped files — the
-card's markup, the stylesheet, and the chooser script — so §8.1 asks for a
-**PATCH bump to 2.3.9**, which is the change the earlier note said this would
-ride along with. The bump and the dated section are still to be made; the
-version headers in `bogo-select.php` read 2.3.8 as this is written.
 
 ## [2.3.8] — 2026-08-02
 
@@ -1295,7 +1299,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.8...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.9...HEAD
+[2.3.9]: https://github.com/johnjanney/bogo-select/compare/v2.3.8...v2.3.9
 [2.3.8]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...v2.3.8
 [2.3.7]: https://github.com/johnjanney/bogo-select/compare/v2.3.6...v2.3.7
 [2.3.6]: https://github.com/johnjanney/bogo-select/compare/v2.3.5...v2.3.6
