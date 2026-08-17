@@ -173,17 +173,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   inside: a file not read looks exactly like a file that is fine. The only
   answer is to break something on purpose and require the objection.
 
+### Security
+
+- **A variation's price no longer travels to the browser as markup on an
+  attribute** (CodeQL `js/xss-through-dom`, CWE-79). The card carried each
+  option's price HTML in `data-price` and the selector wrote it into the page
+  with `innerHTML`, so the figure was parsed into HTML a second time — the first
+  parse being the one the server had already filtered with `wp_kses_post()`. The
+  attribute path never ran that filter, which made the script the one place the
+  plugin's own trust boundary did not hold.
+
+  Every option's figure is rendered into the card instead, filtered once each,
+  and the selector now only changes which one is hidden. No string becomes HTML
+  in the browser, so the sink is gone rather than guarded.
+
+  Nothing a customer can type reached that markup: it is built from `wc_price()`
+  over a float, and the only parts of it not fixed by the plugin are the currency
+  symbol and price format, which come from the shop's own settings and from
+  filters other extensions may attach. The exposure was to a misbehaving
+  extension or a store's own configuration, not to a shopper — but the filtered
+  and unfiltered paths were rendering the same markup, and only one of them was
+  checked.
+
+  `.bogo-select__price-option[hidden]` is stated in the stylesheet because a
+  theme that gives spans a display of their own would otherwise defeat the
+  browser's handling of `hidden` and show every variation's price at once.
+
 ### Not released
 
-Everything above is the release process, its safety nets, comment text, and one
-document the archive does not carry. The only shipped file that changed is a
-docblock — the `VariationOption` alias replacing an inline shape — and
-`BRIEF.md` §8.1 gives the version to the plugin code rather than to what is
-written about it. So there is no bump: a 2.3.9 archive would differ from 2.3.8
-in comments and its own version header, and §8.4 makes tags permanent, so an
-unnecessary one cannot be withdrawn.
+Most of the above is the release process, its safety nets, comment text, and one
+document the archive does not carry, none of which `BRIEF.md` §8.1 would bump
+the version for.
 
-This rides along with the next change that alters what the plugin does.
+The security entry is not in that class. It changes three shipped files — the
+card's markup, the stylesheet, and the chooser script — so §8.1 asks for a
+**PATCH bump to 2.3.9**, which is the change the earlier note said this would
+ride along with. The bump and the dated section are still to be made; the
+version headers in `bogo-select.php` read 2.3.8 as this is written.
 
 ## [2.3.8] — 2026-08-02
 

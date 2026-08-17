@@ -371,15 +371,26 @@
 	 * product's own price is the low end of a range rather than any variation's,
 	 * so leaving the figure alone as the selector moves would misquote it.
 	 *
+	 * Every option's figure is already on the card, filtered by the server and
+	 * parsed once by the browser. Showing one and hiding the rest keeps the
+	 * markup out of the script's hands, where reinstating it would mean parsing
+	 * a string into HTML a second time.
+	 *
 	 * @param {Element} select The card's variation selector.
 	 */
 	function syncCardPrice( select ) {
 		var card = select.closest( '.bogo-select__item' );
 		var price = card ? card.querySelector( '[data-bogo-price]' ) : null;
-		var option = select.options[ select.selectedIndex ];
+		var figures = price ? price.querySelectorAll( '[data-bogo-price-for]' ) : [];
+		var i;
 
-		if ( price && option && option.getAttribute( 'data-price' ) ) {
-			price.innerHTML = option.getAttribute( 'data-price' );
+		if ( ! select.value || ! figures.length ) {
+			return;
+		}
+
+		for ( i = 0; i < figures.length; i++ ) {
+			figures[ i ].hidden =
+				figures[ i ].getAttribute( 'data-bogo-price-for' ) !== select.value;
 		}
 	}
 
