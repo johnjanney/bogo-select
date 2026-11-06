@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.3.11] — 2026-11-06
+
 ### Security
 
 - **The chooser now filters incoming HTML, adding defense in depth against
@@ -1349,7 +1351,8 @@ Initial release.
   See `DECISION.md` D-006.
 - Untested against Subscriptions, Bundles, and Composite Products.
 
-[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.10...HEAD
+[Unreleased]: https://github.com/johnjanney/bogo-select/compare/v2.3.11...HEAD
+[2.3.11]: https://github.com/johnjanney/bogo-select/compare/v2.3.10...v2.3.11
 [2.3.10]: https://github.com/johnjanney/bogo-select/compare/v2.3.9...v2.3.10
 [2.3.9]: https://github.com/johnjanney/bogo-select/compare/v2.3.8...v2.3.9
 [2.3.8]: https://github.com/johnjanney/bogo-select/compare/v2.3.7...v2.3.8
