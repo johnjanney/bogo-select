@@ -39,6 +39,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          persist-credentials: false
 
       - name: Check the tag's CI run
         env:

@@ -267,6 +267,109 @@
 		} );
 	}
 
+	// What a response may put on the page: the chooser's own template, plus what
+	// wc_price() and a product image produce once wp_kses_post() has been over
+	// them. Upper case because that is how tagName reports an HTML element; an
+	// SVG or MathML element reports lower case, so it can never match.
+	var ALLOWED_TAGS = [
+		'A', 'ABBR', 'B', 'BDI', 'BDO', 'BR', 'BUTTON', 'DEL', 'DIV', 'EM', 'H2', 'H3', 'H4',
+		'I', 'IMG', 'INPUT', 'INS', 'LABEL', 'LI', 'MARK', 'NAV', 'OL', 'OPTGROUP', 'OPTION',
+		'P', 'PICTURE', 'S', 'SELECT', 'SMALL', 'SOURCE', 'SPAN', 'STRONG', 'SUB', 'SUP',
+		'TIME', 'U', 'UL', 'WBR'
+	];
+
+	var ALLOWED_ATTRIBUTES = [
+		'alt', 'autocomplete', 'class', 'datetime', 'decoding', 'dir', 'disabled', 'fetchpriority',
+		'for', 'height', 'hidden', 'href', 'id', 'label', 'lang', 'loading', 'media', 'placeholder',
+		'rel', 'role', 'selected', 'sizes', 'src', 'srcset', 'tabindex', 'target', 'title', 'type',
+		'value', 'width'
+	];
+
+	var ALLOWED_PROTOCOLS = [ 'http:', 'https:', 'mailto:', 'tel:' ];
+
+	/**
+	 * Whether an attribute may stay on an element coming from a response.
+	 *
+	 * @param {string} name  Attribute name, as the parser lower-cased it.
+	 * @param {string} value Attribute value.
+	 * @return {boolean} True to keep it.
+	 */
+	function allowedAttribute( name, value ) {
+		// Lazy-loading plugins keep their image URLs in data attributes, and
+		// nothing in this script reads a data attribute into markup.
+		if ( /^(?:aria|data)-/.test( name ) ) {
+			return true;
+		}
+
+		if ( -1 === ALLOWED_ATTRIBUTES.indexOf( name ) ) {
+			return false;
+		}
+
+		if ( 'href' !== name && 'src' !== name ) {
+			return true;
+		}
+
+		// Resolved rather than pattern-matched, so "java\tscript:" is judged as
+		// the browser would read it.
+		try {
+			var protocol = new URL( value, document.baseURI ).protocol;
+
+			// Placeholder images are data URLs. Only an image can load through
+			// src here, and an image cannot run anything.
+			return -1 !== ALLOWED_PROTOCOLS.indexOf( protocol ) || ( 'src' === name && 'data:' === protocol );
+		} catch ( error ) {
+			return false;
+		}
+	}
+
+	/**
+	 * Strip everything not on the allow lists from below a node.
+	 *
+	 * @param {Element} parent Element whose descendants to clean.
+	 */
+	function clean( parent ) {
+		Array.prototype.slice.call( parent.children ).forEach( function ( child ) {
+			if ( -1 === ALLOWED_TAGS.indexOf( child.tagName ) ) {
+				parent.removeChild( child );
+				return;
+			}
+
+			Array.prototype.slice.call( child.attributes ).forEach( function ( attribute ) {
+				if ( ! allowedAttribute( attribute.name, attribute.value ) ) {
+					child.removeAttribute( attribute.name );
+				}
+			} );
+
+			clean( child );
+		} );
+	}
+
+	/**
+	 * Replace an element's contents with markup from a response.
+	 *
+	 * The server escapes all of this, but it is the last thing between a
+	 * response and the page, and it is what a filter on a product image or a
+	 * price passes through on its way here. The markup is parsed in a document
+	 * with no browsing context, where nothing runs or loads, and the cleaned
+	 * nodes themselves are moved across: turning them back into a string would
+	 * have it parsed a second time, and a second parse need not agree with the
+	 * one that was checked.
+	 *
+	 * @param {Element} el   Element to fill.
+	 * @param {string}  html Markup, possibly empty.
+	 */
+	function fill( el, html ) {
+		var body = new DOMParser().parseFromString( html || '', 'text/html' ).body;
+
+		clean( body );
+
+		el.textContent = '';
+
+		while ( body.firstChild ) {
+			el.appendChild( body.firstChild );
+		}
+	}
+
 	/**
 	 * Replace the chooser with freshly rendered markup.
 	 *
@@ -283,7 +386,7 @@
 		var hadFocus = searchBox === document.activeElement;
 		var term = state.search;
 
-		el.innerHTML = html || '';
+		fill( el, html );
 
 		readState();
 
@@ -551,7 +654,7 @@
 				var empty = part( '[data-bogo-empty]' );
 
 				if ( grid ) {
-					grid.innerHTML = result.data.items || '';
+					fill( grid, result.data.items );
 				}
 
 				if ( empty ) {
