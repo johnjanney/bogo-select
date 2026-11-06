@@ -16,6 +16,7 @@ jobs:
   test:
     name: PHP ${{ matrix.php }}
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     strategy:
       fail-fast: false
@@ -45,6 +46,7 @@ jobs:
   mutations:
     name: The suite objects to real defects
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     # A green suite says the tests agree with the code, not that they would
     # object to different code. This reintroduces defects this plugin actually
@@ -72,6 +74,7 @@ jobs:
   static:
     name: Syntax and shell checks
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -94,6 +97,7 @@ jobs:
   analyse:
     name: Static analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -121,6 +125,7 @@ jobs:
   package:
     name: Package parity
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -148,6 +153,10 @@ jobs:
   integration:
     name: WooCommerce ${{ matrix.woocommerce }} blocks
     runs-on: ubuntu-latest
+    # About 8 minutes when healthy. Without a limit a hung step runs to GitHub's
+    # 6-hour default: v2.3.11's run stuck on Install Chromium, which normally
+    # takes 20 seconds, and held the release until it was cancelled by hand.
+    timeout-minutes: 25
 
     # The unit suite structurally cannot catch a cross-plugin failure: the stubs
     # model this plugin's callbacks, not WooCommerce's competing ones. A green
