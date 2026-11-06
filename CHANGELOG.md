@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **The chooser now filters incoming HTML, adding defense in depth against
+  XSS.** A scanner flagged the two `innerHTML` assignments in
+  `assets/js/bogo-select.js`. The server-side output was already escaped and no
+  exploitable path through the plugin code was found, but a new client-side
+  filter now removes disallowed elements (like `script` and `svg`) and
+  attributes (like `onmouseover` and `javascript:` URLs) from markup before it
+  is added to the page. This is a second layer of defense, should a filter on a
+  product image or price ever be compromised. `classic.test.mjs` now asserts
+  that hostile markup injected into a response is removed before rendering, and
+  `bin/verify-browser-tests.sh` proves that test fails without the filter.
+
+### Changed
+
+- **GitHub Actions no longer persist Git credentials in workflow runs.** A
+  scanner reported `actions/checkout` leaving them in place. Every checkout in
+  `benchmark.yml`, `ci.yml`, and `release-gate.yml` now sets
+  `persist-credentials: false`. The repository is public and no workflow pushes,
+  so `git ls-remote` in `bin/verify-ci.sh` works without the token.
+
 ## [2.3.10] — 2026-08-17
 
 Compatibility metadata only. No functional change: every runtime file in the

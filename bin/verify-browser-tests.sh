@@ -99,6 +99,13 @@ mutation \
 	"node tests/integration/classic.test.mjs"
 
 mutation \
+	"markup from a response reaches the page unfiltered" \
+	"assets/js/bogo-select.js" \
+	"		clean( body );" \
+	"" \
+	"node tests/integration/classic.test.mjs"
+
+mutation \
 	"a Shop Manager cannot save the settings page (M-02)" \
 	"includes/class-bogo-admin.php" \
 	"		add_filter( 'option_page_capability_' . self::GROUP, array( \$this, 'settings_capability' ) );

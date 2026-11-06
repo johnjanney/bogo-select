@@ -336,6 +336,69 @@ if (await nameField.count() > 0 && await page.locator(`${variableCard} [data-bog
 		false, 'could not reach the selector or the billing field');
 }
 
+// --- Markup from a response is filtered on its way in -----------------------
+//
+// The server escapes everything it sends, so a real response cannot show whether
+// the browser side would stop anything. This rewrites one: a card carrying what a
+// compromised filter on a product image could emit is added to the checkout's
+// re-render, which is the same path every other response takes into the page.
+const HOSTILE_CARD = `<li class="bogo-hostile" onmouseover="window.__bogoHostile='li'">
+	<img src="x" onerror="window.__bogoHostile='img'">
+	<script>window.__bogoHostile='script'</script>
+	<svg onload="window.__bogoHostile='svg'"></svg>
+	<a class="bogo-hostile-link" href="java&#9;script:window.__bogoHostile='href'">x</a>
+	<span class="bogo-hostile-kept">kept</span>
+</li>`;
+
+await page.route(/admin-ajax\.php/, async (route) => {
+	if (!/action=bogo_select_/.test(route.request().postData() ?? '')) {
+		return route.continue();
+	}
+
+	const response = await route.fetch();
+	const json = await response.json();
+
+	if (json?.data?.html) {
+		json.data.html = json.data.html.replace('data-bogo-grid="1">', `data-bogo-grid="1">${HOSTILE_CARD}`);
+	}
+
+	return route.fulfill({ response, json });
+});
+
+if (await page.locator(`${variableCard} [data-bogo-variation]`).count() > 0) {
+	await page.selectOption(`${variableCard} [data-bogo-variation]`, String(LARGE_ID));
+	await page.click(`${variableCard} .bogo-select__choose`);
+	await page.waitForSelector('.bogo-hostile', { state: 'attached', timeout: 20000 }).catch(() => {});
+	await page.waitForTimeout(1000);
+
+	const hostile = await page.evaluate((card) => {
+		const el = document.querySelector('.bogo-hostile');
+
+		return {
+			// Without this the rest would pass on a response that was never rewritten.
+			arrived: !!el?.querySelector('.bogo-hostile-kept'),
+			ran: window.__bogoHostile ?? null,
+			elements: el ? el.querySelectorAll('script, svg').length : -1,
+			handlers: el
+				? [el, ...el.querySelectorAll('*')].flatMap((node) => node.getAttributeNames()).filter((n) => n.startsWith('on'))
+				: [],
+			href: el?.querySelector('.bogo-hostile-link')?.getAttribute('href') ?? null,
+			realCard: !!document.querySelector(`${card} [data-bogo-variation] option`),
+		};
+	}, variableCard);
+
+	check('Filtering: the rewritten response reached the page', hostile.arrived);
+	check('Filtering: nothing in it ran', hostile.ran === null, `ran through ${hostile.ran}`);
+	check('Filtering: script and svg elements were removed', hostile.elements === 0, `${hostile.elements} left`);
+	check('Filtering: event handlers were removed', hostile.handlers.length === 0, hostile.handlers.join(', '));
+	check('Filtering: a javascript: link lost its href', hostile.href === null, `href ${hostile.href}`);
+	check('Filtering: the real cards survived it', hostile.realCard);
+} else {
+	check('Filtering: the variable card was present', false, 'could not reach the selector');
+}
+
+await page.unroute(/admin-ajax\.php/);
+
 await page.screenshot({ path: `integration-${WC_VERSION}-classic-checkout.png`, fullPage: true });
 
 check('No uncaught JavaScript errors', pageErrors.length === 0, pageErrors.slice(0, 3).join(' | '));
